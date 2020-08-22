@@ -1,0 +1,35 @@
+
+<!DOCTYPE HTML>
+<html>
+<head>
+	<title>Olaf spectrogram</title>
+	<style>
+		body {
+			margin: 0;
+			padding: 0;
+			background-color: #000000;
+		}
+	</style>
+	
+	<script src="js/pixi.js"></script>
+	<script src="js/chroma.js"></script>
+</head>
+<body>
+
+	<script>
+  		//spectrogram display settings:
+  		var midiKeyStart = 69 - 36; // +-50Hz
+  		var midiKeyStop = 69 + 36;//+- 4000Hz
+  		var midiKeyRange = midiKeyStop - midiKeyStart;
+
+  		var sampleRate = 8000;
+  		var fftSize = 512;
+
+  		var colorScale = chroma.scale(['white', 'black']).gamma(0.3);
+	</script>
+
+	<script src="js/olaf.js"></script>
+	<script src="js/olaf_bridge.js"></script>
+	<script src="js/ui.js"></script>
+</body>
+</html>

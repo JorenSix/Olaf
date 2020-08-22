@@ -1,0 +1,155 @@
+h1. OLAF -  Overly Lightweight Acoustic Fingerprinting
+-------------------------------------------------------
+
+Olaf is a C application / library for landmark based acoustic fingerprinting. Olaf is able to extract fingerprints from an audio stream, and either store those fingerprints in a database, or find a match between extracted fingerprints and stored fingerprints. Olaf does this efficiently in order to be used on **embedded platforms**, traditional computers or in web browsers via WASM. 
+
+Please be aware of the patents US7627477 B2 and US6990453 and perhaps others. They describe techniques used in algorithms implemented within Olaf. These patents limit the use of Olaf under various conditions and for several regions. Please make sure to consult your intellectual property rights specialist if you are in doubt about these restrictions. If these restrictions apply, please __respect the patent holders rights__. The main aim of Olaf is to serve as a learning platform on efficient (embedded) acoustic fingerprinting algorithms.
+
+h2. Why Olaf?
+
+Olaf stands out for three reasons. Olaf runs on embedded devices. Olaf is fast on traditional computers. Olaf runs in the browsers. 
+
+There seem to be no lightweight acoustic fingerprinting libraries that are straightforward to run on embedded platforms. On embedded platforms memory and computational resources are severely limited. Olaf is written in portable C with these restrictions in mind. Olaf mainly targets 32-bit ARM devices such as some Teensy's, some Arduino's and the ESP32. Other modern embedded platforms with similar specifications and might work as well.
+
+Olaf, being written in portable C, operates also on traditional computers. There, the efficiency of Olaf makes it run fast. On embedded devices reference fingerprints are stored in memory. On traditional computers fingerprints are stored in a high-performance key-value-store: LMDB. LMDB offers an a B+-tree based persistent storage ideal for small keys and values with low storage overhead.
+
+Olaf works in the browser. Via Emscripten Olaf can be compiled to "WASM":https://en.wikipedia.org/wiki/WebAssembly. This makes it relatively straightforward to combine the capabilities of the "Web Audio API":https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API and Olaf to create browser based audio fingerprinting applications.
+
+!./docs/olaf_in_browser.png(Olaf in the browser)!
+Olaf running in a browser
+
+h2. Olaf requirements
+
+To use Olaf @ffmpeg@ and @ruby@ need to be installed on your system. While the core of Olaf is in pure c, a Ruby script provides an easy to use interface to its capabilities. The Ruby script converts audio (with ffmpeg), parses command line arguments and reports results in a readable format.
+
+To install ffmpeg and ruby on a Debian like system:
+
+<pre>
+apt-get install ffmpeg ruby
+</pre>
+
+On macOS ruby is available by default and @ffmpeg@ can be installed with "homebrew":https://brew.sh/
+
+<pre>
+brew install ffmpeg 
+</pre>
+
+h2. Compilation and installation of Olaf
+
+To compile the version with a key value store for traditional computers use the following. By default the makefile uses gcc set to the C11 standard. It should be possible to use other compilers compliant with the C11 standard as well. So either make sure gcc is installed correctly or modify the Makefile for your compiler of choice. Compilation and installation:
+
+<pre>
+make
+make install
+</pre>
+
+To compile the in memory version e.g. for use on embedded devices. The embedded version basically swaps out the key-value store with an array and the functions to find matches within an array. The same remark about compilers as above holds.
+
+<pre>
+make mem
+</pre>
+
+To compile Olaf to WASM the emcc compiler from Emcripten is used. Make sure "Emscripten is correctly installed":https://emscripten.org/docs/getting_started/downloads.html and run the following:
+
+<pre>
+make web
+</pre>
+
+h2. Olaf Usage
+
+Olaf provides a command line interface it can be called using olaf subapplication [argument...]. For each task Olaf has to perform, there is a subapplication. There are subapplications to store fingerprints and to query audio fragments. A typical interaction with olaf could look like this:
+
+!./docs/olaf_interaction.svg(Olaf interaction)!
+
+
+h3. Store fingerprints
+
+The store command extracts fingerprints from an audio file and stores them in a reference database. The incoming audio is decoded and resampled using ffmpeg. ffmpeg needs to be installed on your system and available on the path. 
+
+<pre>
+olaf store audio_item...
+</pre>
+
+The audio_item can be:
+# An audio file: @@olaf store audio.mp3@@, if the audio file contains multiple channels they are mixed to a mono.
+# A video file. The first audio stream is extracted from the video container and used as input: @@olaf store video.mkv@@
+# A folder name: Olaf attempts to recursively find all audio files within the folder. It does this with a limited allowlist of known audio file name extensions. @@olaf store /home/user/Music@@
+# A text file: The text file should contain a list of file names. The following commands recursively finds all mp3 within the current directory and subsequently stores them in the reference database.
+ 
+<pre>
+find . -name "*.mp3" > list.txt
+olaf store list.txt
+</pre>
+
+Internally each audio stream is given an identifier using a one time "Jenkins Hash":https://en.wikipedia.org/wiki/Jenkins_hash_function function. This identifier is returned when a match is found. A list connecting these identifiers to file names is also stored automatically.
+
+
+h3. Query fingerprints
+
+The query command extracts fingerprints and compares them with what is in the database
+
+<pre>
+olaf query query_fragment.opus
+</pre>
+
+
+h3. Monitor
+
+The monitor command splits the query file into steps of x seconds. When working in steps of 5 seconds, then the first five seconds are matched with the reference database and matches are reported. Subsequently it goes on with the next 5 seconds and so forth. This is practical if an unsegmented audio file needs to be matched with the reference database. 
+
+<pre>
+	olaf monitor audio_item.mp3...
+</pre>
+
+h3. Deduplicate a collection
+
+This command finds duplicate audio content in a folder. First each audio file is stored in the reference database. Next each file is used as a query and matched with the reference database. The file should, evidently, match itself but self-matches are ignored, leaving only duplicates.
+
+A duplicate means that audio from the original is found in another file. The start and stop times of the found fragment are reported. If the match reports a start of nearly zero and a duration similar to the duration of the original audio file then a 'full duplicate' is found: it is almost certainly the same exact track. If only a couple of seconds are reported it means that only a couple of seconds of the original audio are found in the duplicate.
+
+<pre>
+	olaf dedup field_recordings/archive
+</pre>
+
+There is also the @dedupm@ command which first operates similarly to the @dedup@ command but uses the monitor command in stead of the query command. This is useful if you expect partial matches.
+
+h3. Database stats
+
+To get statistics on the database use @stats@. It prints information on the b-tree structure backing the storage.
+
+<pre>
+olaf stats
+</pre>
+
+
+h2. Limitations
+
+* Currently a complete audio file is read in memory in order to process it. While the algorithm allows streaming, the current implementation does not allow to store incoming streams. 
+* Only one write process: LMDB limits the number of processes that can write to the key-value store to a single process. Attempting to write to the key-value store while an other write-process is busy should put the process automatically in a wait state untile the write lock is released (by the other process). Reading can be done frome multiple processes at the same time. 
+* Audio decoding is done externally. The core of Olaf does fingerprinting. ffmpeg or similar audio decoding software is required to decode and resample various audio formats.
+* Olaf is single threaded. The main reasons are simplicity and limitations of embedded platforms. The single threaded design keeps the code simple. On embedded platforms with single core CPU's multithreading makes no sense. 
+On traditional computers there might be a performance gain by implementing multi-threading. However, the time spent on decoding audio and storing fingerprints is much larger than analysis/extraction so the gain might be limited. As an work-around multiple processes can be used simultaniously to query the database.
+
+h2. Further Reading
+
+Some relevant reading material about (landmark based) acoustic fingerprinting. The order gives an idea of relevance to the Olaf project. 
+
+# Wang, Avery L. __An Industrial-Strength Audio Search Algorithm__ (2003)
+# Six, Joren and Leman, Marc "__Panako - A Scalable Acoustic Fingerprinting System Handling Time-Scale and Pitch Modification__":http://www.terasoft.com.tw/conf/ismir2014/proceedings/T048_122_Paper.pdf (2014)
+# Cano, Pedro and Batlle, Eloi and Kalker, Ton and Haitsma, Jaap __A Review of Audio Fingerprinting__ (2005)
+# Arzt, Andreas and Bock, Sebastian and Widmer, Gerhard __Fast Identification of Piece and Score Position via Symbolic Fingerprinting__ (2012)
+# Fenet, Sebastien and Richard, Gael and Grenier, Yves __A Scalable Audio Fingerprint Method with Robustness to Pitch-Shifting__ (2011)
+# Ellis, Dan and Whitman, Brian and Porter, Alastair __Echoprint - An Open Music Identification Service__ (2011)
+# Sonnleitner, Reinhard  and Widmer, Gerhard __Quad-based Audio Fingerprinting Robust To Time And Frequency Scaling__ (2014)
+# Sonnleitner, Reinhard  and Widmer, Gerhard "__
+Robust Quad-Based Audio Fingerprinting__":http://dx.doi.org/10.1109/TASLP.2015.2509248 (2015)
+
+h2. Credits
+
+* "PFFFT":https://bitbucket.org/jpommier/pffft/src/default/  a pretty fast FFT library. BSD license
+* "LMDB":https://symas.com/lmdb/ "Lightning Memory-Mapped Database":https://en.wikipedia.org/wiki/Lightning_Memory-Mapped_Database, a fast key value store with a permissive software license (the OpenLDAP Public License) by Howard Chu.
+
+Olaf by Joren Six at IPEM, Ghent University.
+
+
+
