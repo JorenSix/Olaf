@@ -193,7 +193,7 @@ void matchPrint(Olaf_FP_Matcher * fp_matcher,uint32_t queryFingerprintT1,uint32_
 	}
 }
 
-void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerprints *  fingerprints ){
+int olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerprints *  fingerprints ){
 	for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
 		struct fingerprint f = fingerprints->fingerprints[i];
 		uint32_t hash = olaf_fp_extractor_hash(f);
@@ -225,7 +225,7 @@ void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_finger
 	fingerprints->fingerprintIndex=0;
 
 	//report matches
-
+	int maxMatchScore = 0;
 	for(int i = 0 ; i < fp_matcher->config->maxResults ; i++){
 		if(fp_matcher->results[i].matchCount >= fp_matcher->config->minMatchCount && fp_matcher->results[i].toPrint){
 			float millisecondsPerBlock = 32.0;
@@ -241,8 +241,12 @@ void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_finger
 			fprintf(stderr,"q_to_ref_time_delta: %.2f, q_time: %.2f, score: %d, match_id: %u, ref_start: %.2f, ref_stop: %.2f\n",timeDeltaS, queryTimeS, fp_matcher->results[i].matchCount,matchIdentifier,referenceStart,referenceStop);
 			
 			fp_matcher->results[i].toPrint=false;
+
+			maxMatchScore = max(maxMatchScore,fp_matcher->results[i].matchCount);
 		}
 	}
+
+	return maxMatchScore;
 }
 
 void olaf_fp_matcher_destroy(Olaf_FP_Matcher * fp_matcher){

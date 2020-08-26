@@ -53,7 +53,12 @@ To compile Olaf to WASM the emcc compiler from Emcripten is used. Make sure "Ems
 
 <pre>
 make web
+
+python3 -m http.server --directory wasm #start a web browser
+open "http://localhost:8000/spectrogram.html" #open the url in standard browser
 </pre>
+
+By default the Olaf web version matches with fingerprints defined in a header file. 
 
 h2. Olaf Usage
 

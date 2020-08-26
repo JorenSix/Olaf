@@ -107,9 +107,10 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 		//combine the event points into fingerprints
 		state.fingerprints = olaf_fp_extractor_extract(state.fp_extractor,state.eventPoints,state.audioBlockIndex);
 
-		printf("FP index: %zu \n",state.fingerprints->fingerprintIndex);
+		size_t fingerprintIndex = state.fingerprints->fingerprintIndex;
+		printf("FP index: %zu \n"fingerprintIndex,);
 
-		for(size_t i = 0; i < 256 && i < state.fingerprints->fingerprintIndex ; i++){
+		for(size_t i = 0; i < 256 && i < fingerprintIndex; i++){
 			size_t index = i * 6;
 			fingerprints[index] = state.fingerprints->fingerprints[i].timeIndex1;
 			fingerprints[index+1] = state.fingerprints->fingerprints[i].frequencyBin1;
@@ -121,7 +122,12 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 			printf("t1: %d, f1: %d t2: %d f2:%d \n",fingerprints[index],fingerprints[index+1],fingerprints[index+2],fingerprints[index+3]);
 		}
 
-		olaf_fp_matcher_match(state.fp_matcher,state.fingerprints);
+		int maxMatchScore = olaf_fp_matcher_match(state.fp_matcher,state.fingerprints);
+
+		for(size_t i = 0; i < 256 && i < fingerprintIndex; i++){
+			size_t index = i * 6;
+			fingerprints[index+5] = maxMatchScore >= fp_matcher->config->minMatchCount ? maxMatchScore : 0;
+		}
 	}
 
 	//store the magnitudes in place of the audio buffer

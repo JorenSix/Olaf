@@ -24,7 +24,7 @@
 
 	Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_FP_DB* db );
 	
-	void olaf_fp_matcher_match(Olaf_FP_Matcher *, struct extracted_fingerprints *);
+	int olaf_fp_matcher_match(Olaf_FP_Matcher *, struct extracted_fingerprints *);
 
 	void olaf_fp_matcher_destroy(Olaf_FP_Matcher * );
 

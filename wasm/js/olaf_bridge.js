@@ -62,10 +62,9 @@ function processAudioWithOlaf(audioProcessingEvent) {
     Module._free(dataHeap.byteOffset);
     Module._free(fingerprintHeap.byteOffset);
 
-    audioBlockIndex += 1
+    //audioBlockIndex += 1
 
     drawFrequencyData()
-    drawFingerprints()
 }
 
     

@@ -25,8 +25,10 @@ mem:
 	gcc -o bin/olaf_mem *.o 			-lc -lm -ffast-math -pthread
 
 clean:
-	rm *.o
-	rm bin/*
+	-rm *.o
+	-rm bin/*
+	-rm wasm/js/olaf.js
+	-rm wasm/js/olaf.wasm
 
 destroy_db:
 	rm ~/.olaf/*.json ~/.olaf/db/*

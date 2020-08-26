@@ -13,36 +13,27 @@ document.body.appendChild(app.view);
 var width = window.innerWidth;
 var height = window.innerHeight;
 
-var leftOffset = 50;
-var bottomOffset = 50;
+var speed = 4;
 
-var speed = 8;
+var maxMag = 0;
 
-let text = new PIXI.Text('Click or Tap to start your microphone',{fontFamily : 'Arial', fontSize: 28, fill : 0x000000, align : 'center'});
-text.x = width/2+leftOffset;
-text.y = height/2-bottomOffset;
-text.anchor.set(0.5, 0.5);
-app.stage.addChild(text)
+var drawnPoints = new Set();
 
-function drawAxis(){
-	var graphics = new PIXI.Graphics();
-	graphics.lineStyle(2, 0x000000, 1);
-	graphics.drawRect(leftOffset, 0, 2, height-bottomOffset);
-	graphics.drawRect(leftOffset, height-bottomOffset, width-leftOffset , 2);
-	app.stage.addChild(graphics);
+function drawText(){
+	let text = new PIXI.Text('Click to start\nmicrophone',{fontFamily : 'Arial', fontSize: 28, fill : 0x000000, align : 'center'});
+	text.x = width/2;
+	text.y = height/2;
+	text.anchor.set(0.5, 0.5);
+	app.stage.addChild(text);
 }
 
 function audioBlockIndexToX(t){
-	//var timeWidthPixels = width - leftOffset;
-	//var widthInBlocks = timeWidthPixels/8;
-	currentTime = audioContext.currentTime;
-    var delta = (audioBlockIndex - t);
-    console.log(delta)
-    return width - delta*4;
+    var delta = (audioBlockIndex - t - 1);
+    return width - delta * speed;
 }
 
 function fftBinStartStopY(fftBinIndex){
-	var freqHeightPixels = height - bottomOffset;
+	var freqHeightPixels = height;
 	
 	var startPercent = (fftBinStartMidiKey(fftBinIndex) - midiKeyStart) / midiKeyRange;
 	var startY = (1 - startPercent) * freqHeightPixels;
@@ -81,20 +72,32 @@ function logBase(val, base) {
 function getGrayColor(value) {
 	return  value + value * 256 + value * 256 * 256;
 }
-var maxMag = 0
+
+function shiftContainer(){
+
+	// rotate the container!
+	// use delta to create frame-independent transform
+	for(var i = 1 ; i < app.stage.children.length - 1; i++){
+		var child = app.stage.getChildAt(i)
+
+		child.x = child.x - speed;
+		if(child.x < 0 ){
+			app.stage.removeChild(child);
+			child.destroy();
+			child = null;
+		}
+	}
+}
+
 function drawFrequencyData(){
 	//var fftFrames = []
 
 	//frequencyDataArray
-	if(!frequencyDataArray)
-	return 
-
-	var speed = 4;
+	if(!frequencyDataArray) return;
 
 	for(var i = 0 ; i < frequencyDataArray.length ; i++){
 		drawn = frequencyDataArray[i][2]
 		if(!drawn){
-		
 			frequencyDataArray[i][2] = true
 			var frequencyData = frequencyDataArray[i][0]
 			frequencyDataArray.pop()
@@ -102,12 +105,11 @@ function drawFrequencyData(){
 			var fftBinIndexStart = hzToFFTBin(midiKeyToHz(midiKeyStart))
 			var fftBinIndexStop = hzToFFTBin(midiKeyToHz(midiKeyStop))
 
-			//console.log("bin index stop", fftBinIndexStop)
-
 			var fftFrame = new PIXI.Container();
-			for(var fftBinIndex = fftBinIndexStart - 1  ; fftBinIndex < fftBinIndexStop ; fftBinIndex++){
+			for(var fftBinIndex = fftBinIndexStart  ; fftBinIndex < fftBinIndexStop ; fftBinIndex++){
 
 				var value = frequencyData[fftBinIndex];
+
 				if(value){
         			value = Math.log(value+1)/Math.log(2);
         			maxMag = Math.max(maxMag,value);
@@ -118,6 +120,8 @@ function drawFrequencyData(){
       			var color  = colorScale(value/maxMag).num();
 
       			var startStopY = fftBinStartStopY(fftBinIndex);
+
+      		
 
 				let rectangle = new PIXI.Graphics();
 
@@ -134,21 +138,10 @@ function drawFrequencyData(){
 			fftFrame.position.y = 0;
 			app.stage.addChild(fftFrame);
 
-			// rotate the container!
-			// use delta to create frame-independent transform
-			for(var i = 1 ; i < app.stage.children.length - 1; i++){
-				var child = app.stage.getChildAt(i)
-
-				child.x = child.x - speed;
-		    	if(child.x < leftOffset ){
-		    		app.stage.removeChild(child);
-		    		child.destroy();
-		    		child = null;
-		    	}
-			}
+			shiftContainer();
 		}
 	}
-
+	drawFingerprints();
 }
 
 
@@ -160,8 +153,6 @@ function drawFingerprints(){
   //var tempCtx = tempCanvas.getContext('2d');
  // tempCtx.drawImage(printsCanvas, 0, 0, width, height);
   if(fingerprintsToPlot){
-
-  	var count = 0;
 
     for (var i = 0; i < fingerprintsToPlot.length; i++){
 
@@ -178,66 +169,65 @@ function drawFingerprints(){
       if(t1 == 0)
         break;
 
-      
-
-      var pointContainer = new PIXI.Container();
-
       let point = new PIXI.Graphics();
 
-	  point.lineStyle(1, 0xFF0000, 1);
-	  point.beginFill(0xFF0000);
-	  point.drawCircle(0, fftBinStartStopY(f1)[0], 3);
-	  point.endFill();
-
-	  pointContainer.addChild(point);
-
-	  pointContainer.position.x = audioBlockIndexToX(t1);
-	  pointContainer.position.y = 0;
-	  pointContainer.cacheAsBitmap = true;
-
-	  app.stage.addChild(pointContainer);
+      var color = 0xFF00000;
+      if(inDb > 6){
+      	color = 0x00FF00;
+      }
 
 
-	  point.lineStyle(1, 0xFF0000, 1);
-	  point.beginFill(0xFF0000);
-	  point.drawCircle(0, fftBinStartStopY(f2)[0], 3);
-	  point.endFill();
+      var t1f1key = t1 + "_" + f1;
 
-	  pointContainer.addChild(point);
+      if(!drawnPoints.has(t1f1key)){
+      	var pointContainer = new PIXI.Container();
+		  point.lineStyle(1, color, 1);
+		  point.beginFill(color);
+		  point.drawCircle(0, fftBinStartStopY(f1)[0], 3);
+		  point.endFill();
+		  pointContainer.addChild(point);
+		  pointContainer.position.x = audioBlockIndexToX(t1);
+		  pointContainer.position.y = 0;
+		  pointContainer.cacheAsBitmap = true;
+		  app.stage.addChild(pointContainer);
 
-	  pointContainer.position.x = audioBlockIndexToX(t2);
-	  pointContainer.position.y = 0;
-	  pointContainer.cacheAsBitmap = true;
+		  drawnPoints.add(t1f1key);
+      }
+      
 
-	  app.stage.addChild(pointContainer);
+      var t2f2key = t2 + "_" + f2;
+      if(!drawnPoints.has(t2f2key)){
+		  pointContainer = new PIXI.Container();
+		  point.lineStyle(1, color, 1);
+		  point.beginFill(color);
+		  point.drawCircle(0, fftBinStartStopY(f2)[0], 3);
+		  point.endFill();
+		  pointContainer.addChild(point);
+		  pointContainer.position.x = audioBlockIndexToX(t2);
+		  pointContainer.position.y = 0;
+		  pointContainer.cacheAsBitmap = true;
+		  app.stage.addChild(pointContainer);
 
-	  console.log(audioBlockIndexToX(t1),fftBinStartStopY(f1)[0])
-
-	  count = count + 1;
-    }
-
-    if(count > 0){
-     
+		  drawnPoints.add(t2f2key);
+	  }
     }
   }
  }
 
 
-drawAxis();
-drawFrequencyData();
 
 function onClick(){
 	console.log("click")
 
-	app.stage.removeChild( app.stage.getChildAt(0))
+	app.stage.removeChild(app.stage.getChildAt(0))
+
 	startOrStopAudio();
 }
+
+drawText();
+
 // Combines both mouse click + touch tap
 app.stage.on('pointertap', onClick);
-
-app.ticker.add((delta) => {
-	//drawFrequencyData();
-});
 
 window.addEventListener('resize', function(event){
 	width = window.innerWidth;
@@ -251,6 +241,9 @@ window.addEventListener('resize', function(event){
 
 	app.renderer.resize(window.innerWidth, window.innerHeight);
 
-	drawAxis();
-	drawFrequencyData();
+	if(audioContext){
+		drawFrequencyData();
+	}else{
+		drawText();
+	}
 });

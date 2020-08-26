@@ -283,6 +283,7 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 			}
 			float magnitudeAvg = magnitudeSum / (3. * (float) ep_extractor->config->filterSize);
 			float contrast = magnitude / magnitudeAvg;
+			
 			float minContrast = ep_extractor->config->minContrast;
 
 			//fprintf(stderr, "contrast: %f bin %d \n",contrast,frequencyBin);
