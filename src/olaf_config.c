@@ -43,9 +43,9 @@ Olaf_Config* olaf_config_default(){
 	//Number of event points per 256 audio samples (32ms)
 	config->maxEventPointsPerBlock=3;
 	config->maxEventPoints=60;
-	config->eventPointThreshold = 30;
-	config->minMagnitude = 0.09;//an event point needs to have at least this magnitude
-	config->minContrast=3.2;//an event point needs to have at least this contrast with its surroundings (x times the average in surroundings)
+	config->eventPointThreshold = 20;
+	config->minMagnitude = 0.05;//an event point needs to have at least this magnitude
+	config->minContrast=3.0;//an event point needs to have at least this contrast with its surroundings (x times the average in surroundings)
 
 	//the filter used in both frequency as time direction 
 	//to find maxima

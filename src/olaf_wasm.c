@@ -31,7 +31,7 @@
 
 struct Olaf_State{
 	float audio[512];
-	size_t audioBlockIndex;
+	int audioBlockIndex;
 
 	PFFFT_Setup *fftSetup;
 	float *fft_in;//fft input
@@ -77,7 +77,7 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 		//pffft_destroy_setup(fftSetup);
 	}
 
-	//printf("Current audio block index: %zu \n",state.audioBlockIndex);
+	//printf("Current audio block index: %d \n",state.audioBlockIndex);
 
 	//make a full audio buffer.
 	//The first buffer starts with zeros
@@ -108,26 +108,31 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 		state.fingerprints = olaf_fp_extractor_extract(state.fp_extractor,state.eventPoints,state.audioBlockIndex);
 
 		size_t fingerprintIndex = state.fingerprints->fingerprintIndex;
-		printf("FP index: %zu \n"fingerprintIndex,);
+		//printf("FP index: %zu \n",fingerprintIndex);
 
-		for(size_t i = 0; i < 256 && i < fingerprintIndex; i++){
-			size_t index = i * 6;
-			fingerprints[index] = state.fingerprints->fingerprints[i].timeIndex1;
-			fingerprints[index+1] = state.fingerprints->fingerprints[i].frequencyBin1;
-			fingerprints[index+2] = state.fingerprints->fingerprints[i].timeIndex2;
-			fingerprints[index+3] = state.fingerprints->fingerprints[i].frequencyBin2;
-			fingerprints[index+4] = olaf_fp_extractor_hash(state.fingerprints->fingerprints[i]);
-			fingerprints[index+5] = olaf_fp_db_find_single(state.db,fingerprints[index+4],0) ? 1 : 0;
+		if(fingerprintIndex > 0){
+			for(size_t i = 0; i < 256 && i < fingerprintIndex; i++){
+				size_t index = i * 6;
+				fingerprints[index] = state.fingerprints->fingerprints[i].timeIndex1;
+				fingerprints[index+1] = state.fingerprints->fingerprints[i].frequencyBin1;
+				fingerprints[index+2] = state.fingerprints->fingerprints[i].timeIndex2;
+				fingerprints[index+3] = state.fingerprints->fingerprints[i].frequencyBin2;
+				fingerprints[index+4] = olaf_fp_extractor_hash(state.fingerprints->fingerprints[i]);
+				fingerprints[index+5] = olaf_fp_db_find_single(state.db,fingerprints[index+4],0) ? 1 : 0;
 
-			printf("t1: %d, f1: %d t2: %d f2:%d \n",fingerprints[index],fingerprints[index+1],fingerprints[index+2],fingerprints[index+3]);
+				//printf("t1: %d, f1: %d t2: %d f2:%d \n",fingerprints[index],fingerprints[index+1],fingerprints[index+2],fingerprints[index+3]);
+			}
+
+			int maxMatchScore = olaf_fp_matcher_match(state.fp_matcher,state.fingerprints);
+
+			printf("Max Match score: %d \n",maxMatchScore);
+
+			for(size_t i = 0; i < 256 && i < fingerprintIndex; i++){
+				size_t index = i * 6;
+				fingerprints[index+5] = maxMatchScore >= state.config->minMatchCount ? maxMatchScore : 0;
+			}
 		}
-
-		int maxMatchScore = olaf_fp_matcher_match(state.fp_matcher,state.fingerprints);
-
-		for(size_t i = 0; i < 256 && i < fingerprintIndex; i++){
-			size_t index = i * 6;
-			fingerprints[index+5] = maxMatchScore >= fp_matcher->config->minMatchCount ? maxMatchScore : 0;
-		}
+		
 	}
 
 	//store the magnitudes in place of the audio buffer

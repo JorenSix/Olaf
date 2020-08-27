@@ -160,6 +160,7 @@ void ageResults(Olaf_FP_Matcher * fp_matcher,int lastQueryFingerprintT1){
 			//Remove matches that are too old (age over max)
 			// a negative age occurs when time overflows after 2^13 buffers (+- 8 min)
 			// also remove these results
+			printf("Age:  %d , last: %d, current %d \n",age,lastQueryFingerprintT1,fp_matcher->results[i].queryFingerprintT1);
 			if(fp_matcher->config->maxResultAge < age){
 				//If the result is the current max, reset the indicator and the currentMatchScore
 				fp_matcher->results[i].timeDiff = 0;
@@ -169,6 +170,7 @@ void ageResults(Olaf_FP_Matcher * fp_matcher,int lastQueryFingerprintT1){
 				fp_matcher->results[i].lastReferenceFingerprintT1 = 0;
 				fp_matcher->results[i].matchCount = 0;
 				fp_matcher->results[i].matchIdentifier = 0;
+				fp_matcher->results[i].toPrint = false;
 			}
 		}
 	}
@@ -194,14 +196,19 @@ void matchPrint(Olaf_FP_Matcher * fp_matcher,uint32_t queryFingerprintT1,uint32_
 }
 
 int olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerprints *  fingerprints ){
+	
+	int lastQueryFingerprintT1 =0;
+
 	for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
 		struct fingerprint f = fingerprints->fingerprints[i];
 		uint32_t hash = olaf_fp_extractor_hash(f);
 		matchPrint(fp_matcher,f.timeIndex1,hash);
+		
+		lastQueryFingerprintT1 = f.timeIndex1;
 
 		if(fp_matcher->config->includeOffByOneMatches){
 			int originalt1 = f.timeIndex1;
-			int originalt2 = f.timeIndex1;
+			int originalt2 = f.timeIndex2;
 
 			//to overcome time bin off by one misses
 			f.timeIndex2 = originalt2 + 1;
@@ -216,10 +223,8 @@ int olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerp
 			f.timeIndex2 = originalt2;
 		}
 	}
-
-	//int lastQueryFingerprintT1 = fingerprints->fingerprints[fingerprints->fingerprintIndex-1].timeIndex1;
 	
-	//ageResults(fp_matcher,lastQueryFingerprintT1);
+	ageResults(fp_matcher,lastQueryFingerprintT1);
 
 	//make room for new fingerprints in the shared struct!
 	fingerprints->fingerprintIndex=0;
@@ -241,9 +246,8 @@ int olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerp
 			fprintf(stderr,"q_to_ref_time_delta: %.2f, q_time: %.2f, score: %d, match_id: %u, ref_start: %.2f, ref_stop: %.2f\n",timeDeltaS, queryTimeS, fp_matcher->results[i].matchCount,matchIdentifier,referenceStart,referenceStop);
 			
 			fp_matcher->results[i].toPrint=false;
-
-			maxMatchScore = max(maxMatchScore,fp_matcher->results[i].matchCount);
 		}
+		maxMatchScore = max(maxMatchScore,fp_matcher->results[i].matchCount);
 	}
 
 	return maxMatchScore;
@@ -254,7 +258,7 @@ void olaf_fp_matcher_destroy(Olaf_FP_Matcher * fp_matcher){
 
 	free(fp_matcher->dbResults);
 
-	//db needs to be free elswhere!
+	//db needs to be freed elswhere!
 	//free resources
 	//olaf_fp_db_destroy(fp_matcher->db);
 

@@ -28,6 +28,7 @@ clean:
 	-rm *.o
 	-rm bin/*
 	-rm wasm/js/olaf.js
+	-rm wasm/js/olaf.html
 	-rm wasm/js/olaf.wasm
 
 destroy_db:
