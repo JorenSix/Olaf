@@ -1,3 +1,5 @@
+#!/usr/bin/env ruby
+
 # Olaf: Overly Lightweight Acoustic Fingerprinting
 # Copyright (C) 2019-2020  Joren Six
 
@@ -14,7 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#!/usr/bin/env ruby
+
 require 'json'
 require 'fileutils'
 require 'tempfile'
