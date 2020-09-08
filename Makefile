@@ -10,6 +10,7 @@ compile:
 	gcc -c src/olaf_reader_single.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_matcher.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_config.c 		-W -Wall -std=c11 -pedantic -O2
+	mkdir -p bin
 	gcc -o bin/olaf_c *.o 			-lc -lm -ffast-math -pthread
 
 mem:
@@ -22,6 +23,7 @@ mem:
 	gcc -c src/olaf_reader_single.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_matcher.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_config.c 			-W -Wall -std=c11 -pedantic -O2
+	mkdir -p bin
 	gcc -o bin/olaf_mem *.o 			-lc -lm -ffast-math -pthread
 
 reader:
