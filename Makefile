@@ -30,6 +30,7 @@ reader:
 	gcc -c src/olaf_config.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_reader_single.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_reader_test.c		-W -Wall -std=c11 -pedantic -O2
+	mkdir -p bin
 	gcc -o bin/olaf_reader_test *.o		-lc -lm -ffast-math
 
 clean:
