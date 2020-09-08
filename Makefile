@@ -7,7 +7,7 @@ compile:
 	gcc -c src/olaf_fp_db_writer.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_ep_extractor.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_extractor.c 	-W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_audio_reader.c 	-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_reader_single.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_matcher.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_config.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -o bin/olaf_c *.o 			-lc -lm -ffast-math -pthread
@@ -19,10 +19,16 @@ mem:
 	gcc -c src/olaf_fp_db_writer_mem.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_ep_extractor.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_extractor.c 		-W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_audio_reader.c 		-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_reader_single.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_matcher.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_config.c 			-W -Wall -std=c11 -pedantic -O2
 	gcc -o bin/olaf_mem *.o 			-lc -lm -ffast-math -pthread
+
+reader:
+	gcc -c src/olaf_config.c -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_reader_single.c -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_reader_test.c		-W -Wall -std=c11 -pedantic -O2
+	gcc -o bin/olaf_reader_test *.o		-lc -lm -ffast-math
 
 clean:
 	-rm *.o

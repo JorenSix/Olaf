@@ -10,7 +10,7 @@
 
 #include "olaf_window.h"
 #include "olaf_config.h"
-#include "olaf_audio_reader.h"
+#include "olaf_reader.h"
 #include "olaf_ep_extractor.h"
 #include "olaf_fp_extractor.h"
 #include "olaf_fp_db.h"
@@ -33,6 +33,8 @@ int main(int argc, const char* argv[]){
 
 	bool readonly_db = true;
 	bool match = false;
+
+	size_t tot_samples_read = 0;
 
 	if(strcmp(command,"store") == 0){
 		readonly_db = false;
@@ -88,32 +90,40 @@ int main(int argc, const char* argv[]){
 	//the current audio block index
 	int audioBlockIndex = 0;
 
-	struct olaf_audio audio;
+	Olaf_Reader *reader = olaf_reader_new(config,argv[2]);
+
 
 	struct extracted_event_points * eventPoints = NULL;
 	struct extracted_fingerprints * fingerprints;
 
-	//read the complete audio file in memory
-	olaf_audio_reader_read(argv[2],&audio);
-
 	//a precomputed window of 512 samples is used.
 	//the audio block size should be the same
 	assert(config->audioBlockSize == 512);
+
+	float audio_data[512];
 
 	//The raw format and size of float should be 32 bits
 	assert(config->bytesPerAudioSample == sizeof(float));
 
 	//fprintf(stderr,"Input audio is %ld s long (%ld samples) \n", audio.fileSizeInSamples/config->audioSampleRate,audio.fileSizeInSamples );
 
+	size_t samples_read = olaf_reader_read(reader,audio_data);
+	tot_samples_read += samples_read;
+
+	size_t samples_expected = config->audioStepSize;
+
 	clock_t start, end;
     double cpu_time_used;
     start = clock();
 
-	for(size_t i = 0; i <  audio.fileSizeInSamples - config->audioBlockSize; i += config->audioStepSize){
+	while(samples_read==samples_expected){
+
+		samples_read = olaf_reader_read(reader,audio_data);
+		tot_samples_read += samples_read;
 
 		// windowing + copy to fft input
 		for(int j = 0 ; j <  config->audioBlockSize ; j++){
-			fft_in[j] = audio.audioData[i+j] * gaussian_window[j];
+			fft_in[j] = audio_data[j] * gaussian_window[j];
 		}
 
 		//do the transform
@@ -161,16 +171,13 @@ int main(int argc, const char* argv[]){
 	end = clock();
 	//fprintf(stderr,"end %lu \n",end);
     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-    double audioDuration = (double) audio.fileSizeInSamples / (double) config->audioSampleRate;
+    double audioDuration = (double) tot_samples_read / (double) config->audioSampleRate;
     double ratio = audioDuration / cpu_time_used; 
 
 	//cleanup fft structures
 	pffft_aligned_free(fft_in);
 	pffft_aligned_free(fft_out);
 	pffft_destroy_setup(fftSetup);
-
-	//free the audio data memory block
-	free(audio.audioData);
 
 	//free olaf memory and close resources
 	if(match){
@@ -179,6 +186,7 @@ int main(int argc, const char* argv[]){
 		olaf_fp_db_writer_destroy(fp_db_writer);
 	}
 
+	olaf_reader_destroy(reader);
 	olaf_fp_extractor_destroy(fp_extractor);
 	olaf_ep_extractor_destroy(ep_extractor);
 	olaf_fp_db_destroy(db);

@@ -129,7 +129,7 @@ olaf stats
 
 h2. Limitations
 
-* Currently a complete audio file is read in memory in order to process it. While the algorithm allows streaming, the current implementation does not allow to store incoming streams. 
+* <del>Currently a complete audio file is read in memory in order to process it. While the algorithm allows streaming, the current implementation does not allow to store incoming streams.</del> Now you can choose whether to compile in the single or stream reader: choose either @olaf_reader_single.c@ or @olaf_reader_stream.c@, which is a bit slower. 
 * Only one write process: LMDB limits the number of processes that can write to the key-value store to a single process. Attempting to write to the key-value store while an other write-process is busy should put the process automatically in a wait state untile the write lock is released (by the other process). Reading can be done frome multiple processes at the same time. 
 * Audio decoding is done externally. The core of Olaf does fingerprinting. ffmpeg or similar audio decoding software is required to decode and resample various audio formats.
 * Olaf is single threaded. The main reasons are simplicity and limitations of embedded platforms. The single threaded design keeps the code simple. On embedded platforms with single core CPU's multithreading makes no sense. 

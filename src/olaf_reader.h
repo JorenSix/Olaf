@@ -13,19 +13,19 @@
 
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#ifndef OLAF_AUDIO_READER_H
-#define OLAF_AUDIO_READER_H
+#ifndef OLAF_READER_H
+#define OLAF_READER_H
 
-#include <stddef.h> // for size_t
+#include "olaf_config.h"
 
-//the PCM data of an audio file
-struct olaf_audio {
-	size_t fileSizeInSamples;
-	float* audioData;
-};
+typedef struct Olaf_Reader Olaf_Reader;
+
+Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source);
+
+size_t olaf_reader_read(Olaf_Reader *,float *);
+
+// free up memory and release resources
+void olaf_reader_destroy(Olaf_Reader * );
 
 
-//reads a RAW audio file into a struct representing samples
-void olaf_audio_reader_read(const char* filename,struct olaf_audio* audio);
-
-#endif // OLAF_AUDIO_READER_H
+#endif // OLAF_READER_H
