@@ -18,6 +18,9 @@ Olaf works in the browser. Via Emscripten Olaf can be compiled to "WASM":https:/
 !./docs/olaf_in_browser.png(Olaf in the browser)!
 Olaf running in a browser
 
+Olaf was featured on "hackaday":https://hackaday.com/2020/08/30/olaf-lets-an-esp32-listen-to-the-music/. There is also a small discussion about Olaf on "Hacker News":https://news.ycombinator.com/item?id=24292817.
+
+
 h2. Olaf requirements
 
 To use Olaf @ffmpeg@ and @ruby@ need to be installed on your system. While the core of Olaf is in pure c, a Ruby script provides an easy to use interface to its capabilities. The Ruby script converts audio (with ffmpeg), parses command line arguments and reports results in a readable format.
