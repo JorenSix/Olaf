@@ -26,9 +26,9 @@ ID_TO_AUDIO_FILENAME = File.expand_path("~/.olaf/file_list.json")
 EXECUTABLE_LOCATION = "/usr/local/bin/olaf_c"
 
 ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
-AUDIO_DURATION_COMMAND = "ffprobe -i '__input__' -show_entries format=duration -v quiet -of csv=\"p=0\""
-AUDIO_CONVERT_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -i '__input__' -ac 1 -ar 8000 -f f32le -acodec pcm_f32le '__output__'"
-AUDIO_CONVERT_COMMAND_WITH_START_DURATION = "ffmpeg -hide_banner -y -loglevel panic -ss __start__ -i '__input__' -t __duration__ -ac 1 -ar 8000 -f f32le -acodec pcm_f32le '__output__'"
+AUDIO_DURATION_COMMAND = "ffprobe -i \"__input__\" -show_entries format=duration -v quiet -of csv=\"p=0\""
+AUDIO_CONVERT_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -i \"__input__\" -ac 1 -ar 8000 -f f32le -acodec pcm_f32le \"__output__\""
+AUDIO_CONVERT_COMMAND_WITH_START_DURATION = "ffmpeg -hide_banner -y -loglevel panic -ss __start__ -i \"__input__\" -t __duration__ -ac 1 -ar 8000 -f f32le -acodec pcm_f32le \"__output__\""
 MONITOR_LENGTH_IN_SECONDS = 7
 
 #expand the argument to a list of files to process.
@@ -68,19 +68,19 @@ end
 
 def monitor(index,length,audio_filename,ignore_self_match, skip_size)
 	audio_filename = File.expand_path(audio_filename)
-	audio_filename_escaped =  audio_filename.gsub(/([\[\]\{\}\*\?\\])/, '\\\\\1')
+	audio_filename_escaped =  escape_audio_filename(audio_filename) 
 
 	tot_duration = audio_file_duration(audio_filename)
 	start = 0
 	stop = start + skip_size
 
-	query_audio_identifer = `#{EXECUTABLE_LOCATION} name_to_id '#{audio_filename_escaped}'`.to_i.to_s
+	query_audio_identifer = audio_filename_to_olaf_id(audio_filename_escaped)
 
 	while tot_duration > stop do
 
 		with_converted_audio_part(audio_filename_escaped,start,skip_size) do |tempfile|
 
-			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} query '#{tempfile.path}' #{query_audio_identifer}")
+			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} query \"#{tempfile.path}\" #{query_audio_identifer}")
 			
 			stderr.split("\n").each do |line|
 				if(line =~/.*match_id: (\d+)/)
@@ -103,12 +103,12 @@ def monitor(index,length,audio_filename,ignore_self_match, skip_size)
 end
 
 def query(index,length,audio_filename,ignore_self_match)
-	audio_filename_escaped =  audio_filename.gsub(/([\[\]\{\}\*\?\\])/, '\\\\\1')
+	audio_filename_escaped =  escape_audio_filename(audio_filename)
 
-	query_audio_identifer = `#{EXECUTABLE_LOCATION} name_to_id '#{audio_filename_escaped}'`.to_i.to_s
+	query_audio_identifer = audio_filename_to_olaf_id(audio_filename_escaped)
 
 	with_converted_audio(audio_filename_escaped) do |tempfile|
-		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} query '#{tempfile.path}'")
+		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} query \"#{tempfile.path}\"")
 
 		stderr.split("\n").each do |line|
 			if(line =~/.*match_id: (\d+)/)
@@ -157,9 +157,20 @@ def with_converted_audio_part(audio_filename_escaped,start,duration)
 	tempfile.unlink
 end
 
+def audio_filename_to_olaf_id(audio_filename_escaped)
+	`#{EXECUTABLE_LOCATION} name_to_id "#{audio_filename_escaped}"`.to_i.to_s
+end
+
+def escape_audio_filename(audio_filename)
+	audio_filename.gsub(/(["])/, '\\\\\1')
+end
+
+
 def store(index,length,audio_filename)
-	audio_filename_escaped =  audio_filename.gsub(/([\[\]\{\}\*\?\\])/, '\\\\\1')
-	audio_identifer = `#{EXECUTABLE_LOCATION} name_to_id '#{audio_filename_escaped}'`.to_i.to_s
+
+	audio_filename_escaped = escape_audio_filename(audio_filename) 
+
+	audio_identifer = audio_filename_to_olaf_id(audio_filename_escaped)
 			
 	#Do not store same audio twice
 	if(ID_TO_AUDIO_HASH.has_key? audio_identifer)
@@ -169,7 +180,7 @@ def store(index,length,audio_filename)
 			ID_TO_AUDIO_HASH[audio_identifer] = audio_filename;
 			File.write(ID_TO_AUDIO_FILENAME,JSON.pretty_generate(ID_TO_AUDIO_HASH) + "\n")
 
-			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} store '#{tempfile.path}' #{audio_identifer}")
+			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} store \"#{tempfile.path}\" #{audio_identifer}")
 
 			puts "#{index}/#{length} #{File.basename audio_filename} #{stderr.strip}" 
 		end
