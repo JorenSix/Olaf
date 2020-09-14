@@ -17,49 +17,56 @@
 #include "olaf_fp_matcher.h"
 #include "olaf_fp_db_writer.h"
 
+void print_help(const char* message){
+	fprintf(stderr,"%s",message);
+	fprintf(stderr,"\tolaf_c [query audio.raw | store raw_audio.raw id | stats | name_to_id file_name | del raw_audio.raw id ]\n");
+	exit(-10);
+}
+
+enum olaf_command {query = 0, store = 1, del = 4}; 
 
 int main(int argc, const char* argv[]){
 
 
 	if(argc < 2){
-		fprintf(stderr,"No file name given. Use \n olaf_c [query audio.raw | store raw_audio.raw id | stats | name_to_id file_name]\n");
-		exit(-10);
+		print_help("No filename given\n");
 	}
 
 	const char* command = argv[1];
+	enum olaf_command cmd = query; 
 
 	//Get the default configuration
 	Olaf_Config *config = olaf_config_default();
-
-	bool readonly_db = true;
-	bool match = false;
-
 	size_t tot_samples_read = 0;
 
 	if(strcmp(command,"store") == 0){
-		readonly_db = false;
-		match = false;
-
+		cmd = store;
 		if(argc != 4){
-			fprintf(stderr,"No file name given. Use \n olaf [query audio.raw | store raw_audio.raw id | stats | name_to_id]\n");
-			exit(-10);
+			print_help("Need four parameters:\n");
 		}
-
-	}else if(strcmp(command,"query") == 0){
-		match = true;
-	}else if(strcmp(command,"name_to_id") == 0){
+	} else if(strcmp(command,"query") == 0){
+		cmd = query;
+	} else if(strcmp(command,"del") == 0){
+		cmd = del;
+		if(argc != 4){
+			print_help("Need four parameters:\n");
+		}
+	} else if(strcmp(command,"name_to_id") == 0){
 		//print the hash an exit
 		printf("%u\n",olaf_fp_db_string_hash(argv[2],strlen(argv[2])));
 		exit(0);
 		return 0;
 	} else if(strcmp(command,"stats") == 0){
 		//print database statistics and exit
-		Olaf_FP_DB* db = olaf_fp_db_new(config->dbFolder,readonly_db);
+		Olaf_FP_DB* db = olaf_fp_db_new(config->dbFolder,true);
 		olaf_fp_db_stats(db);
 		olaf_fp_db_destroy(db);
 		exit(0);
 		return 0;
 	}
+
+
+	bool readonly_db = (cmd == query);
 	
 	Olaf_FP_DB* db = olaf_fp_db_new(config->dbFolder,readonly_db);
 	Olaf_EP_Extractor *ep_extractor = olaf_ep_extractor_new(config);
@@ -69,10 +76,10 @@ int main(int argc, const char* argv[]){
 
 	//Initialize one or other, otherwise database is read from disk twice!
 	//so twice the memory usage
-	if(match){
+	if(cmd == query){
 		fp_matcher = olaf_fp_matcher_new(config,db);
 	} else {
-		//to store a 
+		//to store or delete fingerprints
 		uint32_t audio_file_identifier = (uint32_t) strtoul(argv[3],NULL,0);
 		fp_db_writer = olaf_fp_db_writer_new(db,audio_file_identifier);
 	}
@@ -91,7 +98,6 @@ int main(int argc, const char* argv[]){
 	int audioBlockIndex = 0;
 
 	Olaf_Reader *reader = olaf_reader_new(config,argv[2]);
-
 
 	struct extracted_event_points * eventPoints = NULL;
 	struct extracted_fingerprints * fingerprints;
@@ -136,36 +142,38 @@ int main(int argc, const char* argv[]){
 
 		//if there are enough event points
 		if(eventPoints->eventPointIndex > config->eventPointThreshold){
-
 			//combine the event points into fingerprints
 			fingerprints = olaf_fp_extractor_extract(fp_extractor,eventPoints,audioBlockIndex);
 
-			if(match){
+			if(cmd == query){
 				//use the fingerprints to match with the reference database
 				//report matches if found
 				olaf_fp_matcher_match(fp_matcher,fingerprints);
-			}else{
+			}else if(cmd == store){
 				//use the fp's to store in the db
-				olaf_fp_db_writer_write(fp_db_writer,fingerprints);
+				olaf_fp_db_writer_store(fp_db_writer,fingerprints);
+			} else if(cmd == del){
+				olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
 			}
 		}
 		//increase the audio buffer counter
 		audioBlockIndex++;
 	}
 
-
 	//handle the last event points
 	fingerprints = olaf_fp_extractor_extract(fp_extractor,eventPoints,audioBlockIndex);
-	
 
 	//handle the last fingerprints
-	if(match){
+	if(cmd == query){
+		//use the fingerprints to match with the reference database
+		//report matches if found
 		olaf_fp_matcher_match(fp_matcher,fingerprints);
-	}else{
-		//use the fp's to write header file
-		olaf_fp_db_writer_write(fp_db_writer,fingerprints);
+	}else if(cmd == store) {
+		//use the fp's to store in the db
+		olaf_fp_db_writer_store(fp_db_writer,fingerprints);
+	} else if(cmd == del){
+		olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
 	}
-
 
 	//for timing statistics
 	end = clock();
@@ -180,10 +188,10 @@ int main(int argc, const char* argv[]){
 	pffft_destroy_setup(fftSetup);
 
 	//free olaf memory and close resources
-	if(match){
+	if(cmd == query){
 		olaf_fp_matcher_destroy(fp_matcher);
 	} else {
-		olaf_fp_db_writer_destroy(fp_db_writer);
+		olaf_fp_db_writer_destroy(fp_db_writer,cmd == store);
 	}
 
 	olaf_reader_destroy(reader);

@@ -47,7 +47,7 @@ Olaf_FP_DB_Writer * olaf_fp_db_writer_new(Olaf_FP_DB* db,uint32_t audio_file_ide
 	return db_writer;
 }
 
-void olaf_fp_db_writer_write( Olaf_FP_DB_Writer * db_writer , struct extracted_fingerprints * fingerprints ){
+void olaf_fp_db_writer_store( Olaf_FP_DB_Writer * db_writer , struct extracted_fingerprints * fingerprints ){
 
 	for(size_t i = 0 ; i < fingerprints->fingerprintIndex; i++){
 
@@ -74,10 +74,41 @@ void olaf_fp_db_writer_write( Olaf_FP_DB_Writer * db_writer , struct extracted_f
 	}
 }
 
-void olaf_fp_db_writer_destroy(Olaf_FP_DB_Writer * db_writer){
+void olaf_fp_db_writer_delete( Olaf_FP_DB_Writer * db_writer , struct extracted_fingerprints * fingerprints ){
+	for(size_t i = 0 ; i < fingerprints->fingerprintIndex; i++){
+
+		uint32_t key = olaf_fp_extractor_hash(fingerprints->fingerprints[i]);
+		uint64_t fingerprint_t1 = fingerprints->fingerprints[i].timeIndex1;
+		uint64_t fingerprint_id = db_writer->audio_file_identifier;
+		//uint32_t significant = hash_to_store>>46;
+
+		//printf("Store: %llu = %llu + %u (%d) \n",hash_to_store,fingerprint_hash, db_writer->audio_file_identifier,significant);
+
+		db_writer->keys[db_writer->index] = key;
+		db_writer->values[db_writer->index] = (fingerprint_t1<<32) + fingerprint_id;
+
+		db_writer->index++;
+	}
+
+	fingerprints->fingerprintIndex = 0;
+
+	//printf("%s\n", "store" );
+	//store if threshold is exceeded
+	if(db_writer->index > db_writer->threshold){
+		olaf_fp_db_delete(db_writer->db,db_writer->keys,db_writer->values,db_writer->index);
+		db_writer->index = 0;
+	}
+}
+
+
+void olaf_fp_db_writer_destroy(Olaf_FP_DB_Writer * db_writer,bool store){
 	
-	//store remaining hashes
-	olaf_fp_db_store(db_writer->db,db_writer->keys,db_writer->values,db_writer->index);
+	//store or delete remaining hashes
+	if(store)
+		olaf_fp_db_store(db_writer->db,db_writer->keys,db_writer->values,db_writer->index);
+	else
+		olaf_fp_db_delete(db_writer->db,db_writer->keys,db_writer->values,db_writer->index);
+
 	db_writer->index = 0;
 
 	free(db_writer);

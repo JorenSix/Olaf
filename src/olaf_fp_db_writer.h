@@ -25,9 +25,11 @@
 
 	Olaf_FP_DB_Writer * olaf_fp_db_writer_new(Olaf_FP_DB* db,uint32_t audio_file_identifier);
 
-	void olaf_fp_db_writer_write( Olaf_FP_DB_Writer * , struct extracted_fingerprints * );
+	void olaf_fp_db_writer_store( Olaf_FP_DB_Writer * , struct extracted_fingerprints * );
 
-	void olaf_fp_db_writer_destroy(Olaf_FP_DB_Writer *);
+	void olaf_fp_db_writer_delete( Olaf_FP_DB_Writer * , struct extracted_fingerprints * );
+
+	void olaf_fp_db_writer_destroy(Olaf_FP_DB_Writer *, bool store);
 
 #endif //OLAF_FP_DB_WRITER_H
 	

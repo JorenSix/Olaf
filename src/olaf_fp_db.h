@@ -36,6 +36,9 @@
 	//Store a list of elements in the memory store
 	void olaf_fp_db_store(Olaf_FP_DB *, uint32_t * keys, uint64_t * values, size_t size);
 
+	//Delete a list of elements in the memory store
+	void olaf_fp_db_delete(Olaf_FP_DB *, uint32_t * keys, uint64_t * values, size_t size);
+
 	//Find a list of elements in the memory store
 	//only take into account the x most significant bits
 	void olaf_fp_db_find(Olaf_FP_DB *,uint32_t key,int bits_to_ignore,uint64_t * results, size_t results_size, size_t * number_of_results);

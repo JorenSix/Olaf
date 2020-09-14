@@ -101,6 +101,26 @@ void olaf_fp_db_store(Olaf_FP_DB * olaf_fp_db,uint32_t * keys,uint64_t * values,
 	}
 }
 
+void olaf_fp_db_delete(Olaf_FP_DB * olaf_fp_db,uint32_t * keys,uint64_t * values, size_t size){
+	MDB_val mdb_key, mdb_value;
+
+	//store
+	for(size_t i = 0 ; i < size ; i++){
+		uint32_t key =  keys[i];
+		uint64_t value = values[i];
+
+		mdb_key.mv_size = sizeof(uint32_t);
+		mdb_key.mv_data = &key;
+
+		mdb_value.mv_size = sizeof(uint64_t);
+		mdb_value.mv_data = &value;
+
+		//printf("store: %u %u \n",key,value);
+
+		mdb_del(olaf_fp_db->txn, olaf_fp_db->dbi, &mdb_key, &mdb_value);
+	}
+}
+
 void olaf_fp_db_find(Olaf_FP_DB * olaf_fp_db,uint32_t key,int bits_to_ignore, uint64_t * results, size_t results_size, size_t * number_of_results){
 	//ignore the x first bits
 	

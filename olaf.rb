@@ -162,19 +162,25 @@ def audio_filename_to_olaf_id(audio_filename_escaped)
 end
 
 def escape_audio_filename(audio_filename)
-	audio_filename.gsub(/(["])/, '\\\\\1')
+	begin
+		audio_filename.gsub(/(["])/, '\\\\\1')
+	rescue
+		puts "ERROR, probably invalid byte sequence in UTF-8 in #{audio_filename}"
+		return nil
+	end
 end
 
 
 def store(index,length,audio_filename)
 
-	audio_filename_escaped = escape_audio_filename(audio_filename) 
+	audio_filename_escaped = escape_audio_filename(audio_filename)
+	return unless audio_filename_escaped
 
 	audio_identifer = audio_filename_to_olaf_id(audio_filename_escaped)
 			
 	#Do not store same audio twice
 	if(ID_TO_AUDIO_HASH.has_key? audio_identifer)
-		puts "#{File.basename audio_filename} already in storage"
+		puts "#{index}/#{length} #{File.basename audio_filename} already in storage"
 	else
 		with_converted_audio(audio_filename_escaped) do |tempfile|
 			ID_TO_AUDIO_HASH[audio_identifer] = audio_filename;
@@ -186,6 +192,25 @@ def store(index,length,audio_filename)
 		end
 	end
 end
+
+def del(index,length,audio_filename)
+
+	audio_filename_escaped = escape_audio_filename(audio_filename)
+	return unless audio_filename_escaped
+
+	audio_identifer = audio_filename_to_olaf_id(audio_filename_escaped)
+			
+	#Do not store same audio twice
+	with_converted_audio(audio_filename_escaped) do |tempfile|
+		
+		ID_TO_AUDIO_HASH.delete(audio_identifer);
+
+		File.write(ID_TO_AUDIO_FILENAME,JSON.pretty_generate(ID_TO_AUDIO_HASH) + "\n")
+		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} del \"#{tempfile.path}\" #{audio_identifer}")
+		puts "#{index}/#{length} #{File.basename audio_filename} #{stderr.strip}" 
+	end
+end
+
 
 FileUtils.touch(ID_TO_AUDIO_FILENAME)
 
@@ -212,6 +237,10 @@ return unless command
 if command.eql? "store"
 	audio_files.each_with_index do |audio_file, index|
 		store(index+1,audio_files.length,audio_file)
+	end
+elsif command.eql? "del"
+	audio_files.each_with_index do |audio_file, index|
+		del(index+1,audio_files.length,audio_file)
 	end
 elsif command.eql? "query"
 	audio_files.each_with_index do |audio_file, index|
