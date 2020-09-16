@@ -42,9 +42,16 @@ Olaf_FP_DB * olaf_fp_db_new(const char * mdb_folder,bool readonly){
 
 	Olaf_FP_DB *olaf_fp_db = (Olaf_FP_DB*) malloc(sizeof(Olaf_FP_DB));
 
+	//configure the max db size in bytes to be 1TB
+	//Fails silently when 1TB is reached
+	//see here:
+	//mdb_env_set_mapsize function in http://www.lmdb.tech/doc/group__mdb.html
+	//
+	size_t max_db_size_in_bytes = (size_t)(1024*1024) * (size_t)(1024*1024);
+
 	e(mdb_env_create(&olaf_fp_db->env));
-	e(mdb_env_set_maxreaders(olaf_fp_db->env, 5));
-	e(mdb_env_set_mapsize(olaf_fp_db->env,  100 * 10485760));
+	e(mdb_env_set_maxreaders(olaf_fp_db->env, 10));
+	e(mdb_env_set_mapsize(olaf_fp_db->env,max_db_size_in_bytes));
 	e(mdb_env_open(olaf_fp_db->env, mdb_folder, readonly ? (MDB_RDONLY | MDB_NOLOCK) : 0, 0664));
 	e(mdb_txn_begin(olaf_fp_db->env, NULL, readonly ? MDB_RDONLY : 0 , &olaf_fp_db->txn));
 
