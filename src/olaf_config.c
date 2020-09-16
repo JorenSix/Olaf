@@ -23,6 +23,8 @@ Olaf_Config* olaf_config_default(){
 
 	//construct the directory to write db info to: /home/user/.olaf/db/
 	const char * homeDir = getenv("HOME");
+
+	//This assume a UNIX file separator
 	const char* dbDir = "/.olaf/db/";
 	char * fullDbFolderName = (char *) malloc(strlen(homeDir) +  strlen(dbDir));
 	strcpy(fullDbFolderName,homeDir);

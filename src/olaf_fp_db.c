@@ -18,6 +18,7 @@
 #include <math.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "lmdb.h"
 #include "olaf_fp_db.h"
@@ -28,6 +29,8 @@ struct Olaf_FP_DB{
 	MDB_env *env;
 	MDB_txn *txn;
 	MDB_dbi dbi;
+
+	const char * mdb_folder;
 
 };
 
@@ -64,6 +67,8 @@ Olaf_FP_DB * olaf_fp_db_new(const char * mdb_folder,bool readonly){
 
 	//open the database with flags sets
 	e(mdb_dbi_open(olaf_fp_db->txn, NULL,flags , &olaf_fp_db->dbi));
+
+	olaf_fp_db->mdb_folder = mdb_folder;
 
 	return olaf_fp_db;
 }
@@ -196,6 +201,25 @@ void olaf_fp_db_find(Olaf_FP_DB * olaf_fp_db,uint32_t key,int bits_to_ignore, ui
 	mdb_cursor_close(cursor);
 }
 
+size_t olaf_fp_db_size(Olaf_FP_DB * olaf_fp_db){
+	//This assumes the default filename for MDB
+	const char* mdb_filename = "data.mdb";
+
+	//This limits the full path to a rather random
+	//700 characters
+	char mdb_full_path_name[700];
+
+	strcpy(mdb_full_path_name, olaf_fp_db->mdb_folder);
+	strcat(mdb_full_path_name,mdb_filename);
+
+	FILE * db_file = fopen(mdb_full_path_name,"rb");
+	fseek (db_file , 0 , SEEK_END);
+	size_t fp_db_size_in_bytes = ftell(db_file);
+	fclose(db_file);
+	
+	return fp_db_size_in_bytes;
+}
+
 void olaf_fp_db_stats(Olaf_FP_DB * olaf_fp_db){
 	/* Get a database statistics */
 	MDB_stat stats;
@@ -206,6 +230,7 @@ void olaf_fp_db_stats(Olaf_FP_DB * olaf_fp_db){
 		printf("> Size of database page:        %u\n", stats.ms_psize);
 		printf("> Depth of the B-tree:          %u\n", stats.ms_depth);
 		printf("> Number of items in databases: %d\n", (int)stats.ms_entries);
+		printf("> File size of the databases:   %luMB\n", olaf_fp_db_size(olaf_fp_db) / (1024 * 1024));
 		printf("=========================\n\n");
 	} else {
 		fprintf(stderr, "Can't retrieve the database statistics: %s\n", mdb_strerror(err));

@@ -36,6 +36,7 @@
 	//Store a list of elements in the memory store
 	void olaf_fp_db_store(Olaf_FP_DB *, uint32_t * keys, uint64_t * values, size_t size);
 
+
 	//Delete a list of elements in the memory store
 	void olaf_fp_db_delete(Olaf_FP_DB *, uint32_t * keys, uint64_t * values, size_t size);
 
