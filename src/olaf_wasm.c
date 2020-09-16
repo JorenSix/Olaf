@@ -24,7 +24,6 @@
 
 #include "olaf_window.h"
 #include "olaf_config.h"
-#include "olaf_audio_reader.h"
 #include "olaf_ep_extractor.h"
 #include "olaf_fp_extractor.h"
 #include "olaf_fp_matcher.h"

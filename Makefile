@@ -44,7 +44,7 @@ destroy_db:
 	rm ~/.olaf/*.json ~/.olaf/db/*
 
 web:
-	emcc -o wasm/js/olaf.html  -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s EXPORTED_FUNCTIONS="['_malloc','_free']" -s EXTRA_EXPORTED_RUNTIME_METHODS='["cwrap"]' src/olaf_wasm.c src/pffft.c src/olaf_ep_extractor.c src/olaf_fp_extractor.c src/olaf_audio_reader.c src/olaf_fp_db_mem.c src/olaf_fp_db_writer_mem.c src/olaf_fp_matcher.c src/olaf_config.c  -O3 -Wall -lm -lc -W -I.
+	emcc -o wasm/js/olaf.html  -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s EXPORTED_FUNCTIONS="['_malloc','_free']" -s EXTRA_EXPORTED_RUNTIME_METHODS='["cwrap"]' src/olaf_wasm.c src/pffft.c src/olaf_ep_extractor.c src/olaf_fp_extractor.c src/olaf_fp_db_mem.c src/olaf_fp_db_writer_mem.c src/olaf_fp_matcher.c src/olaf_config.c  -O3 -Wall -lm -lc -W -I.
 
 install:
 	mkdir -p ~/.olaf/db/
