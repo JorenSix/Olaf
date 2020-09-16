@@ -34,11 +34,11 @@ reader:
 	gcc -o bin/olaf_reader_test *.o		-lc -lm -ffast-math
 
 clean:
-	-rm *.o
-	-rm bin/*
-	-rm wasm/js/olaf.js
-	-rm wasm/js/olaf.html
-	-rm wasm/js/olaf.wasm
+	-rm -f *.o
+	-rm -f bin/*
+	-rm -f wasm/js/olaf.js
+	-rm -f wasm/js/olaf.html
+	-rm -f wasm/js/olaf.wasm
 
 destroy_db:
 	rm ~/.olaf/*.json ~/.olaf/db/*

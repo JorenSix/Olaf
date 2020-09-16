@@ -5,6 +5,12 @@
 #include "olaf_reader.h"
 
 int main(int argc, const char* argv[]){
+
+	if(argc == 0){
+		printf("Provide a raw audio file as parameter\n");
+		exit(-10);
+	}
+
 	const char* audio_file_name = argv[1];
 	Olaf_Config *config = olaf_config_default();
 
