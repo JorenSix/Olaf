@@ -104,6 +104,7 @@ end
 
 def query(index,length,audio_filename,ignore_self_match)
 	audio_filename_escaped =  escape_audio_filename(audio_filename)
+	return unless audio_filename_escaped
 
 	query_audio_identifer = audio_filename_to_olaf_id(audio_filename_escaped)
 
@@ -123,6 +124,8 @@ def query(index,length,audio_filename,ignore_self_match)
 				puts "#{index}/#{length} #{File.basename audio_filename} #{line}"
 			end
 		end
+
+		puts stdout unless (stdout == nil or stdout.strip.size == 0)
 	end	
 end
 
