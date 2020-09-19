@@ -188,7 +188,6 @@ void updateResults(Olaf_FP_Matcher * fp_matcher,int queryFingerprintT1,int refer
 			fp_matcher->best_results[0]=match;
 		}
 		
-
 		//sort to keep  order:  lowest match count first
 		qsort(fp_matcher->best_results, fp_matcher->config->maxResults, sizeof(struct match_result *), compareResults);
 	}else{
@@ -224,7 +223,7 @@ void updateResults(Olaf_FP_Matcher * fp_matcher,int queryFingerprintT1,int refer
 					//remove from hash table
 					hash_table_remove(fp_matcher->result_hash_table, &remove_hash_table_key);
 
-					printf("Removed from hash table %lu \n",remove_hash_table_key);
+					//printf("Removed from hash table %lu \n",remove_hash_table_key);
 					//reset data fields for reuse
 					fp_matcher->all_results[i].timeDiff = 0;
 					fp_matcher->all_results[i].queryFingerprintT1 = 0;
@@ -251,7 +250,7 @@ void ageResults(Olaf_FP_Matcher * fp_matcher,int lastQueryFingerprintT1){
 		int age = lastQueryFingerprintT1 - fp_matcher->best_results[i]->queryFingerprintT1;
 		
 		//Remove matches that are too old (age over max)
-		printf("Age:  %d , last: %d, current %d \n",age,lastQueryFingerprintT1,fp_matcher->best_results[i]->queryFingerprintT1);
+		//printf("Age:  %d , last: %d, current %d \n",age,lastQueryFingerprintT1,fp_matcher->best_results[i]->queryFingerprintT1);
 		if(fp_matcher->config->maxResultAge < age){
 
 			uint64_t diff_part = (uint64_t) fp_matcher->best_results[i]->timeDiff;
@@ -261,7 +260,7 @@ void ageResults(Olaf_FP_Matcher * fp_matcher,int lastQueryFingerprintT1){
 			//remove from hash table
 			hash_table_remove(fp_matcher->result_hash_table, &remove_hash_table_key);
 
-			printf("Removed from hash table %lu \n",remove_hash_table_key);
+			//printf("Removed from hash table %lu \n",remove_hash_table_key);
 
 			//If the result is the current max, reset the indicator and the currentMatchScore
 			fp_matcher->best_results[i]->timeDiff = 0;
@@ -287,7 +286,7 @@ void matchPrint(Olaf_FP_Matcher * fp_matcher,uint32_t queryFingerprintT1,uint32_
 
 	olaf_fp_db_find(fp_matcher->db,queryFingerprintHash,0,fp_matcher->db_results,fp_matcher->config->maxDBResults,&number_of_results);
 
-	fprintf(stdout,"Number of results: %zu \n",number_of_results);
+	//fprintf(stdout,"Number of results: %zu \n",number_of_results);
 
 	for(size_t i = 0 ; i < number_of_results ; i++){
 		uint32_t referenceFingerprintT1 =  (uint32_t) (fp_matcher->db_results[i] >> 32);
