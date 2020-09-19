@@ -76,7 +76,7 @@ Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_FP_DB* db ){
 
 	fp_matcher->config = config;
 
-	fp_matcher->results = (struct match_result *) malloc(config->maxDBResults  * sizeof(struct match_result));
+	fp_matcher->results = (struct match_result *) malloc(config->maxResults  * sizeof(struct match_result));
 
 	//make sure every match field is initialized
 	for(int i = 0 ; i < fp_matcher->config->maxResults ; i++){

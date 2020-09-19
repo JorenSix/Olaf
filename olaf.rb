@@ -125,6 +125,7 @@ def query(index,length,audio_filename,ignore_self_match)
 			end
 		end
 
+		#prints optional debug or error messages
 		puts stdout unless (stdout == nil or stdout.strip.size == 0)
 	end	
 end
