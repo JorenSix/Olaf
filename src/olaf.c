@@ -37,7 +37,7 @@ int main(int argc, const char* argv[]){
 
 	//Get the default configuration
 	Olaf_Config *config = olaf_config_default();
-	size_t tot_samples_read = 0;
+	
 
 	if(strcmp(command,"store") == 0){
 		cmd = store;
@@ -81,6 +81,8 @@ int main(int argc, const char* argv[]){
 	for(int arg_index = 2 ; arg_index < argc ; arg_index+=arg_increment){
 		//the current audio block index
 		int audioBlockIndex = 0;
+
+		size_t tot_samples_read = 0;
 
 		Olaf_EP_Extractor *ep_extractor = olaf_ep_extractor_new(config);
 		Olaf_FP_Extractor *fp_extractor = olaf_fp_extractor_new(config);
