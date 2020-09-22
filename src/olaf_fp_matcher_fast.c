@@ -64,8 +64,9 @@ struct Olaf_FP_Matcher{
 
 
 	//list with all results meant to be reused at random
-	//the length equals 20 x maxDBResults
 	struct match_result * all_results;
+
+	size_t all_results_size;
 
 	//A hash table with match_results
 	//key is a combination of match_id and time diff
@@ -116,13 +117,14 @@ Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_FP_DB* db ){
 
 	fp_matcher->result_hash_table = hash_table_new(uint64_t_hash,uint64_t_equal);
 
-	fp_matcher->all_results = (struct match_result *) malloc(100 * config->maxDBResults  * sizeof(struct match_result));
+	fp_matcher->all_results_size =  20 * config->maxDBResults;
+
+	fp_matcher->all_results = (struct match_result *) malloc( fp_matcher->all_results_size  * sizeof(struct match_result));
 
 	fp_matcher->best_results = (struct match_result **) malloc(config->maxResults  * sizeof(struct match_result *));
 
 
-
-	for(int i = 0; i < 100 * config->maxDBResults;i++){
+	for(size_t i = 0; i < fp_matcher->all_results_size ;i++){
 		fp_matcher->all_results[i].matchCount=0;
 		fp_matcher->all_results[i].referenceFingerprintT1 = 0;
 		fp_matcher->all_results[i].firstReferenceFingerprintT1 = 0;
@@ -137,8 +139,6 @@ Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_FP_DB* db ){
 	for(int i = 0; i < config->maxResults;i++){
 		fp_matcher->best_results[i] = NULL;
 	}
-
-	puts("Fp matcher new");
 
 	return fp_matcher;
 }
@@ -183,19 +183,19 @@ void updateResults(Olaf_FP_Matcher * fp_matcher,int queryFingerprintT1,int refer
 
 		//printf("Match found  %lu hash table size: %d \n",result_hash_table_key,hash_table_num_entries(fp_matcher->result_hash_table));
 
-		//add to best matches
-		if(match->matchCount!=2){
+		//add to best matches if more than 
+		//3 matches are counted. This should be relatively
+		//uncommon
+		if(match->matchCount >= 3){
 			fp_matcher->best_results[0]=match;
+			//sort to keep  order:  lowest match count first
+			qsort(fp_matcher->best_results, fp_matcher->config->maxResults, sizeof(struct match_result *), compareResults);
 		}
-		
-		//sort to keep  order:  lowest match count first
-		qsort(fp_matcher->best_results, fp_matcher->config->maxResults, sizeof(struct match_result *), compareResults);
 	}else{
 		//add to the hash map
+		size_t randomStartPlace = rand() % (80 * fp_matcher->all_results_size / 100);
 
-		int randomStartPlace = rand() % (80 * fp_matcher->config->maxDBResults);
-
-		for(int i = randomStartPlace; i < 100 * fp_matcher->config->maxDBResults;i++){
+		for(size_t i = randomStartPlace; i < fp_matcher->all_results_size ;i++){
 			if(fp_matcher->all_results[i].matchCount==0){
 				fp_matcher->all_results[i].referenceFingerprintT1 = referenceFingerprintT1;
 				fp_matcher->all_results[i].firstReferenceFingerprintT1 = referenceFingerprintT1;
@@ -208,11 +208,10 @@ void updateResults(Olaf_FP_Matcher * fp_matcher,int queryFingerprintT1,int refer
 
 				//printf("Insert  %lu hash table size: %d \n",result_hash_table_key,hash_table_num_entries(fp_matcher->result_hash_table));
 
-
 				hash_table_insert(fp_matcher->result_hash_table, &result_hash_table_key, &fp_matcher->all_results[i]);
 				break;
 			}else{
-				//check and mark if needed
+				//remove old matches from the hash table
 				int age = queryFingerprintT1 - fp_matcher->all_results[i].queryFingerprintT1;
 
 				if(age >  fp_matcher->config->maxResultAge){
@@ -244,9 +243,11 @@ void ageResults(Olaf_FP_Matcher * fp_matcher,int lastQueryFingerprintT1){
 
 
 	for(int i = 0 ; i < fp_matcher->config->maxResults ; i++){
+
 		if(fp_matcher->best_results[i] == NULL){
 			continue;
 		}
+
 		int age = lastQueryFingerprintT1 - fp_matcher->best_results[i]->queryFingerprintT1;
 		
 		//Remove matches that are too old (age over max)
@@ -289,8 +290,10 @@ void matchPrint(Olaf_FP_Matcher * fp_matcher,uint32_t queryFingerprintT1,uint32_
 	//fprintf(stdout,"Number of results: %zu \n",number_of_results);
 
 	for(size_t i = 0 ; i < number_of_results ; i++){
+		//The 32 most significant bits represent ref t1
 		uint32_t referenceFingerprintT1 =  (uint32_t) (fp_matcher->db_results[i] >> 32);
-		uint32_t matchIdentifier = (uint32_t) fp_matcher->db_results[i]; //last 32 bits are match identifier
+		//The last 32 bits represent the match identifier
+		uint32_t matchIdentifier = (uint32_t) fp_matcher->db_results[i]; 
 
 		updateResults(fp_matcher,queryFingerprintT1,referenceFingerprintT1,matchIdentifier);
 	}
@@ -362,6 +365,7 @@ int olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerp
 
 void olaf_fp_matcher_destroy(Olaf_FP_Matcher * fp_matcher){
 	free(fp_matcher->all_results);
+
 	free(fp_matcher->best_results);
 
 	free(fp_matcher->result_hash_table);
