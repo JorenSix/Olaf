@@ -85,8 +85,8 @@ int compareEventPoints (const void * a, const void * b) {
 //Subsequently all the 1546xx values are identified by iteration in both directions.
 //
 uint32_t olaf_fp_extractor_hash(struct fingerprint f){
-	uint16_t frequency1 = f.frequencyBin1;
-	uint16_t deltaF = abs(f.frequencyBin1 - f.frequencyBin2);
+	//uint16_t frequency1 = f.frequencyBin1;
+	//uint16_t deltaF = abs(f.frequencyBin1 - f.frequencyBin2);
 	uint16_t deltaT = f.timeIndex1 - f.timeIndex2;
 	uint16_t f1LargerThanF2 = f.frequencyBin1 > f.frequencyBin2 ? 1 : 0;
 	
@@ -97,10 +97,23 @@ uint32_t olaf_fp_extractor_hash(struct fingerprint f){
 	// f1<f2     boolean  -  1 bits    -   6
 	// deltaT    0-63     -  6 bits    -   0   about 2 seconds
 	
-	uint32_t fp_hash = ((frequency1     &  ((1<<10) -1)  ) << 13) +
-	                   ((deltaF         &  ((1<<6) -1)   ) <<  7) +
-	                   ((f1LargerThanF2 &  ((1<<1) -1)   ) <<  6) +
-	                   ((deltaT         &  ((1<<6) -1)   ) <<  0) ;
+	//uint32_t fp_hash = ((frequency1     &  ((1<<10) -1)  ) << 13) +
+	//                   ((deltaF         &  ((1<<6) -1)   ) <<  7) +
+	//                   ((f1LargerThanF2 &  ((1<<1) -1)   ) <<  6) +
+	//                   ((deltaT         &  ((1<<6) -1)   ) <<  0) ;
+
+
+	const int f_mul = 10;
+	uint16_t frequency1Interpolated = (uint16_t) (f.fractionalFrequencyBin1 * f_mul);  
+	uint16_t deltaFInterpolated = (uint16_t) abs( (int) (f.fractionalFrequencyBin1 * f_mul - f.fractionalFrequencyBin2 * f_mul)) ;
+	//printf("f1: %d  f1i: %d  f2: %d f2i: %d  deltaF: %d deltaFi: %d \n",f.frequencyBin1 * f_mul, (int) (f.fractionalFrequencyBin1 * f_mul), f.frequencyBin2 * f_mul, (int) (f.fractionalFrequencyBin2 * f_mul), deltaF * f_mul, deltaFInterpolated);     
+	uint32_t fp_hash = ((frequency1Interpolated   &  ((1<<12) - 1)  ) << 16) +
+	          ((deltaFInterpolated       &  ((1<<9) -1)   ) <<  7) +
+	          ((f1LargerThanF2           &  ((1<<1) -1)   ) <<  6) +
+	          ((deltaT                   &  ((1<<6) -1)   ) <<  0) ;
+
+
+
 
 	return fp_hash;
 }
@@ -201,6 +214,7 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 			eventPoints->eventPoints[i].timeIndex = 1<<16;
 			eventPoints->eventPoints[i].printsPerPoint = 0;
 			eventPoints->eventPoints[i].frequencyBin = 0;
+			eventPoints->eventPoints[i].fractionalFrequencyBin = 0;
 			eventPoints->eventPoints[i].magnitude = 0;
 		}
 
@@ -208,6 +222,7 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 		if(eventPoints->eventPoints[i].printsPerPoint > fp_extractor->config->maxFingerprintsPerPoint){
 			eventPoints->eventPoints[i].timeIndex = 1<<16;
 			eventPoints->eventPoints[i].printsPerPoint = 0;
+			eventPoints->eventPoints[i].fractionalFrequencyBin = 0;
 			eventPoints->eventPoints[i].frequencyBin = 0;
 		}
 	}

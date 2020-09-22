@@ -312,7 +312,7 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 
 					float fractionalFrequencyBin = frequencyBin + fractionalOffset;
 
-					//printf("fract offset: %.2f \n",fractionalOffset);
+					//printf("fract freq bin: %.2f freq bin: %d \n",fractionalFrequencyBin,frequencyBin);
 
 					ep_extractor->currentEventPoints[minMagnitudeIndex].timeIndex = timeIndex;
 					ep_extractor->currentEventPoints[minMagnitudeIndex].frequencyBin = frequencyBin;
@@ -345,6 +345,7 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 				eventPoints[eventPointIndex].timeIndex = ep_extractor->currentEventPoints[i].timeIndex;
 				eventPoints[eventPointIndex].frequencyBin = ep_extractor->currentEventPoints[i].frequencyBin;
 				eventPoints[eventPointIndex].magnitude = ep_extractor->currentEventPoints[i].magnitude;
+				eventPoints[eventPointIndex].fractionalFrequencyBin = ep_extractor->currentEventPoints[i].fractionalFrequencyBin;
 				eventPoints[eventPointIndex].printsPerPoint = 0;
 
 				eventPointIndex++;
@@ -354,6 +355,7 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 					eventPoints[closeEPIndex].timeIndex = ep_extractor->currentEventPoints[i].timeIndex;
 					eventPoints[closeEPIndex].frequencyBin = ep_extractor->currentEventPoints[i].frequencyBin;
 					eventPoints[closeEPIndex].magnitude = ep_extractor->currentEventPoints[i].magnitude;
+					eventPoints[closeEPIndex].fractionalFrequencyBin = ep_extractor->currentEventPoints[i].fractionalFrequencyBin;
 					eventPoints[closeEPIndex].printsPerPoint = 0;
 
 					//sort by time

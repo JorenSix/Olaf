@@ -144,6 +144,29 @@ def with_converted_audio(audio_filename_escaped)
 	tempfile.unlink
 end
 
+def with_converted_audio_files(audio_filenames_escaped)
+	tempfiles = Array.new
+
+	audio_filenames_escaped.each do |audio_filename_escaped|
+		tempfile = Tempfile.new(["olaf_audio_#{rand(200000)}", '.raw'])
+		convert_command = AUDIO_CONVERT_COMMAND
+		convert_command = convert_command.gsub("__input__",audio_filename_escaped)
+		convert_command = convert_command.gsub("__output__",tempfile.path)
+	
+		system convert_command
+
+		tempfiles << tempfile
+	end
+
+	yield tempfiles
+
+	tempfiles.each do |tempfile|
+		#remove the temp file afer use
+		tempfile.close
+		tempfile.unlink
+	end	
+end
+
 def with_converted_audio_part(audio_filename_escaped,start,duration)
 	tempfile = Tempfile.new(["olaf_audio_#{rand(20000)}", '.raw'])
 	convert_command = AUDIO_CONVERT_COMMAND_WITH_START_DURATION
@@ -197,6 +220,45 @@ def store(index,length,audio_filename)
 	end
 end
 
+def store_all(audio_filenames)
+
+	audio_filenames_escaped = Array.new
+	audio_identifiers = Array.new
+	orig_audio_filenames = Array.new
+
+	audio_filenames.each do |audio_filename|
+		audio_filename_escaped = escape_audio_filename(audio_filename)
+		next unless audio_filename_escaped
+
+		audio_identifier = audio_filename_to_olaf_id(audio_filename_escaped)
+
+		if ID_TO_AUDIO_HASH.has_key? audio_identifier
+			puts "#{File.basename audio_filename} already in storage"
+		else
+			audio_filenames_escaped << audio_filename_escaped
+			audio_identifiers << audio_identifier
+		
+			ID_TO_AUDIO_HASH[audio_identifier] = audio_filename;
+		end
+	end
+
+	return unless audio_filenames_escaped.size > 0
+
+	with_converted_audio_files(audio_filenames_escaped) do |tempfiles|
+
+		argument = ""
+
+		tempfiles.each_with_index do |tempfile, index|
+			argument = argument + " \"#{tempfile.path}\" #{audio_identifiers[index]}" 
+		end
+
+		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} store #{argument}")
+		puts "#{stderr.strip}"
+	end
+
+	File.write(ID_TO_AUDIO_FILENAME,JSON.pretty_generate(ID_TO_AUDIO_HASH) + "\n")
+end
+
 def del(index,length,audio_filename)
 
 	audio_filename_escaped = escape_audio_filename(audio_filename)
@@ -239,9 +301,18 @@ end
 return unless command 
 
 if command.eql? "store"
-	audio_files.each_with_index do |audio_file, index|
-		store(index+1,audio_files.length,audio_file)
+
+	slice_number = 0
+	audio_files.each_slice(50) do |audio_files|
+		store_all(audio_files)
+		slice_number = slice_number + 1
+		puts "#{[slice_number * 50,audio_files.size].min} / #{audio_files.size}"
 	end
+
+	#audio_files.each_with_index do |audio_file, index|
+		#store(index+1,audio_files.length,audio_file)
+	#end
+
 elsif command.eql? "del"
 	audio_files.each_with_index do |audio_file, index|
 		del(index+1,audio_files.length,audio_file)
