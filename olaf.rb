@@ -155,6 +155,8 @@ def with_converted_audio_files(audio_filenames_escaped)
 	
 		system convert_command
 
+		puts "Transcoded #{File.basename audio_filename_escaped}"
+
 		tempfiles << tempfile
 	end
 
@@ -303,10 +305,11 @@ return unless command
 if command.eql? "store"
 
 	slice_number = 0
-	audio_files.each_slice(50) do |audio_files|
-		store_all(audio_files)
+	slice_size = 50
+	audio_files.each_slice(slice_size) do |audio_files_slice|
+		store_all(audio_files_slice)
 		slice_number = slice_number + 1
-		puts "#{[slice_number * 50,audio_files.size].min} / #{audio_files.size}"
+		puts "Processed #{[slice_number * slice_size,audio_files.size].min} / #{audio_files.size}"
 	end
 
 	#audio_files.each_with_index do |audio_file, index|
