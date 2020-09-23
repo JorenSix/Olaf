@@ -138,6 +138,18 @@ Deletion of fingerprints is similar to adding prints:
 Note that it is currently unclear what the performance implications are when adding and removing many items to the db. In other words: how balanced the B+ tree remains with many leaves removed.
 
 
+h3. Bulk storage
+
+With many millions of fingerprints LMDB becomes slower. This is problematic when storing tens of thousands of items in the reference database. The bulk_store and bulk_load commands provide a faster solution. With bulk store fingerprints are stored in text files on disk. This allows multiple threads to extract and store fingerprints simultaneously. The bulk load commands takes these texts files and, using LMDB's append feature, commits them to the database __in order__ which is many magnitudes faster. 
+
+
+<pre>olaf bulk_store ...
+olaf bulk_load</pre>
+
+The disadvantage is that additional disk space is needed to temporary store two versions of the fingerprints. 
+
+Once the database is initialized bulk_store should not be used again. The order can not be guaranteed: new fingerprints will likely come before the last entry in the database.
+
 h2. Limitations
 
 * <del>Currently a complete audio file is read in memory in order to process it. While the algorithm allows streaming, the current implementation does not allow to store incoming streams.</del> Now you can choose whether to compile in the single or stream reader: choose either @olaf_reader_single.c@ or @olaf_reader_stream.c@, which is a bit slower. 
