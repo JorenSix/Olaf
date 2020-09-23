@@ -254,8 +254,19 @@ def store_all(audio_filenames)
 			argument = argument + " \"#{tempfile.path}\" #{audio_identifiers[index]}" 
 		end
 
-		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} store #{argument}")
-		puts "#{stderr.strip}"
+
+		Open3.popen3("#{EXECUTABLE_LOCATION} store #{argument}") do |stdin, stdout, stderr, wait_thr|
+			Thread.new do
+    			stdout.each {|l| puts l }
+  			end
+
+  			Thread.new do
+    			stderr.each {|l| puts l }
+  			end
+
+			wait_thr.value
+		end
+		
 	end
 
 	File.write(ID_TO_AUDIO_FILENAME,JSON.pretty_generate(ID_TO_AUDIO_HASH) + "\n")
@@ -276,6 +287,73 @@ def del(index,length,audio_filename)
 		File.write(ID_TO_AUDIO_FILENAME,JSON.pretty_generate(ID_TO_AUDIO_HASH) + "\n")
 		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} del \"#{tempfile.path}\" #{audio_identifer}")
 		puts "#{index}/#{length} #{File.basename audio_filename} #{stderr.strip}" 
+	end
+end
+
+def bulk_store(index,length,audio_filename)
+
+	audio_filename_escaped = escape_audio_filename(audio_filename)
+	return unless audio_filename_escaped
+
+	audio_identifer = audio_filename_to_olaf_id(audio_filename_escaped)
+			
+	#Do not store same audio twice
+	if(ID_TO_AUDIO_HASH.has_key? audio_identifer)
+		puts "#{index}/#{length} #{File.basename audio_filename} already in storage"
+	else
+		with_converted_audio(audio_filename_escaped) do |tempfile|
+			ID_TO_AUDIO_HASH[audio_identifer] = audio_filename;
+			
+			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} bulk_store \"#{tempfile.path}\" #{audio_identifer}")
+
+			puts "#{index}/#{length} #{File.basename audio_filename} #{stderr.strip}" 
+		end
+	end
+end
+
+def bulk_load
+	folder_name = File.join(Dir.home,".olaf","db")
+	collector_file = File.join(folder_name,"collector.tdb")
+	sorted_file = File.join(folder_name,"sorted.tdb")
+
+	system("rm '#{collector_file}'") if(File.exists? collector_file)
+	system("rm '#{sorted_file}'") if(File.exists? sorted_file)
+
+	Dir.glob(File.join(folder_name,"*.tdb")).each do |tdb_file|
+		puts "Handling #{tdb_file}"
+		system("cat '#{tdb_file}' >> '#{collector_file}'")
+	end
+	puts "Sorting #{collector_file} (#{File.size(collector_file)/1024/1024} MB)"
+
+	system("sort -n '#{collector_file}' > '#{sorted_file}'")
+	
+	puts "Storing in Olaf DB"
+
+	#remove collector file
+	system("rm '#{collector_file}'") if(File.exists? collector_file)
+
+	Open3.popen3("#{EXECUTABLE_LOCATION} bulk_load") do |stdin, stdout, stderr, wait_thr|
+		Thread.new do
+			stdout.each {|l| puts l }
+			end
+
+			Thread.new do
+			stderr.each {|l| puts l }
+			end
+
+		wait_thr.value
+	end
+
+	Open3.popen3("#{EXECUTABLE_LOCATION} stats") do |stdin, stdout, stderr, wait_thr|
+		Thread.new do
+			stdout.each {|l| puts l }
+			end
+
+			Thread.new do
+			stderr.each {|l| puts l }
+			end
+
+		wait_thr.value
 	end
 end
 
@@ -315,7 +393,19 @@ if command.eql? "store"
 	#audio_files.each_with_index do |audio_file, index|
 		#store(index+1,audio_files.length,audio_file)
 	#end
+elsif command.eql? "bulk_store"
+	require 'threach'
+	audio_files.threach(3, :each_with_index) do |audio_file, index|
+		bulk_store(index+1,audio_files.length,audio_file)
 
+		if (index % 100 == 0)
+			File.write(ID_TO_AUDIO_FILENAME,JSON.pretty_generate(ID_TO_AUDIO_HASH) + "\n")
+		end
+	end
+
+	File.write(ID_TO_AUDIO_FILENAME,JSON.pretty_generate(ID_TO_AUDIO_HASH) + "\n")
+elsif command.eql? "bulk_load"
+	bulk_load
 elsif command.eql? "del"
 	audio_files.each_with_index do |audio_file, index|
 		del(index+1,audio_files.length,audio_file)

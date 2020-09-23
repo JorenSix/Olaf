@@ -16,14 +16,68 @@
 #include "olaf_fp_db.h"
 #include "olaf_fp_matcher.h"
 #include "olaf_fp_db_writer.h"
+#include "olaf_fp_file_writer.h"
 
 void print_help(const char* message){
 	fprintf(stderr,"%s",message);
-	fprintf(stderr,"\tolaf_c [query audio.raw | store [raw_audio.raw id] ... | stats | name_to_id file_name | del raw_audio.raw id ]\n");
+	fprintf(stderr,"\tolaf_c [query audio.raw | store [raw_audio.raw id] ... | bulk_store [raw_audio.raw id] ... | bulk_load | stats | name_to_id file_name | del raw_audio.raw id ]\n");
 	exit(-10);
 }
 
-enum olaf_command {query = 0, store = 1, del = 4}; 
+enum olaf_command {query = 0, store = 1, del = 4,bulk_store = 5}; 
+
+
+//performance shortcut to bulk load ordered 
+//fingerprints from bulk_stored values
+void olaf_bulk_load(){
+	Olaf_FP_DB* db = NULL;
+
+	Olaf_Config *config = olaf_config_default();
+	db = olaf_fp_db_new(config->dbFolder,false);
+
+	FILE *ordered_fp_file=fopen("/Users/joren/.olaf/db/sorted.tdb", "r");
+	size_t line_size=64;
+	char line_buf[64];
+	char *b = line_buf;
+	size_t line_len=0;
+
+	uint32_t keys[10000];
+	uint64_t values[10000];
+	size_t index = 0;
+
+	size_t fp_counter = 0;
+
+	puts("file open");
+
+	while ((line_len=getline(&b, &line_size, ordered_fp_file)>0)) {
+	  
+	  char* char_key = strtok(line_buf, ",");
+	  char* char_value = strtok(NULL, ",");
+
+	  uint32_t key = strtoul(char_key, NULL, 0);
+	  uint64_t value = strtoul(char_value, NULL, 0);
+
+	  keys[index] = key;
+	  values[index] = value;
+
+	  //printf("%s %u -- %llu %s",char_key, key , value, char_value);
+
+	  if(index == 10000){
+	  	olaf_fp_db_store_bulk(db, keys, values, 10000);
+	  	index = 0;
+	  	printf("fp %zu \n",fp_counter);
+	  }
+	  index++;
+
+	  fp_counter++;
+	}
+
+	fclose(ordered_fp_file);
+
+	olaf_fp_db_store_bulk(db, keys, values, index);
+
+	olaf_fp_db_destroy(db);
+}
 
 int main(int argc, const char* argv[]){
 
@@ -38,9 +92,15 @@ int main(int argc, const char* argv[]){
 	//Get the default configuration
 	Olaf_Config *config = olaf_config_default();
 	
-
 	if(strcmp(command,"store") == 0){
 		cmd = store;
+	} else if(strcmp(command,"bulk_store") == 0){
+		cmd = bulk_store;
+	} else if(strcmp(command,"bulk_load") == 0){
+		//print database statistics and exit
+		olaf_bulk_load();
+		exit(0);
+		return 0;
 	} else if(strcmp(command,"query") == 0){
 		cmd = query;
 	} else if(strcmp(command,"del") == 0){
@@ -57,12 +117,18 @@ int main(int argc, const char* argv[]){
 		olaf_fp_db_destroy(db);
 		exit(0);
 		return 0;
+	}else if(strcmp(command,"bulk_store") == 0){
+		
 	}
 
 
-	bool readonly_db = (cmd == query);
+	bool readonly_db = (cmd == query || cmd == bulk_store);
 	
-	Olaf_FP_DB* db = olaf_fp_db_new(config->dbFolder,readonly_db);
+	Olaf_FP_DB* db = NULL;
+
+	if(cmd == query || cmd == store ) { 
+		db = olaf_fp_db_new(config->dbFolder,readonly_db);
+	}
 
 	//the samples should be a 32bit float
 	int bytesPerAudioBlock = config->audioBlockSize * config->bytesPerAudioSample;
@@ -83,11 +149,13 @@ int main(int argc, const char* argv[]){
 		int audioBlockIndex = 0;
 
 		size_t tot_samples_read = 0;
+		size_t tot_fp_extracted = 0;
 
 		Olaf_EP_Extractor *ep_extractor = olaf_ep_extractor_new(config);
 		Olaf_FP_Extractor *fp_extractor = olaf_fp_extractor_new(config);
 		Olaf_FP_Matcher *fp_matcher = NULL;
 		Olaf_FP_DB_Writer *fp_db_writer = NULL;
+		Olaf_FP_File_Writer *fp_file_writer = NULL;
 
 		//Initialize one or other, otherwise database is read from disk twice!
 		//so twice the memory usage
@@ -96,9 +164,14 @@ int main(int argc, const char* argv[]){
 		} else {
 			//to store or delete fingerprints
 			uint32_t audio_file_identifier = (uint32_t) strtoul(argv[arg_index+1],NULL,0);
-			fp_db_writer = olaf_fp_db_writer_new(db,audio_file_identifier);
+			if(cmd == bulk_store)
+				fp_file_writer = olaf_fp_file_writer_new(config,audio_file_identifier);
+			else{
+				fp_db_writer = olaf_fp_db_writer_new(db,audio_file_identifier);
+			}			
 		}
 
+		//audio reader
 		Olaf_Reader *reader = olaf_reader_new(config,argv[arg_index]);
 
 		struct extracted_event_points * eventPoints = NULL;
@@ -147,6 +220,8 @@ int main(int argc, const char* argv[]){
 				//combine the event points into fingerprints
 				fingerprints = olaf_fp_extractor_extract(fp_extractor,eventPoints,audioBlockIndex);
 
+				tot_fp_extracted = tot_fp_extracted + fingerprints->fingerprintIndex;
+
 				if(cmd == query){
 					//use the fingerprints to match with the reference database
 					//report matches if found
@@ -156,6 +231,8 @@ int main(int argc, const char* argv[]){
 					olaf_fp_db_writer_store(fp_db_writer,fingerprints);
 				} else if(cmd == del){
 					olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
+				} else if(cmd == bulk_store){
+					olaf_fp_file_writer_store(fp_file_writer,fingerprints);
 				}
 			}
 			//increase the audio buffer counter
@@ -170,11 +247,13 @@ int main(int argc, const char* argv[]){
 			//use the fingerprints to match with the reference database
 			//report matches if found
 			olaf_fp_matcher_match(fp_matcher,fingerprints);
-		}else if(cmd == store) {
+		} else if(cmd == store) {
 			//use the fp's to store in the db
 			olaf_fp_db_writer_store(fp_db_writer,fingerprints);
 		} else if(cmd == del){
 			olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
+		} else if(cmd == bulk_store){
+			olaf_fp_file_writer_store(fp_file_writer,fingerprints);
 		}
 
 	    olaf_reader_destroy(reader);
@@ -182,8 +261,13 @@ int main(int argc, const char* argv[]){
 		//free olaf memory and close resources
 		if(cmd == query){
 			olaf_fp_matcher_destroy(fp_matcher);
-		} else {
-			olaf_fp_db_writer_destroy(fp_db_writer,cmd == store);
+		} else if(cmd == store) {
+			//use the fp's to store in the db
+			olaf_fp_db_writer_destroy(fp_db_writer,true);
+		} else if(cmd == del){
+			olaf_fp_db_writer_destroy(fp_db_writer,false);
+		} else if(cmd == bulk_store){
+			olaf_fp_file_writer_destroy(fp_file_writer);
 		}
 		
 		olaf_fp_extractor_destroy(fp_extractor);
@@ -195,7 +279,7 @@ int main(int argc, const char* argv[]){
 	    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
 	    double audioDuration = (double) tot_samples_read / (double) config->audioSampleRate;
 	    double ratio = audioDuration / cpu_time_used;
-	    fprintf(stderr,"Proccessed %.1fs in %.3fs (%.0f times realtime)\n", audioDuration,cpu_time_used,ratio);
+	    fprintf(stderr,"Proccessed %lu fp's from %.1fs in %.3fs (%.0f times realtime) \n",tot_fp_extracted, audioDuration,cpu_time_used,ratio);
 	}
 
 	//cleanup fft structures
@@ -203,10 +287,15 @@ int main(int argc, const char* argv[]){
 	pffft_aligned_free(fft_out);
 	pffft_destroy_setup(fftSetup);
 
-	//When the database becomes large (GBs), the following
-	//commits a transaction to disk, which takes considerable time!
-	//It is advised to then use multiple files in one program run.
-	olaf_fp_db_destroy(db);
+
+	if(db!= NULL){
+		//When the database becomes large (GBs), the following
+		//commits a transaction to disk, which takes considerable time!
+		//It is advised to then use multiple files in one program run.
+		olaf_fp_db_destroy(db);
+	}
+	
+
 	olaf_config_destroy(config);
 	
 	return 0;

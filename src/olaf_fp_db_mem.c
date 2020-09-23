@@ -63,6 +63,16 @@ void olaf_fp_db_store(Olaf_FP_DB * olaf_fp_db, uint32_t * keys, uint64_t * value
 	exit(-10);
 }
 
+void olaf_fp_db_store_bulk(Olaf_FP_DB *, uint32_t * keys, uint64_t * values, size_t size){
+	(void)(olaf_fp_db);
+	(void)(keys);
+	(void)(values);
+	(void)(size);
+
+	fprintf(stderr,"Not  implemented");
+	exit(-10);
+}
+
 //For the binary search the timespans (last 32 bits) are ignored
 int compare(const void * a, const void * b) {
 	//the comparator ignores the last 32 bits, the timestamp

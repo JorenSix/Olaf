@@ -93,7 +93,7 @@ uint32_t olaf_fp_db_string_hash(const char *key, size_t len){
 	return hash;
 }
 
-void olaf_fp_db_store(Olaf_FP_DB * olaf_fp_db,uint32_t * keys,uint64_t * values, size_t size){
+void olaf_fp_db_store_internal(Olaf_FP_DB * olaf_fp_db,uint32_t * keys,uint64_t * values, size_t size,unsigned int flags){
 	MDB_val mdb_key, mdb_value;
 
 	//store
@@ -109,8 +109,16 @@ void olaf_fp_db_store(Olaf_FP_DB * olaf_fp_db,uint32_t * keys,uint64_t * values,
 
 		//printf("store: %u %u \n",key,value);
 
-		mdb_put(olaf_fp_db->txn, olaf_fp_db->dbi, &mdb_key, &mdb_value, 0);
+		mdb_put(olaf_fp_db->txn, olaf_fp_db->dbi, &mdb_key, &mdb_value, flags);
 	}
+}
+
+void olaf_fp_db_store(Olaf_FP_DB * olaf_fp_db,uint32_t * keys,uint64_t * values, size_t size){
+	olaf_fp_db_store_internal(olaf_fp_db,keys,values,size,0);
+}
+
+void olaf_fp_db_store_bulk(Olaf_FP_DB * olaf_fp_db,uint32_t * keys,uint64_t * values, size_t size){
+	olaf_fp_db_store_internal(olaf_fp_db,keys,values,size,MDB_APPENDDUP);
 }
 
 void olaf_fp_db_delete(Olaf_FP_DB * olaf_fp_db,uint32_t * keys,uint64_t * values, size_t size){
