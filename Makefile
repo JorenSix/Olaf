@@ -3,7 +3,7 @@ compile:
 	gcc -c src/midl.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/mdb.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/hash-table.c     		-W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf.c 					-W -Wall -std=gnu11 -pedantic -O2
+	gcc -c src/olaf.c 					-W -Wall -std=gnu11 -pedantic -O2 #getline method
 	gcc -c src/olaf_fp_file_writer.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db.c 			-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer.c 		-W -Wall -std=c11 -pedantic -O2
@@ -17,9 +17,10 @@ compile:
 
 mem:
 	gcc -c src/pffft.c 					-W -Wall -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
-	gcc -c src/olaf.c 					-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf.c 					-W -Wall -std=gnu11 -pedantic -O2
 	gcc -c src/olaf_fp_db_mem.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer_mem.c 	-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_fp_file_writer.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_ep_extractor.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_extractor.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_reader_single.c -W -Wall -std=c11 -pedantic -O2

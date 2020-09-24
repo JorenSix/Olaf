@@ -63,7 +63,7 @@ void olaf_fp_db_store(Olaf_FP_DB * olaf_fp_db, uint32_t * keys, uint64_t * value
 	exit(-10);
 }
 
-void olaf_fp_db_store_bulk(Olaf_FP_DB *, uint32_t * keys, uint64_t * values, size_t size){
+void olaf_fp_db_store_bulk(Olaf_FP_DB * olaf_fp_db, uint32_t * keys, uint64_t * values, size_t size){
 	(void)(olaf_fp_db);
 	(void)(keys);
 	(void)(values);
