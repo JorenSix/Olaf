@@ -35,7 +35,14 @@ void olaf_bulk_load(){
 	Olaf_Config *config = olaf_config_default();
 	db = olaf_fp_db_new(config->dbFolder,false);
 
-	FILE *ordered_fp_file=fopen("/Users/joren/.olaf/db/sorted.tdb", "r");
+	const char * tdb_file_name = "sorted.tdb";
+	char * full_tdb_name = (char *) malloc(strlen(config->dbFolder) +  strlen(tdb_file_name));
+	strcpy(full_tdb_name,config->dbFolder);
+	strcat(full_tdb_name,tdb_file_name);
+
+	printf("Opening file at: %s\n",tdb_file_name);
+
+	FILE *ordered_fp_file=fopen(full_tdb_name, "r");
 	size_t line_size=64;
 	char line_buf[64];
 	char *b = line_buf;
@@ -47,7 +54,7 @@ void olaf_bulk_load(){
 
 	size_t fp_counter = 0;
 
-	puts("file open");
+	
 
 	while ((line_len=getline(&b, &line_size, ordered_fp_file)>0)) {
 	  

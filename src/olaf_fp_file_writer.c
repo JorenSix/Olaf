@@ -82,6 +82,21 @@ void olaf_fp_file_writer_store( Olaf_FP_File_Writer * file_writer , struct extra
 	fingerprints->fingerprintIndex = 0;
 }
 
+int olaf_fp_file_writer_compare_entries(const void * a, const void * b) {
+	struct Olaf_FP_File_Entry aResult = *(struct Olaf_FP_File_Entry*)a;
+	struct Olaf_FP_File_Entry bResult = *(struct Olaf_FP_File_Entry*)b;
+
+	if(aResult.hash == bResult.hash){
+		return aResult.hash > bResult.hash ? 1 : -1;
+	}
+
+	//if the match count is equal, sort by value
+	if( aResult.value == bResult.value){
+		return 0;
+	}
+	return aResult.value > bResult.value ? 1 : -1;
+}
+
 void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * file_writer){
 
 	if(file_writer->entry_index > 0){
@@ -98,8 +113,12 @@ void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * file_writer){
 			printf("Error! opening file");
 		}
 
+		//sort results by match count, lowest match count first
+		qsort(file_writer->entries,  file_writer->entry_index, sizeof(struct Olaf_FP_File_Entry), olaf_fp_file_writer_compare_entries);
+
+
 		for(size_t i = 0 ; i < file_writer->entry_index;i++){
-			fprintf(temp_db_file,"%u,%llu\n",file_writer->entries[i].hash,file_writer->entries[i].value);
+			fprintf(temp_db_file,"%u,%lu\n",file_writer->entries[i].hash,file_writer->entries[i].value);
 		}
 
 		fclose(temp_db_file);

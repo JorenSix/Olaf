@@ -3,7 +3,7 @@ compile:
 	gcc -c src/midl.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/mdb.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/hash-table.c     		-W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf.c 					-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf.c 					-W -Wall -std=gnu11 -pedantic -O2
 	gcc -c src/olaf_fp_file_writer.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db.c 			-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer.c 		-W -Wall -std=c11 -pedantic -O2
