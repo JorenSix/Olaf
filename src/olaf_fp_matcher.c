@@ -133,6 +133,10 @@ void updateResults(Olaf_FP_Matcher * fp_matcher,int queryFingerprintT1,int refer
 	}
 
 	//sort results by match count, lowest match count first
+	//since this happens for each match, this is a bottleneck for
+	//large databases, see the fast implementation to avoid this
+	//For small databases (embedded use) matches (collisions) are rare
+	//so sort is only called infrequently 
 	qsort(fp_matcher->results, fp_matcher->config->maxResults, sizeof(struct match_result), compareResults);
 
 	//Replace the current lowest match with the new match

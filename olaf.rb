@@ -313,46 +313,35 @@ end
 
 def bulk_load
 	folder_name = File.join(Dir.home,".olaf","db")
-	collector_file = File.join(folder_name,"collector.tdb")
 	sorted_file = File.join(folder_name,"sorted.tdb")
 
-	system("rm '#{collector_file}'") if(File.exists? collector_file)
 	system("rm '#{sorted_file}'") if(File.exists? sorted_file)
 
-	Dir.glob(File.join(folder_name,"*.tdb")).each do |tdb_file|
-		puts "Handling #{tdb_file}"
-		system("cat '#{tdb_file}' >> '#{collector_file}'")
-	end
-	puts "Sorting #{collector_file} (#{File.size(collector_file)/1024/1024} MB)"
+	puts "Sorting tdb files"
 
-	system("sort -n '#{collector_file}' > '#{sorted_file}'")
+	system("sort -m -n #{Folder.join(folder_name,"*.tdb")} > '#{sorted_file}'")
 	
 	puts "Storing in Olaf DB"
-
-	#remove collector file
-	system("rm '#{collector_file}'") if(File.exists? collector_file)
 
 	Open3.popen3("#{EXECUTABLE_LOCATION} bulk_load") do |stdin, stdout, stderr, wait_thr|
 		Thread.new do
 			stdout.each {|l| puts l }
-			end
+		end
 
-			Thread.new do
+		Thread.new do
 			stderr.each {|l| puts l }
-			end
-
+		end
 		wait_thr.value
 	end
 
 	Open3.popen3("#{EXECUTABLE_LOCATION} stats") do |stdin, stdout, stderr, wait_thr|
 		Thread.new do
 			stdout.each {|l| puts l }
-			end
+		end
 
-			Thread.new do
+		Thread.new do
 			stderr.each {|l| puts l }
-			end
-
+		end
 		wait_thr.value
 	end
 end
