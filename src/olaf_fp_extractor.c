@@ -87,7 +87,7 @@ int compareEventPoints (const void * a, const void * b) {
 uint32_t olaf_fp_extractor_hash(struct fingerprint f){
 	//uint16_t frequency1 = f.frequencyBin1;
 	//uint16_t deltaF = abs(f.frequencyBin1 - f.frequencyBin2);
-	uint16_t deltaT = f.timeIndex1 - f.timeIndex2;
+	uint16_t deltaT = f.timeIndex2 - f.timeIndex1;
 	uint16_t f1LargerThanF2 = f.frequencyBin1 > f.frequencyBin2 ? 1 : 0;
 	
 	//uint16_t frequency1Interpolated = (int) (f.fractionalFrequencyBin1 * 2);

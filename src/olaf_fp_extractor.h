@@ -22,13 +22,15 @@
 	
 	// A fingerprint consists of two event points
 	// So it has two frequency bins and two time indexes
-	struct fingerprint{
+	typedef struct fingerprint; {
 		int frequencyBin1;
 		float fractionalFrequencyBin1;
 		int timeIndex1;
 		int frequencyBin2;
 		float fractionalFrequencyBin2;
 		int timeIndex2;
+		float fractionalFrequencyBin3;
+		int timeIndex3;
 	};
 
 	//This struct is shared to report the fingerprints
