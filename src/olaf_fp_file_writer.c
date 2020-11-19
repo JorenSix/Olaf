@@ -83,18 +83,20 @@ void olaf_fp_file_writer_store( Olaf_FP_File_Writer * file_writer , struct extra
 }
 
 int olaf_fp_file_writer_compare_entries(const void * a, const void * b) {
-	struct Olaf_FP_File_Entry aResult = *(struct Olaf_FP_File_Entry*)a;
-	struct Olaf_FP_File_Entry bResult = *(struct Olaf_FP_File_Entry*)b;
+	struct Olaf_FP_File_Entry a_file_entry = *(struct Olaf_FP_File_Entry*)a;
+	struct Olaf_FP_File_Entry b_file_entry = *(struct Olaf_FP_File_Entry*)b;
 
-	if(aResult.hash == bResult.hash){
-		return aResult.hash > bResult.hash ? 1 : -1;
+	//sort by hash
+	if(a_file_entry.hash != b_file_entry.hash){
+		return a_file_entry.hash > b_file_entry.hash ? 1 : -1;
 	}
 
-	//if the match count is equal, sort by value
-	if( aResult.value == bResult.value){
+	//if hash is equal, sort by value
+	if( a_file_entry.value == b_file_entry.value){
 		return 0;
 	}
-	return aResult.value > bResult.value ? 1 : -1;
+
+	return a_file_entry.value > b_file_entry.value ? 1 : -1;
 }
 
 void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * file_writer){

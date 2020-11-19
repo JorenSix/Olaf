@@ -16,20 +16,23 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 require 'json'
 require 'fileutils'
 require 'tempfile'
 require 'open3'
 
 ID_TO_AUDIO_FILENAME = File.expand_path("~/.olaf/file_list.json")
+DB_FOLDER = File.expand_path("~/.olaf/db") #needs to be the same in the c code
 EXECUTABLE_LOCATION = "/usr/local/bin/olaf_c"
+CHECK_INCOMING_AUDIO = true
+MONITOR_LENGTH_IN_SECONDS = 7
+BULK_STORE_THREADS = 3 #change to e.g. your number of CPU cores -1
+
 
 ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
 AUDIO_DURATION_COMMAND = "ffprobe -i \"__input__\" -show_entries format=duration -v quiet -of csv=\"p=0\""
 AUDIO_CONVERT_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -i \"__input__\" -ac 1 -ar 8000 -f f32le -acodec pcm_f32le \"__output__\""
 AUDIO_CONVERT_COMMAND_WITH_START_DURATION = "ffmpeg -hide_banner -y -loglevel panic -ss __start__ -i \"__input__\" -t __duration__ -ac 1 -ar 8000 -f f32le -acodec pcm_f32le \"__output__\""
-MONITOR_LENGTH_IN_SECONDS = 7
 
 #expand the argument to a list of files to process.
 # a file is simply added to the list
@@ -206,9 +209,11 @@ def store(index,length,audio_filename)
 	return unless audio_filename_escaped
 
 	audio_identifer = audio_filename_to_olaf_id(audio_filename_escaped)
-			
+
+	if(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
+		puts "#{index}/#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
 	#Do not store same audio twice
-	if(ID_TO_AUDIO_HASH.has_key? audio_identifer)
+	elsif(ID_TO_AUDIO_HASH.has_key? audio_identifer)
 		puts "#{index}/#{length} #{File.basename audio_filename} already in storage"
 	else
 		with_converted_audio(audio_filename_escaped) do |tempfile|
@@ -234,7 +239,9 @@ def store_all(audio_filenames)
 
 		audio_identifier = audio_filename_to_olaf_id(audio_filename_escaped)
 
-		if ID_TO_AUDIO_HASH.has_key? audio_identifier
+		if(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
+			puts "#{index}/#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
+		elsif ID_TO_AUDIO_HASH.has_key? audio_identifier
 			puts "#{File.basename audio_filename} already in storage"
 		else
 			audio_filenames_escaped << audio_filename_escaped
@@ -297,8 +304,10 @@ def bulk_store(index,length,audio_filename)
 
 	audio_identifer = audio_filename_to_olaf_id(audio_filename_escaped)
 			
+	if(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
+		puts "#{index}/#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
 	#Do not store same audio twice
-	if(ID_TO_AUDIO_HASH.has_key? audio_identifer)
+	elsif(ID_TO_AUDIO_HASH.has_key? audio_identifer)
 		puts "#{index}/#{length} #{File.basename audio_filename} already in storage"
 	else
 		with_converted_audio(audio_filename_escaped) do |tempfile|
@@ -312,7 +321,8 @@ def bulk_store(index,length,audio_filename)
 end
 
 def bulk_load
-	folder_name = File.join(Dir.home,".olaf","db")
+	folder_name = DB_FOLDER
+
 	sorted_file = File.join(folder_name,"sorted.tdb")
 
 	system("rm '#{sorted_file}'") if(File.exists? sorted_file)
@@ -346,8 +356,11 @@ def bulk_load
 	end
 end
 
+#create the db folder unless it exists
+FileUtils.mkdir_p DB_FOLDER unless File.exist?(DB_FOLDER)
 
-FileUtils.touch(ID_TO_AUDIO_FILENAME)
+#create the id->audio file json file unless it exists
+FileUtils.touch(ID_TO_AUDIO_FILENAME) unless File.exist?(ID_TO_AUDIO_FILENAME)
 
 command  = ARGV[0]
 
@@ -384,7 +397,7 @@ if command.eql? "store"
 	#end
 elsif command.eql? "bulk_store"
 	require 'threach'
-	audio_files.threach(3, :each_with_index) do |audio_file, index|
+	audio_files.threach(BULK_STORE_THREADS, :each_with_index) do |audio_file, index|
 		bulk_store(index+1,audio_files.length,audio_file)
 
 		if (index % 100 == 0)
