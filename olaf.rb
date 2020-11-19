@@ -26,7 +26,7 @@ DB_FOLDER = File.expand_path("~/.olaf/db") #needs to be the same in the c code
 EXECUTABLE_LOCATION = "/usr/local/bin/olaf_c"
 CHECK_INCOMING_AUDIO = true
 MONITOR_LENGTH_IN_SECONDS = 7
-BULK_STORE_THREADS = 3 #change to e.g. your number of CPU cores -1
+BULK_STORE_THREADS = 7 #change to e.g. your number of CPU cores -1
 
 
 ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
@@ -210,11 +210,11 @@ def store(index,length,audio_filename)
 
 	audio_identifer = audio_filename_to_olaf_id(audio_filename_escaped)
 
-	if(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
-		puts "#{index}/#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
 	#Do not store same audio twice
-	elsif(ID_TO_AUDIO_HASH.has_key? audio_identifer)
+	if(ID_TO_AUDIO_HASH.has_key? audio_identifer)
 		puts "#{index}/#{length} #{File.basename audio_filename} already in storage"
+	elsif(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
+		puts "#{index}/#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
 	else
 		with_converted_audio(audio_filename_escaped) do |tempfile|
 			ID_TO_AUDIO_HASH[audio_identifer] = audio_filename;
@@ -239,10 +239,10 @@ def store_all(audio_filenames)
 
 		audio_identifier = audio_filename_to_olaf_id(audio_filename_escaped)
 
-		if(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
-			puts "#{index}/#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
-		elsif ID_TO_AUDIO_HASH.has_key? audio_identifier
+		if ID_TO_AUDIO_HASH.has_key? audio_identifier
 			puts "#{File.basename audio_filename} already in storage"
+		elsif(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
+			puts "#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
 		else
 			audio_filenames_escaped << audio_filename_escaped
 			audio_identifiers << audio_identifier
@@ -304,11 +304,12 @@ def bulk_store(index,length,audio_filename)
 
 	audio_identifer = audio_filename_to_olaf_id(audio_filename_escaped)
 			
-	if(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
-		puts "#{index}/#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
+	
 	#Do not store same audio twice
-	elsif(ID_TO_AUDIO_HASH.has_key? audio_identifer)
+	if(ID_TO_AUDIO_HASH.has_key? audio_identifer)
 		puts "#{index}/#{length} #{File.basename audio_filename} already in storage"
+	elsif(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
+		puts "#{index}/#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
 	else
 		with_converted_audio(audio_filename_escaped) do |tempfile|
 			ID_TO_AUDIO_HASH[audio_identifer] = audio_filename;
