@@ -202,6 +202,18 @@ def escape_audio_filename(audio_filename)
 	end
 end
 
+def print(index,length,audio_filename)
+	audio_filename_escaped = escape_audio_filename(audio_filename)
+	return unless audio_filename_escaped
+	with_converted_audio(audio_filename_escaped) do |tempfile|
+	
+		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} print \"#{tempfile.path}\"")
+		stdout.split("\n").each do |line|
+			puts "#{index}/#{length},#{File.basename audio_filename},#{line}\n"
+		end
+	end
+end
+
 
 def store(index,length,audio_filename)
 
@@ -242,7 +254,7 @@ def store_all(audio_filenames)
 		if ID_TO_AUDIO_HASH.has_key? audio_identifier
 			puts "#{File.basename audio_filename} already in storage"
 		elsif(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
-			puts "#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
+			puts "#{File.basename audio_filename} INVALID audio file? Duration zero."
 		else
 			audio_filenames_escaped << audio_filename_escaped
 			audio_identifiers << audio_identifier
@@ -330,7 +342,7 @@ def bulk_load
 
 	puts "Sorting tdb files"
 
-	system("sort -m -n #{Folder.join(folder_name,"*.tdb")} > '#{sorted_file}'")
+	system("sort -m -n #{File.join(folder_name,"*.tdb")} > '#{sorted_file}'")
 	
 	puts "Storing in Olaf DB"
 
@@ -412,6 +424,10 @@ elsif command.eql? "bulk_load"
 elsif command.eql? "del"
 	audio_files.each_with_index do |audio_file, index|
 		del(index+1,audio_files.length,audio_file)
+	end
+elsif command.eql? "print"
+	audio_files.each_with_index do |audio_file, index|
+		print(index+1,audio_files.length,audio_file)
 	end
 elsif command.eql? "query"
 	audio_files.each_with_index do |audio_file, index|

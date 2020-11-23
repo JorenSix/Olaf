@@ -24,7 +24,7 @@ void print_help(const char* message){
 	exit(-10);
 }
 
-enum olaf_command {query = 0, store = 1, del = 4,bulk_store = 5}; 
+enum olaf_command {query = 0, store = 1, del = 4,bulk_store = 5, print = 6}; 
 
 
 //performance shortcut to bulk load ordered 
@@ -86,6 +86,20 @@ void olaf_bulk_load(){
 	olaf_fp_db_destroy(db);
 }
 
+void olaf_print_fp(struct fingerprint fp){
+	int timeIndex1=fp.timeIndex1;
+	int frequencyBin1=fp.frequencyBin1;
+	float fractionalFrequencyBin1=fp.fractionalFrequencyBin1;
+	
+	int timeIndex2=fp.timeIndex2;
+	int frequencyBin2=fp.frequencyBin2;
+	float fractionalFrequencyBin2=fp.fractionalFrequencyBin2;
+
+	uint32_t hash = olaf_fp_extractor_hash(fp);
+
+	printf("%u,%d,%d,%f,%d,%d,%f\n",hash,timeIndex1,frequencyBin1,fractionalFrequencyBin1,timeIndex2,frequencyBin2,fractionalFrequencyBin2);
+}
+
 int main(int argc, const char* argv[]){
 
 
@@ -112,6 +126,8 @@ int main(int argc, const char* argv[]){
 		cmd = query;
 	} else if(strcmp(command,"del") == 0){
 		cmd = del;
+	} else if(strcmp(command,"print") == 0){
+		cmd = print;
 	} else if(strcmp(command,"name_to_id") == 0){
 		//print the hash an exit
 		printf("%u\n",olaf_fp_db_string_hash(argv[2],strlen(argv[2])));
@@ -124,12 +140,12 @@ int main(int argc, const char* argv[]){
 		olaf_fp_db_destroy(db);
 		exit(0);
 		return 0;
-	}else if(strcmp(command,"bulk_store") == 0){
+	}else {
 		
 	}
 
 
-	bool readonly_db = (cmd == query || cmd == bulk_store);
+	bool readonly_db = (cmd == query || cmd == bulk_store || cmd == print);
 	
 	Olaf_FP_DB* db = NULL;
 
@@ -147,7 +163,7 @@ int main(int argc, const char* argv[]){
 	float *fft_out= (float*) pffft_aligned_malloc(bytesPerAudioBlock);//fft output
 
 
-	int arg_increment = (cmd == query) ? 1 : 2;
+	int arg_increment = (cmd == query || cmd == print) ? 1 : 2;
 
 	//for each audio file
 
@@ -166,7 +182,7 @@ int main(int argc, const char* argv[]){
 
 		//Initialize one or other, otherwise database is read from disk twice!
 		//so twice the memory usage
-		if(cmd == query){
+		if(cmd == query || cmd == print){
 			fp_matcher = olaf_fp_matcher_new(config,db);
 		} else {
 			//to store or delete fingerprints
@@ -240,6 +256,11 @@ int main(int argc, const char* argv[]){
 					olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
 				} else if(cmd == bulk_store){
 					olaf_fp_file_writer_store(fp_file_writer,fingerprints);
+				} else if(cmd == print){
+					for(size_t i = 0 ; i < fingerprints->fingerprintIndex; i++){
+						olaf_print_fp(fingerprints->fingerprints[i]);
+					}
+					fingerprints->fingerprintIndex = 0;
 				}
 			}
 			//increase the audio buffer counter
@@ -261,6 +282,11 @@ int main(int argc, const char* argv[]){
 			olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
 		} else if(cmd == bulk_store){
 			olaf_fp_file_writer_store(fp_file_writer,fingerprints);
+		}else if(cmd == print){
+			for(size_t i = 0 ; i < fingerprints->fingerprintIndex; i++){
+				olaf_print_fp(fingerprints->fingerprints[i]);
+			}
+			fingerprints->fingerprintIndex = 0;
 		}
 
 	    olaf_reader_destroy(reader);

@@ -129,6 +129,10 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 		if(f1==0 && t1==0)
 			break;
 
+		//do not allow f1 == 0, often noisy and cause of collisions
+		if(f1==0)
+			continue;
+
 		//do not evaulate points with more than x prints per event point
 		if(ppp1>fp_extractor->config->maxFingerprintsPerPoint)
 			continue;
@@ -152,6 +156,10 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 			//do not evaluate points to far in the future
 			if(tDiff > fp_extractor->config->maxTimeDistance)
 				break;
+
+			//do not allow f2 == 0, often noisy and cause of collisions
+			if(f2==0)
+				continue;
 
 			//do not evaulate points with more than x prints per event point
 			if(ppp2>fp_extractor->config->maxFingerprintsPerPoint)
