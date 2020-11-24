@@ -121,7 +121,11 @@ def query(index,length,audio_filename,ignore_self_match)
 				#ignore self matches if requested (for deduplication)
 				unless(ignore_self_match and query_audio_identifer.eql? matching_audio_id)
 					filename = ID_TO_AUDIO_HASH[matching_audio_id]
-					puts "#{index}/#{length} #{File.basename audio_filename} matches #{File.basename filename} #{line}\n"
+					if(filename)
+						puts "#{index}/#{length} #{File.basename audio_filename} matches #{File.basename filename} #{line}\n"
+					else
+						puts "Did not find filename for id #{matching_audio_id}."
+					end
 				end
 			else 
 				puts "#{index}/#{length} #{File.basename audio_filename} #{line}"
