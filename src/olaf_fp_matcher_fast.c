@@ -47,6 +47,7 @@ struct match_result{
 	//the matching audio file
 	uint32_t matchIdentifier;
 
+
 	//Current result should be printed?
 	bool toPrint;
 };
@@ -83,6 +84,7 @@ struct Olaf_FP_Matcher{
 	uint64_t * db_results;
 };
 
+//for the hash table use a 64 bit key
 unsigned int uint64_t_hash(void *vlocation){
 	uint64_t *location;
 
@@ -95,6 +97,7 @@ unsigned int uint64_t_hash(void *vlocation){
 	return (unsigned int) (low_bits ^ high_bits);
 }
 
+//check whether two hash keys are equal
 int uint64_t_equal(void *vlocation1, void *vlocation2){
 	uint64_t *location1;
 	uint64_t *location2;
@@ -188,6 +191,8 @@ void updateResults(Olaf_FP_Matcher * fp_matcher,int queryFingerprintT1,int refer
 		//uncommon
 		if(match->matchCount >= 3){
 			fp_matcher->best_results[0]=match;
+
+
 			//sort to keep  order:  lowest match count first
 			qsort(fp_matcher->best_results, fp_matcher->config->maxResults, sizeof(struct match_result *), compareResults);
 		}

@@ -52,7 +52,7 @@ void olaf_fp_extractor_destroy(Olaf_FP_Extractor * fp_extractor){
 	free(fp_extractor);
 }
 
-int compareEventPoints (const void * a, const void * b) {
+int olaf_ep_compare_event_points (const void * a, const void * b) {
 	struct eventpoint aPoint = *(struct eventpoint*) a;
 	struct eventpoint bPoint = *(struct eventpoint*) b;
 	return (aPoint.timeIndex - bPoint.timeIndex);
@@ -111,9 +111,6 @@ uint32_t olaf_fp_extractor_hash(struct fingerprint f){
 	          ((deltaFInterpolated       &  ((1<<9) -1)   ) <<  7) +
 	          ((f1LargerThanF2           &  ((1<<1) -1)   ) <<  6) +
 	          ((deltaT                   &  ((1<<6) -1)   ) <<  0) ;
-
-
-
 
 	return fp_hash;
 }
@@ -237,7 +234,7 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 
 	//sort the array from low timeIndex to high
 	//the marked event points have a high time index
-	qsort(eventPoints->eventPoints,eventPoints->eventPointIndex, sizeof(struct eventpoint), compareEventPoints);
+	qsort(eventPoints->eventPoints,eventPoints->eventPointIndex, sizeof(struct eventpoint), olaf_ep_compare_event_points);
 
 	//find the first marked event point: this is where the next point needs to be stored
 	for(int i = 0 ; i <eventPoints->eventPointIndex ; i++){
