@@ -188,7 +188,9 @@ void olaf_fp_matcher_tally_results(Olaf_FP_Matcher * fp_matcher,int queryFingerp
 	
 	struct match_result * match = hash_table_lookup(fp_matcher->result_hash_table,&result_hash_table_key);
 
+
 	if(match!=NULL){
+		//Update match when found
 		match->referenceFingerprintT1 = referenceFingerprintT1;
 		match->queryFingerprintT1 = queryFingerprintT1;
 		match->matchCount = match->matchCount + 1;
@@ -197,6 +199,7 @@ void olaf_fp_matcher_tally_results(Olaf_FP_Matcher * fp_matcher,int queryFingerp
 
 		//printf("UPDATE  %llu hash table size: %d  match_count: %d  %llu index \n",result_hash_table_key,hash_table_num_entries(fp_matcher->result_hash_table),match->matchCount,fp_matcher->m_results_index);
 	}else{
+		//Create new hashtable entry if not found
 		size_t i = fp_matcher->m_results_index;
 
 		fp_matcher->m_results[i].referenceFingerprintT1 = referenceFingerprintT1;
@@ -244,16 +247,12 @@ void olaf_fp_matcher_match_single_fingerprint(Olaf_FP_Matcher * fp_matcher,uint3
 
 int olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerprints *  fingerprints ){
 	
-	int lastQueryFingerprintT1 =0;
-
 	for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
 		struct fingerprint f = fingerprints->fingerprints[i];
 		uint32_t hash = olaf_fp_extractor_hash(f);
 
 		olaf_fp_matcher_match_single_fingerprint(fp_matcher,f.timeIndex1,hash);
  
-		lastQueryFingerprintT1 = f.timeIndex1;
-
 		if(fp_matcher->config->includeOffByOneMatches){
 			int originalt1 = f.timeIndex1;
 			int originalt2 = f.timeIndex2;
@@ -271,8 +270,6 @@ int olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerp
 			f.timeIndex2 = originalt2;
 		}
 	}
-	
-	//ageResults(fp_matcher,lastQueryFingerprintT1);
 
 	//make room for new fingerprints in the shared struct!
 	fingerprints->fingerprintIndex=0;
