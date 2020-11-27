@@ -23,12 +23,11 @@
 #include "olaf_fp_db.h"
 
 struct match_result{
-	//The time difference between the query fingerprint t1 and
-	//the reference fingerprint t1 time
-	int timeDiff;
-
 	// The time of the matched reference fingerprint t1 
 	int referenceFingerprintT1;
+
+	//The time of the query fingerprint f1
+	int queryFingerprintT1;
 
 	//The first found match in the reference for this time difference
 	//Storing the first and last match makes it possible to identify
@@ -37,9 +36,6 @@ struct match_result{
 
 	//The last found match in the reference for this time difference
 	int lastReferenceFingerprintT1;
-
-	//The time of the query fingerprint f1
-	int queryFingerprintT1;
 
 	//The number of occurences with this exact time difference
 	int matchCount;
@@ -57,7 +53,7 @@ inline int min ( int a, int b ) { return a < b ? a : b; }
 
 struct Olaf_FP_Matcher{
 
-	//list with all results meant to be reused at random
+	//List with all results
 	struct match_result * m_results;
 
 	//the current size of the results found
@@ -66,22 +62,25 @@ struct Olaf_FP_Matcher{
 	//the current index in the array
 	size_t m_results_index;
 
-	//A hash table with match_results
-	//key is a combination of match_id and time diff
+	//A hash table to quickly check whether a match_id and time diff
+	//combination has already been encountered
+
+	//The key is pointer to a combination of match_id and time diff 
+	//    values pointers to match structs
 	HashTable *result_hash_table;
 
-	//the database to use
+	//The database to use
 	Olaf_FP_DB * db;
 
-	//the configuration of Olaf
+	//The configuration of Olaf
 	Olaf_Config * config;
 
-	//a list of results returns by the database
-	//limited to a configured maxDBResults
+	//A list of results returns by the database
+	//  limited to a configured maxDBCollisions
 	uint64_t * db_results;
 };
 
-//for the hash table use a 64 bit key
+//For the hash table use a 64 bit key mapped to 32 bits
 unsigned int uint64_t_hash(void *vlocation){
 	uint64_t *location;
 
@@ -94,7 +93,7 @@ unsigned int uint64_t_hash(void *vlocation){
 	return (unsigned int) (low_bits ^ high_bits);
 }
 
-//check whether two hash keys are equal
+//Check whether two hash keys are equal
 int uint64_t_equal(void *vlocation1, void *vlocation2){
 	uint64_t *location1;
 	uint64_t *location2;
@@ -105,19 +104,24 @@ int uint64_t_equal(void *vlocation1, void *vlocation2){
 	return *location1 == *location2;
 }
 
-
+//Creates a new matcher 
 Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_FP_DB* db ){
 	Olaf_FP_Matcher *fp_matcher = (Olaf_FP_Matcher*) malloc(sizeof(Olaf_FP_Matcher));
 
 	fp_matcher->db = db;
 
-	fp_matcher->db_results = (uint64_t *) malloc(config->maxDBResults * sizeof(uint64_t));
+	//The maximum number of results returned by the database
+	//This is the number of times a 'hash collision' is allowed in the 
+	//database
+	fp_matcher->m_results_size =  config->maxDBCollisions;
+
+	//The database results are integers which combine a time info and match id
+	fp_matcher->db_results = (uint64_t *) malloc(fp_matcher->m_results_size * sizeof(uint64_t));
 
 	fp_matcher->config = config;
 
+	
 	fp_matcher->result_hash_table = hash_table_new(uint64_t_hash,uint64_t_equal);
-
-	fp_matcher->m_results_size =  config->maxDBResults;
 
 	fp_matcher->m_results = (struct match_result *) malloc( fp_matcher->m_results_size  * sizeof(struct match_result));
 
@@ -126,6 +130,19 @@ Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_FP_DB* db ){
 	return fp_matcher;
 }
 
+// The grow method is called when m_results is full.
+// It does a number of things:
+//
+//   1 It creates more (double) space in the m_results array
+//   2 It clears the hash table and creates a new one
+//   3 Filters for relevant results relevant here means not too old and a match score of less than 5
+//   4 Stores the relevant result in the new m_results array and hash table
+//   5 Frees memory that is not used any more
+// 
+// This should leave the hash table and m_results array relatively empty and with more
+// than enough space while limiting memory use. 
+// 
+// When the m_results is full, grow is called again.
 void olaf_fp_matcher_m_results_grow(Olaf_FP_Matcher * fp_matcher,int queryFingerprintT1){
 
 	//store a pointer to the previous table
@@ -176,6 +193,13 @@ void olaf_fp_matcher_m_results_grow(Olaf_FP_Matcher * fp_matcher,int queryFinger
 	//printf("Hash table size after grow %d \n",hash_table_num_entries(fp_matcher->result_hash_table));
 }
 
+// Counts matches for each hash hit and puts them in a hash table.
+// A match_id and time difference are keys in the hash table, the value
+// is a match_result struct pointer.
+//
+// This method should be fast since a single fingerprint hash could 
+// return a thousand hits (collisons) from a large database
+// 
 void olaf_fp_matcher_tally_results(Olaf_FP_Matcher * fp_matcher,int queryFingerprintT1,int referenceFingerprintT1,uint32_t matchIdentifier){
 	
 	int timeDiff = queryFingerprintT1 - referenceFingerprintT1;
@@ -187,7 +211,6 @@ void olaf_fp_matcher_tally_results(Olaf_FP_Matcher * fp_matcher,int queryFingerp
 	uint64_t result_hash_table_key = diff_part + match_part;
 	
 	struct match_result * match = hash_table_lookup(fp_matcher->result_hash_table,&result_hash_table_key);
-
 
 	if(match!=NULL){
 		//Update match when found
@@ -207,7 +230,6 @@ void olaf_fp_matcher_tally_results(Olaf_FP_Matcher * fp_matcher,int queryFingerp
 		fp_matcher->m_results[i].lastReferenceFingerprintT1 = referenceFingerprintT1;
 		fp_matcher->m_results[i].queryFingerprintT1 = queryFingerprintT1;
 		fp_matcher->m_results[i].matchCount = 1;
-		fp_matcher->m_results[i].timeDiff=timeDiff;
 		fp_matcher->m_results[i].matchIdentifier = matchIdentifier;
 		fp_matcher->m_results[i].result_hash_table_key = result_hash_table_key;
 	
@@ -224,14 +246,12 @@ void olaf_fp_matcher_tally_results(Olaf_FP_Matcher * fp_matcher,int queryFingerp
 	}
 }
 
+//Match a single fingerprint with the database
 void olaf_fp_matcher_match_single_fingerprint(Olaf_FP_Matcher * fp_matcher,uint32_t queryFingerprintT1,uint32_t queryFingerprintHash){
 
-	//igore the audio id (32 bits) and the time information (14 bits), leaving only 18 bits
 	size_t number_of_results = 0;
 
-	//printf("Query: %llu  (%d) \n",search_key,significant);
-
-	olaf_fp_db_find(fp_matcher->db,queryFingerprintHash,0,fp_matcher->db_results,fp_matcher->config->maxDBResults,&number_of_results);
+	olaf_fp_db_find(fp_matcher->db,queryFingerprintHash,0,fp_matcher->db_results,fp_matcher->config->maxDBCollisions,&number_of_results);
 
 	//fprintf(stdout,"Number of results: %zu \n",number_of_results);
 
@@ -277,7 +297,9 @@ int olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerp
 	return 1;
 }
 
-int compare_results (const void * a, const void * b) {
+//for use with qsort: a comparator that sorts result structs by match count
+//Highest count first!
+int olaf_fp_sort_results_by_match_count(const void * a, const void * b) {
 	struct match_result * aResult = (struct match_result*)a;
 	struct match_result * bResult = (struct match_result*)b;
 
@@ -287,11 +309,13 @@ int compare_results (const void * a, const void * b) {
 	return diff;
 }
 
-
+//Print the final results: sort the m_results array and print
 void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 	
-	qsort(fp_matcher->m_results, fp_matcher->m_results_index, sizeof(struct match_result), compare_results);
+	//sort
+	qsort(fp_matcher->m_results, fp_matcher->m_results_index, sizeof(struct match_result), olaf_fp_sort_results_by_match_count);
 
+	//print
 	for(size_t i = 0 ; i < fp_matcher->m_results_index ; i++){
 		struct match_result * match = &fp_matcher->m_results[i];
 
@@ -305,12 +329,17 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 
 			float timeDeltaS =  timeDeltaF / 1000.0;
 			float queryTimeS = queryTime / 1000.0;
+			
 			uint32_t matchIdentifier = match->matchIdentifier;
 			fprintf(stderr,"q_to_ref_time_delta: %.2f, q_time: %.2f, score: %d, match_id: %u, ref_start: %.2f, ref_stop: %.2f\n",timeDeltaS, queryTimeS, match->matchCount,matchIdentifier,referenceStart,referenceStop);
 		}
+
+		//do not do anything with the rest of the array
+		break;
 	}
 }
 
+//Print final results and free used memory
 void olaf_fp_matcher_destroy(Olaf_FP_Matcher * fp_matcher){
 
 	olaf_fp_matcher_print_results(fp_matcher);

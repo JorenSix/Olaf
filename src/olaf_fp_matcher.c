@@ -72,7 +72,7 @@ Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_FP_DB* db ){
 
 	fp_matcher->db = db;
 
-	fp_matcher->dbResults = (uint64_t *) malloc(config->maxDBResults * sizeof(uint64_t));
+	fp_matcher->dbResults = (uint64_t *) malloc(config->maxDBCollisions * sizeof(uint64_t));
 
 	fp_matcher->config = config;
 
@@ -187,7 +187,7 @@ void matchPrint(Olaf_FP_Matcher * fp_matcher,uint32_t queryFingerprintT1,uint32_
 
 	//printf("Query: %llu  (%d) \n",search_key,significant);
 
-	olaf_fp_db_find(fp_matcher->db,queryFingerprintHash,0,fp_matcher->dbResults,fp_matcher->config->maxDBResults,&number_of_results);
+	olaf_fp_db_find(fp_matcher->db,queryFingerprintHash,0,fp_matcher->dbResults,fp_matcher->config->maxDBCollisions,&number_of_results);
 
 	//fprintf(stderr,"Number of results: %zu \n",number_of_results);
 
