@@ -26,7 +26,7 @@ DB_FOLDER = File.expand_path("~/.olaf/db") #needs to be the same in the c code
 EXECUTABLE_LOCATION = "/usr/local/bin/olaf_c"
 CHECK_INCOMING_AUDIO = true
 MONITOR_LENGTH_IN_SECONDS = 7
-BULK_STORE_THREADS = 7 #change to e.g. your number of CPU cores -1
+AVAILABLE_THREADS = 7 #change to e.g. your number of CPU cores -1
 
 
 ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
@@ -414,7 +414,7 @@ if command.eql? "store"
 	#end
 elsif command.eql? "bulk_store"
 	require 'threach'
-	audio_files.threach(BULK_STORE_THREADS, :each_with_index) do |audio_file, index|
+	audio_files.threach(AVAILABLE_THREADS, :each_with_index) do |audio_file, index|
 		bulk_store(index+1,audio_files.length,audio_file)
 
 		if (index % 100 == 0)
@@ -443,7 +443,8 @@ elsif command.eql? "dedup"
 		store(index+1,audio_files.length,audio_file)
 	end
 
-	audio_files.each_with_index do |audio_file, index|
+	require 'threach'
+	audio_files.threach(AVAILABLE_THREADS, :each_with_index) do |audio_file, index|
 		query(index+1,audio_files.length,audio_file,true)
 	end
 elsif command.eql? "dedupm"
