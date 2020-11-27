@@ -110,8 +110,10 @@
 
 		int maxResultAge;//7.5 seconds
 
-		//maximum number of results expected from the database
-		int maxDBResults;
+		//maximum number of results returned from the database
+		//It can be considered as the number of times a fingerprint hash
+		//is allowed to collide
+		int maxDBCollisions;
 
 		//if true then each fingerprint query is repeated three times:
 		//  once with the original time bin, 
