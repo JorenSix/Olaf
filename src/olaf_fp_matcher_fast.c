@@ -208,6 +208,8 @@ void olaf_fp_matcher_tally_results(Olaf_FP_Matcher * fp_matcher,int queryFingerp
 	//The time difference to a certain match should remain equal
 	uint64_t diff_part = ((uint64_t) timeDiff) << 32;
 	uint64_t match_part = (uint64_t) matchIdentifier;
+
+
 	uint64_t result_hash_table_key = diff_part + match_part;
 	
 	struct match_result * match = hash_table_lookup(fp_matcher->result_hash_table,&result_hash_table_key);
@@ -253,7 +255,7 @@ void olaf_fp_matcher_match_single_fingerprint(Olaf_FP_Matcher * fp_matcher,uint3
 
 	olaf_fp_db_find(fp_matcher->db,queryFingerprintHash,0,fp_matcher->db_results,fp_matcher->config->maxDBCollisions,&number_of_results);
 
-	//fprintf(stdout,"Number of results: %zu \n",number_of_results);
+	//fprintf(stderr,"Number of results: %zu \n",number_of_results);
 
 	for(size_t i = 0 ; i < number_of_results ; i++){
 		//The 32 most significant bits represent ref t1
@@ -261,11 +263,13 @@ void olaf_fp_matcher_match_single_fingerprint(Olaf_FP_Matcher * fp_matcher,uint3
 		//The last 32 bits represent the match identifier
 		uint32_t matchIdentifier = (uint32_t) fp_matcher->db_results[i]; 
 
+		//fprintf(stderr,"audio id: %u ref t1 %u \n",matchIdentifier,referenceFingerprintT1);
+
 		olaf_fp_matcher_tally_results(fp_matcher,queryFingerprintT1,referenceFingerprintT1,matchIdentifier);
 	}
 }
 
-int olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerprints *  fingerprints ){
+void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerprints *  fingerprints ){
 	
 	for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
 		struct fingerprint f = fingerprints->fingerprints[i];
@@ -293,8 +297,6 @@ int olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerp
 
 	//make room for new fingerprints in the shared struct!
 	fingerprints->fingerprintIndex=0;
-
-	return 1;
 }
 
 //for use with qsort: a comparator that sorts result structs by match count

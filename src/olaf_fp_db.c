@@ -157,7 +157,7 @@ void olaf_fp_db_find(Olaf_FP_DB * olaf_fp_db,uint32_t key,int bits_to_ignore, ui
 
 	uint32_t stop_key = start_key | ((v<<bits_to_ignore)-1);
 
-	//printf("%u %u \n",start_key,stop_key);
+	//fprintf(stderr,"start key: %u stop key: %u \n",start_key,stop_key);
 
 	int rc;
 	MDB_cursor *cursor;
@@ -174,27 +174,31 @@ void olaf_fp_db_find(Olaf_FP_DB * olaf_fp_db,uint32_t key,int bits_to_ignore, ui
 
 	size_t result_index = 0;
 
-
 	//Position at first key greater than or equal to specified key.
 	rc = mdb_cursor_get(cursor, &mdb_key, &mdb_value, MDB_SET_RANGE );
 
 	//query
 	do {
+
 		uint32_t keyInt = *((uint32_t *) (mdb_key.mv_data));
 		uint64_t valueInt = *((uint64_t *) (mdb_value.mv_data));
 
 		if( keyInt > stop_key) break;
 
-		//printf("key:  %p %u, value: %p  %u \n",mdb_key.mv_data,keyInt,mdb_value.mv_data,valueInt);
+		//fprintf(stderr,"key:  %p %u, value: %p  %u \n",mdb_key.mv_data,keyInt,mdb_value.mv_data,valueInt);
 
 		if(result_index >= results_size){
-			printf("Results full\n");
+			fprintf(stderr,"Results full, expected less than %zu hash collisions\n",results_size);
 			break;
-		} 
+		}
 
-		results[result_index] = valueInt;
-		result_index++;
-		*number_of_results = result_index; 
+		//ignore empty results, currently unsure why these
+		//are present: check DB API call order to verify 
+		if(valueInt != 0){
+			results[result_index] = valueInt;
+			result_index++;
+			*number_of_results = result_index; 
+		}
 
 		rc = mdb_cursor_get(cursor, &mdb_key, &mdb_value, MDB_NEXT_DUP );
 
@@ -203,7 +207,7 @@ void olaf_fp_db_find(Olaf_FP_DB * olaf_fp_db,uint32_t key,int bits_to_ignore, ui
 
 			rc = mdb_cursor_get(cursor, &mdb_key, &mdb_value, MDB_NEXT);
 		}
-		//if(keyInt!=100) break;
+
 	} while (rc == 0);
 
 	mdb_cursor_close(cursor);

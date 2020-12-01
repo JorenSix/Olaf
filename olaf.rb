@@ -28,7 +28,6 @@ CHECK_INCOMING_AUDIO = true
 MONITOR_LENGTH_IN_SECONDS = 7
 AVAILABLE_THREADS = 7 #change to e.g. your number of CPU cores -1
 
-
 ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
 AUDIO_DURATION_COMMAND = "ffprobe -i \"__input__\" -show_entries format=duration -v quiet -of csv=\"p=0\""
 AUDIO_CONVERT_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -i \"__input__\" -ac 1 -ar 8000 -f f32le -acodec pcm_f32le \"__output__\""
@@ -85,14 +84,19 @@ def monitor(index,length,audio_filename,ignore_self_match, skip_size)
 
 			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} query \"#{tempfile.path}\" #{query_audio_identifer}")
 			
-			stderr.split("\n").each do |line|
-				if(line =~/.*match_id: (\d+)/)
-					matching_audio_id = $1
+			stdout.split("\n").each do |line|
+				data = line.split(",")
+				if(data[0] =~ /\d+/)
+					matching_audio_id = data[0]
 
 					#ignore self matches if requested (for deduplication)
 					unless(ignore_self_match and query_audio_identifer.eql? matching_audio_id)
 						filename = ID_TO_AUDIO_HASH[matching_audio_id]
+						if(filename)
 						puts "#{index}/#{length}_#{start}s #{File.basename audio_filename} matches #{File.basename filename} #{line} \n"
+						else
+							puts "Did not find filename for id #{matching_audio_id}. #{line}"
+						end
 					end
 				else 
 					puts "#{index}/#{length}_#{start}s #{File.basename audio_filename} #{line}"
@@ -114,17 +118,18 @@ def query(index,length,audio_filename,ignore_self_match)
 	with_converted_audio(audio_filename_escaped) do |tempfile|
 		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} query \"#{tempfile.path}\"")
 
-		stderr.split("\n").each do |line|
-			if(line =~/.*match_id: (\d+)/)
-				matching_audio_id = $1
+		stdout.split("\n").each do |line|
+			data = line.split(",")
+			if(data[0] =~ /\d+/)
+				matching_audio_id = data[0]
 
 				#ignore self matches if requested (for deduplication)
 				unless(ignore_self_match and query_audio_identifer.eql? matching_audio_id)
 					filename = ID_TO_AUDIO_HASH[matching_audio_id]
 					if(filename)
-						puts "#{index}/#{length} #{File.basename audio_filename} matches #{File.basename filename} #{line}\n"
+						puts "#{index},#{length},#{File.basename audio_filename},#{File.basename filename} #{line}\n"
 					else
-						puts "Did not find filename for id #{matching_audio_id}."
+						puts "Did not find filename for id #{matching_audio_id}. #{line}"
 					end
 				end
 			else 
@@ -133,7 +138,7 @@ def query(index,length,audio_filename,ignore_self_match)
 		end
 
 		#prints optional debug or error messages
-		puts stdout unless (stdout == nil or stdout.strip.size == 0)
+		puts stderr unless (stderr == nil or stderr.strip.size == 0)
 	end	
 end
 
@@ -162,7 +167,7 @@ def with_converted_audio_files(audio_filenames_escaped)
 	
 		system convert_command
 
-		puts "Transcoded #{File.basename audio_filename_escaped}"
+		#puts "Transcoded #{File.basename audio_filename_escaped}"
 
 		tempfiles << tempfile
 	end
@@ -434,6 +439,7 @@ elsif command.eql? "print"
 		print(index+1,audio_files.length,audio_file)
 	end
 elsif command.eql? "query"
+	puts "query index,total queries, query name, match name, match id, match count (#), q to ref time delta (s), ref start (s), ref stop (s), query time (s)\n"
 	audio_files.each_with_index do |audio_file, index|
 		query(index+1,audio_files.length,audio_file,false)
 	end
@@ -457,6 +463,7 @@ elsif command.eql? "dedupm"
 		monitor(index+1,audio_files.length,audio_file,true,MONITOR_LENGTH_IN_SECONDS)
 	end
 elsif command.eql? "monitor"
+	puts "query index,total queries, query name, match name, match id, match count (#), q to ref time delta (s), ref start (s), ref stop (s), query time (s)\n"
 	audio_files.each_with_index do |audio_file, index|
 		monitor(index + 1,audio_files.length,audio_file,false, MONITOR_LENGTH_IN_SECONDS)
 	end

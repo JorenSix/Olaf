@@ -54,8 +54,6 @@ void olaf_bulk_load(){
 
 	size_t fp_counter = 0;
 
-	
-
 	while ((line_len=getline(&b, &line_size, ordered_fp_file)>0)) {
 	  
 	  char* char_key = strtok(line_buf, ",");
@@ -293,6 +291,8 @@ int main(int argc, const char* argv[]){
 
 		//free olaf memory and close resources
 		if(cmd == query){
+			//print results
+			olaf_fp_matcher_print_results(fp_matcher);
 			olaf_fp_matcher_destroy(fp_matcher);
 		} else if(cmd == store) {
 			//use the fp's to store in the db
@@ -308,7 +308,6 @@ int main(int argc, const char* argv[]){
 
 		//for timing statistics
 		end = clock();
-		//fprintf(stderr,"end %lu \n",end);
 	    cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
 	    double audioDuration = (double) tot_samples_read / (double) config->audioSampleRate;
 	    double ratio = audioDuration / cpu_time_used;
@@ -320,14 +319,12 @@ int main(int argc, const char* argv[]){
 	pffft_aligned_free(fft_out);
 	pffft_destroy_setup(fftSetup);
 
-
 	if(db!= NULL){
 		//When the database becomes large (GBs), the following
 		//commits a transaction to disk, which takes considerable time!
 		//It is advised to then use multiple files in one program run.
 		olaf_fp_db_destroy(db);
 	}
-	
 
 	olaf_config_destroy(config);
 	
