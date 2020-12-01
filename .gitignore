@@ -1,3 +1,5 @@
 .DS_Store
 bin/*
 *.o
+
+src/olaf_fp_extractor_panako.c

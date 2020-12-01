@@ -309,18 +309,23 @@ int olaf_fp_sort_results_by_match_count(const void * a, const void * b) {
 	return diff;
 }
 
+void olaf_fp_matcher_print_header(){
+	//matchIdentifier,match->matchCount, timeDeltaS,referenceStart,referenceStop,queryTimeS
+	printf("match id, match count (#), q to ref time delta (s), ref start (s), ref stop (s), query time (s)\n");
+}
+
 //Print the final results: sort the m_results array and print
 void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 	
-	//sort
+	//sort by match count, most matches first
 	qsort(fp_matcher->m_results, fp_matcher->m_results_index, sizeof(struct match_result), olaf_fp_sort_results_by_match_count);
 
-	//print
+	//print the result from high to low
 	for(size_t i = 0 ; i < fp_matcher->m_results_index ; i++){
 		struct match_result * match = &fp_matcher->m_results[i];
 
 		if(match->matchCount >= fp_matcher->config->minMatchCount){
-			float millisecondsPerBlock = 32.0;
+			float millisecondsPerBlock = (float) fp_matcher->config->audioStepSize / ((float) fp_matcher->config->audioSampleRate);
 			float timeDeltaF = millisecondsPerBlock * (match->queryFingerprintT1 - match->referenceFingerprintT1);
 			float queryTime =   millisecondsPerBlock * match->queryFingerprintT1;
 
@@ -331,18 +336,18 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 			float queryTimeS = queryTime / 1000.0;
 			
 			uint32_t matchIdentifier = match->matchIdentifier;
-			fprintf(stderr,"q_to_ref_time_delta: %.2f, q_time: %.2f, score: %d, match_id: %u, ref_start: %.2f, ref_stop: %.2f\n",timeDeltaS, queryTimeS, match->matchCount,matchIdentifier,referenceStart,referenceStop);
-		}
 
-		//do not do anything with the rest of the array
-		break;
+			printf("%u, %d, %.2f, %.2f, %.2f, %.2f\n",matchIdentifier,match->matchCount, timeDeltaS,referenceStart,referenceStop,queryTimeS);
+		} else {
+
+			//Ignore matches with a small score
+			//for performance reasons
+			break;
+		}
 	}
 }
 
-//Print final results and free used memory
 void olaf_fp_matcher_destroy(Olaf_FP_Matcher * fp_matcher){
-
-	olaf_fp_matcher_print_results(fp_matcher);
 
 	free(fp_matcher->m_results);
 

@@ -1,6 +1,9 @@
 require 'fileutils'
 
 ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
+REFERENCE_DATABASE_SIZE = 100
+PERCENTAGE_TO_STORE = 0.8
+NUMBER_OF_QUERIES = 100
 
 
 def file_length(file)
@@ -206,6 +209,7 @@ def audio_file_list(arg,files_to_process)
 end
 
 
+
 directory = ARGV[0]
 
 unless File.directory? directory
@@ -216,6 +220,9 @@ end
 input_files = Array.new
 audio_file_list(directory,input_files)
 
+puts input_files.length 
+
+
 query_lengths = [5,10]
 query_lengths.each do |query_length|
  
@@ -223,10 +230,12 @@ query_lengths.each do |query_length|
   FileUtils.mkdir(target_dir) unless File.exists?(target_dir)
 
   input_files[0..6].each do |f|
-    target_extension = File.extname(f).gsub(".","")
-    cut_file = cut_random_piece_to_dir(f,target_dir,query_length)
-    cut_file = File.join(target_dir,cut_file)
-    create_queries([cut_file],target_dir,target_extension)
+    #target_extension = File.extname(f).gsub(".","")
+    #cut_file = cut_random_piece_to_dir(f,target_dir,query_length)
+    #cut_file = File.join(target_dir,cut_file)
+    #create_queries([cut_file],target_dir,target_extension)
   end
 end
+
+
 
