@@ -1,5 +1,5 @@
 .DS_Store
 bin/*
 *.o
-
+*.csv
 src/olaf_fp_extractor_panako.c

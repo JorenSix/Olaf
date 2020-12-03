@@ -1,10 +1,10 @@
 require 'fileutils'
+require 'tempfile'
+require 'tmpdir'
 
 ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
-REFERENCE_DATABASE_SIZE = 100
-PERCENTAGE_TO_STORE = 0.8
-NUMBER_OF_QUERIES = 100
-
+AUDIO_FILES_TO_CHECK_FOR_TRUE_POSITIVES = 100
+AUDIO_FILES_TO_CHECK_FOR_FALSE_POSITIVES = 20
 
 def file_length(file)
   $1.to_i if `sox "#{file}" -n stat 2>&1` =~ /.*Length .*:\s*(\d*)\..*/
@@ -17,31 +17,25 @@ def seconds_to_time(seconds)
 end
 
 def cut_piece(input_file,target_file,start,piece_length)
-  puts input_file
   command = "sox \"#{input_file}\" \"#{target_file}\" trim #{seconds_to_time(start)} #{seconds_to_time(piece_length)}"
-  puts command
   system(command)
   start
 end
 
 def cut_random_piece(input_file,target_file,piece_length)
-  puts input_file
   start =  rand(file_length(input_file) - piece_length) #in seconds
   command = "sox \"#{input_file}\" \"#{target_file}\" trim #{seconds_to_time(start)} #{seconds_to_time(piece_length)}"
-  puts command
   system(command)
   start
 end
 
 def cut_random_piece_to_dir(input_file,target_directory,piece_length)
-  puts input_file
   start =  rand(file_length(input_file) - piece_length) #in seconds
   basename = File.basename(input_file).gsub(/.(gsm|wav|mp3|ogg|flac)/,"")
   extname = File.extname(input_file)
   target_basename = "#{basename}_#{start}s-#{start+piece_length}s#{extname}"
   target_file = File.join(target_directory,target_basename)
   command = "sox \"#{input_file}\" \"#{target_file}\" trim #{seconds_to_time(start)} #{seconds_to_time(piece_length)}"
-  puts command
   system(command)
   target_basename
 end
@@ -49,21 +43,18 @@ end
 #change the pitch of a file without affecting tempo
 def create_pitch_shifted_file(input_file,target_file,cents)
   command = "sox \"#{input_file}\" \"#{target_file}\" pitch #{cents}"
-  puts command
   system(command)	
 end
 
 #factor gives the ratio of new tempo to the old tempo, so e.g. 1.1 speeds up the tempo by 10%, and 0.9 slows it down by 10%.
 def change_tempo(input_file,target_file,factor)
   command = "sox \"#{input_file}\" \"#{target_file}\" tempo #{factor}"
-  puts command
   system(command)	
 end
 
 #Apply a flanging effect to the audio
 def create_flanger_file(input_file,target_file)
   command = "sox \"#{input_file}\" \"#{target_file}\" flanger"
-  puts command
   system(command)	
 end
 
@@ -76,7 +67,6 @@ def create_fm_compressed_file(input_file,target_file)
                    \"0,0.025 -38,-31,-28,-28,-0,-25\" \
                    gain 15 highpass 22 highpass 22 sinc -n 255 -b 16 -17500 \
                    gain 9 lowpass -1 17801"
-  puts command
   system(command)
 end
 
@@ -84,35 +74,30 @@ end
 # the new speed to the old speed: greater than 1 speeds up, less than 1 slows down
 def create_sped_up_file(input_file,target_file,factor)
   command = "sox \"#{input_file}\" \"#{target_file}\" speed #{factor}"
-  puts command
   system(command)	
 end
 
 #Apply a band pass filter
 def band_pass_filter(input_file,target_file,center)
   command = "sox \"#{input_file}\" \"#{target_file}\" band #{center}"
-  puts command
   system(command)
 end
 
 #Apply a corus effect filter
 def chorus(input_file,target_file)
   command = "sox \"#{input_file}\" \"#{target_file}\" chorus 0.7 0.9 55 0.4 0.25 2 -t"
-  puts command
   system(command)	
 end
 
 #Apply an echo effect filter
 def echo(input_file,target_file)
   command = "sox \"#{input_file}\" \"#{target_file}\" echo 0.8 0.9 500 0.3"
-  puts command
   system(command)	
 end
 
 #Apply a tremolo effect filter
 def tremolo(input_file,target_file)
   command = "sox \"#{input_file}\" \"#{target_file}\" tremolo 8"
-  puts command
   system(command)		
 end
 
@@ -161,25 +146,33 @@ end
 
 def create_queries(input_files,target_dir=".",target_extension="mp3")
   input_files.each do |input_file|
+
     basename = File.basename(input_file).gsub(/.(gsm|wav|mp3|ogg|flac)/,"")
     ext = $1 if input_file =~ /.*.(gsm|wav|mp3|ogg|flac)/
+
+    #Create pitch shifted queries
     (-10..10).step(2).each do |shift| 
     	unless shift==0
     		create_pitch_shifted_file(input_file,File.join(target_dir,"#{basename}___pitch_shift_#{shift}_cents.#{target_extension}"),shift)
     	end
     end
-    (96..104).step(1).each do |i|
+
+    #Create time stretched and sped up queries
+    (97..103).step(1).each do |i|
   	  unless i ==100
   	    factor = i/100.to_f
   	    change_tempo(input_file,File.join(target_dir,"#{basename}___time_stretched_#{factor}.#{target_extension}"),factor)
         create_sped_up_file(input_file,File.join(target_dir,"#{basename}___speed_up_#{factor}.#{target_extension}"),factor)
   	  end
     end
+
+    #Create other queries
     create_flanger_file(input_file,File.join(target_dir,"#{basename}___flanger.#{target_extension}"))
     band_pass_filter(input_file,File.join(target_dir,"#{basename}___band_passed_2000Hz.#{target_extension}"),2000)
     chorus(input_file,File.join(target_dir,"#{basename}___chorus.#{target_extension}"))
     echo(input_file,File.join(target_dir,"#{basename}___echo.#{target_extension}"))
     tremolo(input_file,File.join(target_dir,"#{basename}___tremolo.#{target_extension}"))
+
   end
 end
 
@@ -213,29 +206,61 @@ end
 directory = ARGV[0]
 
 unless File.directory? directory
-  puts "First argument needs to be a directory with audio files"
+  STDERR.puts "First argument needs to be a directory with audio files"
   exit 
 end
 
 input_files = Array.new
 audio_file_list(directory,input_files)
+input_files = input_files.shuffle
 
-puts input_files.length 
+true_positives = input_files[0..(AUDIO_FILES_TO_CHECK_FOR_TRUE_POSITIVES-1)]
+true_negatives = input_files[AUDIO_FILES_TO_CHECK_FOR_TRUE_POSITIVES..(AUDIO_FILES_TO_CHECK_FOR_TRUE_POSITIVES+AUDIO_FILES_TO_CHECK_FOR_FALSE_POSITIVES-1)]
 
+puts "Clear the current database"
+system("olaf clear")
+
+#store a temporary txt file with file list
+audio_file_list_content = true_positives.map{|f| File.absolute_path(f)}.join("\n")
+audio_file_list_tmp = Tempfile.new(['audio_file_list', '.txt'])
+audio_file_list_tmp.write(audio_file_list_content)
+audio_file_list_tmp.flush
+
+puts "Store the true positive list"
+system("olaf store '#{audio_file_list_tmp.path}'")
+audio_file_list_tmp.close
+audio_file_list_tmp.unlink
 
 query_lengths = [5,10]
-query_lengths.each do |query_length|
- 
-  target_dir = "queries_#{query_length}s"
-  FileUtils.mkdir(target_dir) unless File.exists?(target_dir)
 
-  input_files[0..6].each do |f|
-    #target_extension = File.extname(f).gsub(".","")
-    #cut_file = cut_random_piece_to_dir(f,target_dir,query_length)
-    #cut_file = File.join(target_dir,cut_file)
-    #create_queries([cut_file],target_dir,target_extension)
-  end
+#expected true positives
+true_positives.each do |ref_file|
+  query_lengths.each do |query_length|
+    Dir.mktmpdir do |target_dir|
+      target_extension = File.extname(ref_file).gsub(".","")
+      cut_file = cut_random_piece_to_dir(ref_file,target_dir,query_length)
+      cut_file = File.join(target_dir,cut_file)
+      create_queries([cut_file],target_dir,target_extension)
+      system("olaf query #{target_dir} 2>/dev/null | tee -a true_positives.csv")      
+    end
+    #now the temp directory and queries doe not exist any more    
+   end
 end
+
+puts "Query for true negatives"
+true_negatives.each do |ref_file|
+  query_lengths.each do |query_length|
+    Dir.mktmpdir do |target_dir|
+      target_extension = File.extname(ref_file).gsub(".","")
+      cut_file = cut_random_piece_to_dir(ref_file,target_dir,query_length)
+      cut_file = File.join(target_dir,cut_file)
+      create_queries([cut_file],target_dir,target_extension)
+      system("olaf query #{target_dir} 2>/dev/null | tee -a true_negatives.csv")      
+    end
+    #now the temp directory and queries doe not exist any more    
+   end
+end
+
 
 
 

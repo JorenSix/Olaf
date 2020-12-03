@@ -93,13 +93,14 @@ def monitor(index,length,audio_filename,ignore_self_match, skip_size)
 					unless(ignore_self_match and query_audio_identifer.eql? matching_audio_id)
 						filename = ID_TO_AUDIO_HASH[matching_audio_id]
 						if(filename)
-						puts "#{index}/#{length}_#{start}s #{File.basename audio_filename} matches #{File.basename filename} #{line} \n"
+						  puts "#{index}, #{length}_#{start}s, #{File.basename audio_filename}, #{File.basename filename}, #{line}\n"
 						else
-							puts "Did not find filename for id #{matching_audio_id}. #{line}"
+						  #Report no match
+						  puts "#{index}, #{length}_#{start}s, #{File.basename audio_filename}, NO_MATCH, #{line}"
 						end
 					end
 				else 
-					puts "#{index}/#{length}_#{start}s #{File.basename audio_filename} #{line}"
+					puts "#{index}, #{length}_#{start}s, #{File.basename audio_filename}, #{line}"
 				end
 			end
 		end
@@ -127,9 +128,9 @@ def query(index,length,audio_filename,ignore_self_match)
 				unless(ignore_self_match and query_audio_identifer.eql? matching_audio_id)
 					filename = ID_TO_AUDIO_HASH[matching_audio_id]
 					if(filename)
-						puts "#{index},#{length},#{File.basename audio_filename},#{File.basename filename} #{line}\n"
+						puts "#{index}, #{length}, #{File.basename audio_filename}, #{File.basename filename}, #{line}\n"
 					else
-						puts "Did not find filename for id #{matching_audio_id}. #{line}"
+						 puts "#{index}, #{length}, #{File.basename audio_filename}, NO_MATCH, #{line}"
 					end
 				end
 			else 
@@ -138,7 +139,7 @@ def query(index,length,audio_filename,ignore_self_match)
 		end
 
 		#prints optional debug or error messages
-		puts stderr unless (stderr == nil or stderr.strip.size == 0)
+		STDERR.puts stderr unless (stderr == nil or stderr.strip.size == 0)
 	end	
 end
 

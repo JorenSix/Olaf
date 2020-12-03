@@ -39,8 +39,6 @@ struct Olaf_EP_Extractor{
 	// current frame
 	float* horizontalMaxes;
 
-	float* horizontalMins;
-
 	int filterIndex;
 	
 	int audioBlockIndex;
@@ -62,8 +60,6 @@ Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){
 	int halfAudioBlockSize = config->audioBlockSize / 2;
 
 	ep_extractor->horizontalMaxes = (float*) malloc(halfAudioBlockSize * sizeof(float));
-
-	//ep_extractor->horizontalMins = (float*) malloc(config->halfAudioBlockSize * sizeof(float));
 
 	ep_extractor->currentEventPoints = (struct eventpoint*) malloc(config->maxEventPointsPerBlock * sizeof(struct eventpoint));
 
@@ -171,18 +167,7 @@ void horizontalMaxFilter(float* data[],float * max,int length,int filterSize){
 	}
 }
 
-void horizontalMinFilter(float* data[],float * min,int length,int filterSize){
-	for(int i = 0 ; i < length;i++){
-		min[i] = 10000000;
-		for(int j = 0 ; j < filterSize; j++){
-			if(data[j][i]<min[i])
-				min[i]=data[j][i];
-		}
-	}
-}
-
 void maxFilter(float* data, float * max, int length,int halfFilterSize ){
-	
 	for(int i = 0 ; i < length;i++){
 		int startIndex = i - halfFilterSize > 0 ? i - halfFilterSize : 0;
 		int stopIndex = i + halfFilterSize < length ? i + halfFilterSize + 1: length;
@@ -244,7 +229,6 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 
 	horizontalMaxFilter(ep_extractor->maxes,ep_extractor->horizontalMaxes,ep_extractor->config->audioBlockSize/2, ep_extractor->config->filterSize);
 
-	//horizontalMinFilter(ep_extractor->mins,ep_extractor->horizontalMins,ep_extractor->config->halfAudioBlockSize, ep_extractor->config->filterSize);
 	if(ep_extractor->config->printDebugInfo){
 		//To print the maxes withouth horizontal max filter
 		//int halfFilterIndex = (filterSize)/2;
@@ -433,8 +417,6 @@ struct extracted_event_points * olaf_ep_extractor_extract(Olaf_EP_Extractor * ep
 
 	//process the fft frame vertically
 	maxFilter(ep_extractor->mags[filterIndex],ep_extractor->maxes[filterIndex],ep_extractor->config->audioBlockSize/2,ep_extractor->config->halfFilterSize);
-
-	//minFilter(ep_extractor->mags[filterIndex],ep_extractor->mins[filterIndex],ep_extractor->config->halfAudioBlockSize,ep_extractor->config->halfFilterSize);
 
 	if(filterIndex==ep_extractor->config->filterSize-1){
 		//enough history to extract event points

@@ -327,25 +327,27 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 		struct match_result * match = &fp_matcher->m_results[i];
 
 		if(match->matchCount >= fp_matcher->config->minMatchCount){
-			float millisecondsPerBlock = (float) fp_matcher->config->audioStepSize / ((float) fp_matcher->config->audioSampleRate);
-			float timeDeltaF = millisecondsPerBlock * (match->queryFingerprintT1 - match->referenceFingerprintT1);
-			float queryTime =   millisecondsPerBlock * match->queryFingerprintT1;
+			float secondsPerBlock = ((float) fp_matcher->config->audioStepSize) / ((float) fp_matcher->config->audioSampleRate);
+			float timeDelta = secondsPerBlock * (match->queryFingerprintT1 - match->referenceFingerprintT1);
+			float queryTime =   secondsPerBlock * match->queryFingerprintT1;
 
-			float referenceStart =  match->firstReferenceFingerprintT1 * millisecondsPerBlock / 1000.0;
-			float referenceStop =  match->lastReferenceFingerprintT1 * millisecondsPerBlock / 1000.0;
-
-			float timeDeltaS =  timeDeltaF / 1000.0;
-			float queryTimeS = queryTime / 1000.0;
+			float referenceStart =  match->firstReferenceFingerprintT1 * secondsPerBlock;
+			float referenceStop =  match->lastReferenceFingerprintT1 * secondsPerBlock;
 			
 			uint32_t matchIdentifier = match->matchIdentifier;
 
-			printf("%u, %d, %.2f, %.2f, %.2f, %.2f\n",matchIdentifier,match->matchCount, timeDeltaS,referenceStart,referenceStop,queryTimeS);
+			printf("%u, %d, %.2f, %.2f, %.2f, %.2f\n",matchIdentifier,match->matchCount, timeDelta,referenceStart,referenceStop,queryTime);
 		} else {
 
 			//Ignore matches with a small score
 			//for performance reasons
 			break;
 		}
+	}
+
+	//report empty results if not results are found
+	if(fp_matcher->m_results_index == 0 || fp_matcher->m_results[0].matchCount < fp_matcher->config->minMatchCount ){
+		printf("%u, %d, %.2f, %.2f, %.2f, %.2f\n",0,0, 0.0,0.0,0.0,0.0);
 	}
 }
 

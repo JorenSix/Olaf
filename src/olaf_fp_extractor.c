@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <math.h>
 
 #include "olaf_fp_extractor.h"
 #include "olaf_config.h"
@@ -85,32 +86,26 @@ int olaf_ep_compare_event_points (const void * a, const void * b) {
 //Subsequently all the 1546xx values are identified by iteration in both directions.
 //
 uint32_t olaf_fp_extractor_hash(struct fingerprint f){
-	//uint16_t frequency1 = f.frequencyBin1;
-	//uint16_t deltaF = abs(f.frequencyBin1 - f.frequencyBin2);
+	const uint16_t f_mul = 8;
+
+	//hash components
 	uint16_t deltaT = f.timeIndex2 - f.timeIndex1;
 	uint16_t f1LargerThanF2 = f.frequencyBin1 > f.frequencyBin2 ? 1 : 0;
-	
-	//uint16_t frequency1Interpolated = (int) (f.fractionalFrequencyBin1 * 2);
-	//                                    21 bits in total	
-	// frequency 0-255    -  8 bits    -  13
-	// deltaF    0-63     -  6 bits    -   7
-	// f1<f2     boolean  -  1 bits    -   6
-	// deltaT    0-63     -  6 bits    -   0   about 2 seconds
-	
-	//uint32_t fp_hash = ((frequency1     &  ((1<<10) -1)  ) << 13) +
-	//                   ((deltaF         &  ((1<<6) -1)   ) <<  7) +
-	//                   ((f1LargerThanF2 &  ((1<<1) -1)   ) <<  6) +
-	//                   ((deltaT         &  ((1<<6) -1)   ) <<  0) ;
+	uint16_t frequency1Interpolated = (uint16_t) round(f.fractionalFrequencyBin1 * f_mul);  
+	uint16_t deltaFInterpolated = (uint16_t) fabs(round(f.fractionalFrequencyBin1 * f_mul - f.fractionalFrequencyBin2 * f_mul));
 
+	//For a non fractional hash:	
+	//frequency1Interpolated = f.frequencyBin1;
+	//deltaFInterpolated = abs(f.frequencyBin1 - f.frequencyBin2);
 
-	const int f_mul = 10;
-	uint16_t frequency1Interpolated = (uint16_t) (f.fractionalFrequencyBin1 * f_mul);  
-	uint16_t deltaFInterpolated = (uint16_t) abs( (int) (f.fractionalFrequencyBin1 * f_mul - f.fractionalFrequencyBin2 * f_mul)) ;
-	//printf("f1: %d  f1i: %d  f2: %d f2i: %d  deltaF: %d deltaFi: %d \n",f.frequencyBin1 * f_mul, (int) (f.fractionalFrequencyBin1 * f_mul), f.frequencyBin2 * f_mul, (int) (f.fractionalFrequencyBin2 * f_mul), deltaF * f_mul, deltaFInterpolated);     
-	uint32_t fp_hash = ((frequency1Interpolated   &  ((1<<12) - 1)  ) << 16) +
-	          ((deltaFInterpolated       &  ((1<<9) -1)   ) <<  7) +
-	          ((f1LargerThanF2           &  ((1<<1) -1)   ) <<  6) +
-	          ((deltaT                   &  ((1<<6) -1)   ) <<  0) ;
+	//fprintf(stderr,"f1: %0.3f  f1i: %d  f2: %0.3f f2i: %d  deltaF: %d deltaFi: %d \n",f.fractionalFrequencyBin1, (uint16_t) round(f.fractionalFrequencyBin1 * f_mul), f.fractionalFrequencyBin2, (uint16_t) round(f.fractionalFrequencyBin2 * f_mul), deltaFInterpolated, deltaFInterpolated);     
+	
+	//combine the hash components into a single 32 bit integer
+	uint32_t fp_hash = 
+			((frequency1Interpolated   &  ((1<<12) -1)   ) << 16) +
+	        ((deltaFInterpolated       &  ((1<<9 ) -1)   ) <<  7) +
+	        ((f1LargerThanF2           &  ((1<<1 ) -1)   ) <<  6) +
+	        ((deltaT                   &  ((1<<6 ) -1)   ) <<  0) ;
 
 	return fp_hash;
 }
