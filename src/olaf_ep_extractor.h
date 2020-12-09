@@ -23,7 +23,6 @@
 	struct eventpoint {
 		int frequencyBin;
 		int timeIndex;
-		float fractionalFrequencyBin;
 		float magnitude;
 		int printsPerPoint;
 	};

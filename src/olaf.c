@@ -87,15 +87,14 @@ void olaf_bulk_load(){
 void olaf_print_fp(struct fingerprint fp){
 	int timeIndex1=fp.timeIndex1;
 	int frequencyBin1=fp.frequencyBin1;
-	float fractionalFrequencyBin1=fp.fractionalFrequencyBin1;
 	
 	int timeIndex2=fp.timeIndex2;
 	int frequencyBin2=fp.frequencyBin2;
-	float fractionalFrequencyBin2=fp.fractionalFrequencyBin2;
+	
 
 	uint32_t hash = olaf_fp_extractor_hash(fp);
 
-	printf("%u,%d,%d,%f,%d,%d,%f\n",hash,timeIndex1,frequencyBin1,fractionalFrequencyBin1,timeIndex2,frequencyBin2,fractionalFrequencyBin2);
+	printf("%u,%d,%d,%d,%d\n",hash,timeIndex1,frequencyBin1,timeIndex2,frequencyBin2);
 }
 
 int main(int argc, const char* argv[]){

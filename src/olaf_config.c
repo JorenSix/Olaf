@@ -42,22 +42,21 @@ Olaf_Config* olaf_config_default(){
 	//write debug files to visualize in sonic visualizer
 	config->printDebugInfo = false;
 
-	//Number of event points per 256 audio samples (32ms)
-	config->maxEventPointsPerBlock=3;
 	config->maxEventPoints=60;
-	config->eventPointThreshold = 20;
-	config->minMagnitude = 0.05;//an event point needs to have at least this magnitude
-	config->minContrast=3.0;//an event point needs to have at least this contrast with its surroundings (x times the average in surroundings)
+	config->eventPointThreshold = 30;
 
 	//the filter used in both frequency as time direction 
 	//to find maxima
-	config->filterSize=15; // 11 * 32 = 350 ms
-	config->halfFilterSize=config->filterSize/2;
+	config->filterSizeFrequency=85;//frequency bins 
+	config->halfFilterSizeFrequency=config->filterSizeFrequency/2;
 
+	config->filterSizeTime=5;// 5 * 32 =+- 150 ms
+	config->halfFilterSizeTime=config->filterSizeTime/2;
+	
 	//min time distance between two event points for fingerprint
-	config->minTimeDistance = 2; // 32ms x 2 (+-64ms) for fingerprint construction
+	config->minTimeDistance = 4; // 32ms x 2 (+-64ms) for fingerprint construction
 	//max time distance between two event points for fingerprint
-	config->maxTimeDistance = config->minTimeDistance + 46; // 32ms * (2 + 16) = 576ms for fingerprint construction
+	config->maxTimeDistance = config->minTimeDistance + 28; // 32ms * (2 + 16) = 576ms for fingerprint construction
 	//min freq distance between two event points for fingerprint
 	config->minFreqDistance = 3; //bins for fingerprint construction
 	//max freq distance between two event points for fingerprint

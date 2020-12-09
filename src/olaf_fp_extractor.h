@@ -24,15 +24,12 @@
 	// So it has two frequency bins and two time indexes
 	struct fingerprint{
 		int frequencyBin1;
-		float fractionalFrequencyBin1;
 		int timeIndex1;
 
 		int frequencyBin2;
-		float fractionalFrequencyBin2;
 		int timeIndex2;
 		
 		int frequencyBin3;
-		float fractionalFrequencyBin3;
 		int timeIndex3;
 	};
 

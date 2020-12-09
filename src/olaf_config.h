@@ -54,19 +54,13 @@
 		//Max number of event points per audio block
 		//
 		int maxEventPointsPerBlock;
-		
-		
 
-		//magnitude needs to be at least this magnitude 
-		//before the event point is being cosidered
-		float minMagnitude;
+		//The filter size of the max filter in time (horizontal direction)
+		int filterSizeTime;
+		int halfFilterSizeTime;
+		int filterSizeFrequency;
+		int halfFilterSizeFrequency;
 
-		//Minimum contrast of the event point  
-		float minContrast;
-
-		//The filter size of the max filter in bot horizontal as vertical direction
-		int filterSize;
-		int halfFilterSize;
 
 		//Max number of event points before they are 
 		//combined into fingerprints 
