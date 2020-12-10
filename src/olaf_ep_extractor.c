@@ -172,44 +172,9 @@ void olaf_ep_extractor_max_filter_frequency(float* data, float * max, int length
 	}
 }
 
-int findIndexWithMinimumMagnitude(Olaf_EP_Extractor * ep_extractor){
-	int indexWithMinimumMagnitude = 0;
-	float minimumMagnitude = 10000;
-	for(int i = 0 ; i < ep_extractor->config->maxEventPointsPerBlock ; i++) {
-		if(ep_extractor->currentEventPoints[i].magnitude == -1 ){
-			indexWithMinimumMagnitude = i;
-			break;
-		}
-		if(minimumMagnitude > ep_extractor->currentEventPoints[i].magnitude){
-			minimumMagnitude = ep_extractor->currentEventPoints[i].magnitude;
-			indexWithMinimumMagnitude = i;
-		}
-	}
-	return indexWithMinimumMagnitude;
-}
-
-inline int max ( int a, int b ) { return a > b ? a : b; }
-inline int min ( int a, int b ) { return a < b ? a : b; }
-
-int compareEventPointsTimes (const void * a, const void * b) {
-	struct eventpoint aPoint = *(struct eventpoint*) a;
-	struct eventpoint bPoint = *(struct eventpoint*) b;
-	return (aPoint.timeIndex - bPoint.timeIndex);
-}
-
 void extract_internal(Olaf_EP_Extractor * ep_extractor){
 
 	olaf_ep_extractor_max_filter_time(ep_extractor->maxes,ep_extractor->horizontalMaxes,ep_extractor->config->audioBlockSize/2, ep_extractor->config->filterSizeTime);
-
-	//if(ep_extractor->config->printDebugInfo){
-		//To print the maxes withouth horizontal max filter
-		//int halfFilterIndex = (filterSize)/2;
-		//float* maxes = ep_extractor->maxes[halfFilterIndex];
-		//printMaxesToFile(ep_extractor,maxes);
-
-		//Print maxes with horizontal max filter
-		//printMaxesToFile(ep_extractor,ep_extractor->horizontalMaxes);
-	//}
 
 	int halfFilterSizeTime = ep_extractor->config->halfFilterSizeTime;
 	int halfAudioBlockSize = ep_extractor->config->audioBlockSize/2;
@@ -221,7 +186,7 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 		float maxVal = ep_extractor->horizontalMaxes[j];
 		float currentVal = ep_extractor->mags[halfFilterSizeTime][j];
 
-		if(currentVal == maxVal && currentVal != 0.0){
+		if(currentVal == maxVal && maxVal > ep_extractor->config->minEventPointMagnitude){
 			int timeIndex = ep_extractor->audioBlockIndex - halfFilterSizeTime;
 			int frequencyBin = j;
 			float magnitude = ep_extractor->mags[halfFilterSizeTime][frequencyBin];
@@ -229,6 +194,8 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 			eventPoints[eventPointIndex].timeIndex = timeIndex;
 			eventPoints[eventPointIndex].frequencyBin = frequencyBin;
 			eventPoints[eventPointIndex].magnitude = magnitude;
+
+			//fprintf(stderr,"Found ep at %d time index %d f bin %.06f mag \n",timeIndex,frequencyBin,magnitude);
 			
 			eventPointIndex++;
 		}

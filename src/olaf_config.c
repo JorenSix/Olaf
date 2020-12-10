@@ -52,6 +52,9 @@ Olaf_Config* olaf_config_default(){
 
 	config->filterSizeTime=5;// 5 * 32 =+- 150 ms
 	config->halfFilterSizeTime=config->filterSizeTime/2;
+
+	//prevent silence to register as event points
+	config->minEventPointMagnitude = 0.04;
 	
 	//min time distance between two event points for fingerprint
 	config->minTimeDistance = 4; // 32ms x 2 (+-64ms) for fingerprint construction
@@ -73,7 +76,7 @@ Olaf_Config* olaf_config_default(){
 	config->maxResults = 10;
 
 	//minimum 5 aligned matches before reporting match
-	config->minMatchCount = 5;
+	config->minMatchCount = 6;
 
 	//Forget matches after x audio blocks
 	config->maxResultAge = 350;//7.5 seconds

@@ -61,6 +61,10 @@
 		int filterSizeFrequency;
 		int halfFilterSizeFrequency;
 
+		//To avoid extracting event points of silence,
+		//the ep magnitude should be at least this value
+		float minEventPointMagnitude;
+
 
 		//Max number of event points before they are 
 		//combined into fingerprints 

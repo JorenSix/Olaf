@@ -9,7 +9,8 @@ AUDIO_FILES_OTHERS = 1000
 QUERY_LENGTHS = [10]
 
 def file_length(file)
-  $1.to_i if `sox "#{file}" -n stat 2>&1` =~ /.*Length .*:\s*(\d*)\..*/
+  duration_command = "ffprobe -i \"#{file}\" -show_entries format=duration -v quiet -of csv=\"p=0\""
+  `#{duration_command}`.to_f
 end
 
 def seconds_to_time(seconds)
@@ -17,7 +18,6 @@ def seconds_to_time(seconds)
   seconds = seconds - min * 60
   '%02d' % min + ":" +  '%02d' % seconds
 end
-
 
 def cut_random_piece_to_dir(input_file,target_directory,piece_length)
   start =  rand(file_length(input_file) - piece_length) #in seconds
@@ -161,6 +161,12 @@ end
 true_positives = input_files[0..(AUDIO_FILES_TO_CHECK_FOR_TRUE_POSITIVES-1)]
 true_negatives = input_files[AUDIO_FILES_TO_CHECK_FOR_TRUE_POSITIVES..(AUDIO_FILES_TO_CHECK_FOR_TRUE_POSITIVES+AUDIO_FILES_TO_CHECK_FOR_FALSE_POSITIVES-1)]
 other_audio_files_to_store = input_files[(AUDIO_FILES_TO_CHECK_FOR_TRUE_POSITIVES+AUDIO_FILES_TO_CHECK_FOR_TRUE_POSITIVES)..(AUDIO_FILES_TO_CHECK_FOR_TRUE_POSITIVES+AUDIO_FILES_TO_CHECK_FOR_FALSE_POSITIVES + AUDIO_FILES_OTHERS - 1)]
+
+#Removes invalid audio or files that are too short
+puts "Check audio files"
+true_positives = true_positives.delete_if{|f| file_length(f) < QUERY_LENGTHS.min  }
+true_negatives = true_negatives.delete_if{|f| file_length(f) < QUERY_LENGTHS.min }
+other_audio_files_to_store = other_audio_files_to_store.delete_if{|f| file_length(f) < QUERY_LENGTHS.min }
 
 puts "Clear the current database"
 system("olaf clear")
