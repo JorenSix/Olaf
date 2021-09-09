@@ -5,3 +5,5 @@ bin/*
 *.csv
 *raw
 *.vs*
+*wav
+*mkv

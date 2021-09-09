@@ -38,7 +38,7 @@ mem:
 
 #Compiles the webassembly version: it is similar to the mem version
 web:
-	emcc -o wasm/js/olaf.html -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s EXPORTED_FUNCTIONS="['_malloc','_free']" -s EXTRA_EXPORTED_RUNTIME_METHODS='["cwrap"]' \
+	emcc -o wasm/js/olaf.html -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s EXPORTED_FUNCTIONS="['_malloc','_free']" -s EXPORTED_RUNTIME_METHODS='["cwrap"]' \
 	    src/olaf_wasm.c \
 		src/pffft.c \
 		src/hash-table.c \

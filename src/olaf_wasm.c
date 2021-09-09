@@ -29,7 +29,7 @@
 #include "olaf_fp_matcher.h"
 
 struct Olaf_State{
-	float audio[512];
+	float * audio;
 	int audioBlockIndex;
 
 	PFFFT_Setup *fftSetup;
@@ -65,83 +65,88 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 		state.fft_in = (float*) pffft_aligned_malloc(state.config->audioBlockSize*4);//fft input
 		state.fft_out= (float*) pffft_aligned_malloc(state.config->audioBlockSize*4);//fft output
 
+		state.audio = calloc(sizeof(float),state.config->audioBlockSize);
 		state.db = olaf_db_new(NULL,true);
 		state.ep_extractor = olaf_ep_extractor_new(state.config);
 		state.fp_extractor = olaf_fp_extractor_new(state.config);
 		state.fp_matcher = olaf_fp_matcher_new(state.config,state.db);
-
-		//cleanup fft structures
-		//pffft_aligned_free(fft_in);
-		//pffft_aligned_free(fft_out);
-		//pffft_destroy_setup(fftSetup);
 	}
 
-	//printf("Current audio block index: %d \n",state.audioBlockIndex);
-
-	//make a full audio buffer.
-	//The first buffer starts with zeros
-	for(size_t i = 0 ; i < 256 ; i++){
-		//shift the old samples to the beginning
-		state.audio[i]=state.audio[i+256];
-		//add the new samples to the end
-		state.audio[i+256]=audio_buffer[i];
-	}
+	size_t step_size = state.config->audioStepSize;
+	size_t block_size = state.config->audioBlockSize;
+	
+	size_t overlap_size = block_size - step_size;
+	size_t steps_per_block = block_size / step_size;
+	size_t read_index = 0;
 
 	const float* window = olaf_fft_window(state.config->audioBlockSize);
 
-	//gaussian windowing
-	for(int i = 0 ; i <  state.config->audioBlockSize ; i++){
-		state.fft_in[i] = state.audio[i] * window[i];
-	}
+	for(size_t j = 0; j < steps_per_block ; j++){
+		//make room for the new samples: 
+		// shift the samples to the beginning
+		for(size_t i = 0 ; i < overlap_size;i++){
+			state.audio[i]=state.audio[i+step_size];
+		}
 
-	//do the transform
-	pffft_transform_ordered(state.fftSetup, state.fft_in, state.fft_out, 0, PFFFT_FORWARD);
+		for(size_t i = 0 ; i < step_size;i++){
+			state.audio[overlap_size+i]=audio_buffer[read_index];
+			read_index++;
+		}
 
-	//extract event points
-	state.eventPoints  =  olaf_ep_extractor_extract(state.ep_extractor,state.fft_out,state.audioBlockIndex);
+		//windowing
+		for(int i = 0 ; i <  state.config->audioBlockSize ; i++){
+			state.fft_in[i] = state.audio[i] * window[i];
+		}
 
-	//printf("Event point index: %d \n",state.eventPoints->eventPointIndex);
+		//do the transform
+		pffft_transform_ordered(state.fftSetup, state.fft_in, state.fft_out, 0, PFFFT_FORWARD);
 
-	//if there are enough event points
-	if(state.eventPoints->eventPointIndex > state.config->eventPointThreshold){
+		//extract event points
+		state.eventPoints  =  olaf_ep_extractor_extract(state.ep_extractor,state.fft_out,state.audioBlockIndex);
 
-		//combine the event points into fingerprints
-		state.fingerprints = olaf_fp_extractor_extract(state.fp_extractor,state.eventPoints,state.audioBlockIndex);
+		//printf("Event point index: %d \n",state.eventPoints->eventPointIndex);
 
-		size_t fingerprintIndex = state.fingerprints->fingerprintIndex;
-		//printf("FP index: %zu \n",fingerprintIndex);
+		//if there are enough event points
+		if(state.eventPoints->eventPointIndex > state.config->eventPointThreshold){
+			//combine the event points into fingerprints
+			state.fingerprints = olaf_fp_extractor_extract(state.fp_extractor,state.eventPoints,state.audioBlockIndex);
 
-		if(fingerprintIndex > 0){
-			for(size_t i = 0; i < 256 && i < fingerprintIndex; i++){
-				size_t index = i * 6;
-				fingerprints[index] = state.fingerprints->fingerprints[i].timeIndex1;
-				fingerprints[index+1] = state.fingerprints->fingerprints[i].frequencyBin1;
-				fingerprints[index+2] = state.fingerprints->fingerprints[i].timeIndex2;
-				fingerprints[index+3] = state.fingerprints->fingerprints[i].frequencyBin2;
-				fingerprints[index+4] = olaf_fp_extractor_hash(state.fingerprints->fingerprints[i]);
-				fingerprints[index+5] = olaf_db_find_single(state.db,fingerprints[index+4],0) ? 1 : 0;
+			size_t fingerprintIndex = state.fingerprints->fingerprintIndex;
+			//printf("FP index: %zu \n",fingerprintIndex);
 
-				//printf("t1: %d, f1: %d t2: %d f2:%d \n",fingerprints[index],fingerprints[index+1],fingerprints[index+2],fingerprints[index+3]);
-			}
+			if(fingerprintIndex > 0){
+				for(size_t i = 0; i < 256 && i < fingerprintIndex; i++){
+					size_t index = i * 6;
+					fingerprints[index] = state.fingerprints->fingerprints[i].timeIndex1;
+					fingerprints[index+1] = state.fingerprints->fingerprints[i].frequencyBin1;
+					fingerprints[index+2] = state.fingerprints->fingerprints[i].timeIndex2;
+					fingerprints[index+3] = state.fingerprints->fingerprints[i].frequencyBin2;
+					fingerprints[index+4] = olaf_fp_extractor_hash(state.fingerprints->fingerprints[i]);
+					fingerprints[index+5] = olaf_db_find_single(state.db,fingerprints[index+4],0) ? 1 : 0;
 
-			int maxMatchScore = 0;
-			
-			olaf_fp_matcher_match(state.fp_matcher,state.fingerprints);
+					//printf("t1: %d, f1: %d t2: %d f2:%d \n",fingerprints[index],fingerprints[index+1],fingerprints[index+2],fingerprints[index+3]);
+				}
 
-			printf("Max Match score: %d \n",maxMatchScore);
+				int maxMatchScore = 0;
+				
+				olaf_fp_matcher_match(state.fp_matcher,state.fingerprints);
 
-			for(size_t i = 0; i < 256 && i < fingerprintIndex; i++){
-				size_t index = i * 6;
-				fingerprints[index+5] = maxMatchScore >= state.config->minMatchCount ? maxMatchScore : 0;
+				printf("Max Match score: %d \n",maxMatchScore);
+
+				for(size_t i = 0; i < 256 && i < fingerprintIndex; i++){
+					size_t index = i * 6;
+					fingerprints[index+5] = maxMatchScore >= state.config->minMatchCount ? maxMatchScore : 0;
+				}
 			}
 		}
-		
 	}
+
+	assert(read_index == block_size);
 
 	//store the magnitudes in place of the audio buffer
 	float * mags = audio_buffer;
 	int magnitudeIndex = 0;
-	for(size_t i = 0 ; i < 512 ; i+=2){
+	for(size_t i = 0 ; i < block_size ; i+=2){
 		mags[magnitudeIndex] = state.fft_out[i] * state.fft_out[i] + state.fft_out[i+1] * state.fft_out[i+1];
 		magnitudeIndex++;
 	}
@@ -156,6 +161,8 @@ void cleanup(){
 	//pffft_aligned_free(state.fft_in);
 	//pffft_aligned_free(state.fft_out);
 	//pffft_destroy_setup(state.fftSetup);
+	free(state.audio);
+	
 }
 /*
 int main(int argc, const char* argv[]){
