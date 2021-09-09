@@ -62,23 +62,24 @@ Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source){
 	fileSize = ftell (file);
 	rewind (file);
 
-	Olaf_Reader *reader = (Olaf_Reader*) malloc(sizeof(Olaf_Reader));
+	Olaf_Reader *reader = malloc(sizeof(Olaf_Reader));
 	reader->config = config;
 	reader->file_size_in_samples = fileSize/sizeof(float);
 
 	reader->current_sample_index = 0;
 
 	// allocate memory to contain the whole file:
-	reader->audio_data =  (float *)(malloc(fileSize));
+	reader->audio_data =  calloc(reader->file_size_in_samples,sizeof(float));
 
 	if (reader->audio_data == NULL) {fputs ("Not enough memory error",stderr); exit (2);}
 
 	// copy the file into the audioData:
-	result = fread (reader->audio_data,1,fileSize,file);
-	if (result != fileSize) {fputs ("Reading error",stderr); exit (3);}
+	result = fread(reader->audio_data,sizeof(float),reader->file_size_in_samples,file);
+	if (result != reader->file_size_in_samples) {fputs ("Reading error",stderr); exit (3);}
 	fclose(file); // after reading the file to memory, close the file
 
-	
+	//fprintf(stderr, "Read %zu bytes into memory \n",fileSize);
+
 	return reader;
 }
 
@@ -86,20 +87,21 @@ Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source){
 size_t olaf_reader_read(Olaf_Reader *reader ,float * audio_block){
 	
 	size_t step_size = reader->config->audioStepSize;
+	size_t block_size = reader->config->audioBlockSize;
+	size_t overlap_size = block_size - step_size;
 
 	//make room for the new samples: shift the oldest to the beginning
-	for(size_t i = 0 ; i < step_size;i++){
+	for(size_t i = 0 ; i < overlap_size;i++){
 		audio_block[i]=audio_block[i+step_size];
 	}
-
+	
 	size_t start_index = reader->current_sample_index;
 	size_t stop_index = min(reader->current_sample_index + step_size,reader->file_size_in_samples);
-
 
 	//start from the middle of the array
 	size_t number_of_samples_read = 0;
 	for(size_t i = start_index ; i < stop_index ; i++){
-		audio_block[step_size+number_of_samples_read]=reader->audio_data[i];
+		audio_block[overlap_size+number_of_samples_read]=reader->audio_data[i];
 		number_of_samples_read++;
 	}
 
@@ -107,9 +109,7 @@ size_t olaf_reader_read(Olaf_Reader *reader ,float * audio_block){
 	for(size_t i = number_of_samples_read ; i < step_size ;i++){
 		audio_block[i] = 0;
 	}
-
 	reader->current_sample_index += number_of_samples_read;
-
 	return number_of_samples_read;
 }
 

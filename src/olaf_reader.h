@@ -16,16 +16,16 @@
 #ifndef OLAF_READER_H
 #define OLAF_READER_H
 
-#include "olaf_config.h"
+    #include "olaf_config.h"
 
-typedef struct Olaf_Reader Olaf_Reader;
+    typedef struct Olaf_Reader Olaf_Reader;
 
-Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source);
+    Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source);
 
-size_t olaf_reader_read(Olaf_Reader *,float *);
+    size_t olaf_reader_read(Olaf_Reader *,float *);
 
-// free up memory and release resources
-void olaf_reader_destroy(Olaf_Reader * );
+    // free up memory and release resources
+    void olaf_reader_destroy(Olaf_Reader * );
 
 
 #endif // OLAF_READER_H

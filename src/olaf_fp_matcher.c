@@ -20,7 +20,7 @@
 #include "hash-table.h"
 #include "olaf_fp_matcher.h"
 #include "olaf_fp_extractor.h"
-#include "olaf_fp_db.h"
+#include "olaf_db.h"
 
 struct match_result{
 	// The time of the matched reference fingerprint t1 
@@ -70,7 +70,7 @@ struct Olaf_FP_Matcher{
 	HashTable *result_hash_table;
 
 	//The database to use
-	Olaf_FP_DB * db;
+	Olaf_DB * db;
 
 	//The configuration of Olaf
 	Olaf_Config * config;
@@ -105,7 +105,7 @@ int uint64_t_equal(void *vlocation1, void *vlocation2){
 }
 
 //Creates a new matcher 
-Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_FP_DB* db ){
+Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db ){
 	Olaf_FP_Matcher *fp_matcher = (Olaf_FP_Matcher*) malloc(sizeof(Olaf_FP_Matcher));
 
 	fp_matcher->db = db;
@@ -120,7 +120,6 @@ Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_FP_DB* db ){
 
 	fp_matcher->config = config;
 
-	
 	fp_matcher->result_hash_table = hash_table_new(uint64_t_hash,uint64_t_equal);
 
 	fp_matcher->m_results = (struct match_result *) malloc( fp_matcher->m_results_size  * sizeof(struct match_result));
@@ -154,7 +153,7 @@ void olaf_fp_matcher_m_results_grow(Olaf_FP_Matcher * fp_matcher,int queryFinger
 	fp_matcher->m_results_size = 2 * fp_matcher->m_results_size;
 
 	//allocate new memory
-	fp_matcher->m_results = (struct match_result *) malloc( fp_matcher->m_results_size  * sizeof(struct match_result));
+	fp_matcher->m_results = calloc( fp_matcher->m_results_size, sizeof(struct match_result));
 
 	if (fp_matcher->m_results == NULL){
 		fprintf(stderr,"Failed to allocate memory to grow all results array to %zu elements ",fp_matcher->m_results_size);
@@ -209,7 +208,6 @@ void olaf_fp_matcher_tally_results(Olaf_FP_Matcher * fp_matcher,int queryFingerp
 	uint64_t diff_part = ((uint64_t) timeDiff) << 32;
 	uint64_t match_part = (uint64_t) matchIdentifier;
 
-
 	uint64_t result_hash_table_key = diff_part + match_part;
 	
 	struct match_result * match = hash_table_lookup(fp_matcher->result_hash_table,&result_hash_table_key);
@@ -249,11 +247,10 @@ void olaf_fp_matcher_tally_results(Olaf_FP_Matcher * fp_matcher,int queryFingerp
 }
 
 //Match a single fingerprint with the database
-void olaf_fp_matcher_match_single_fingerprint(Olaf_FP_Matcher * fp_matcher,uint32_t queryFingerprintT1,uint32_t queryFingerprintHash){
+void olaf_fp_matcher_match_single_fingerprint(Olaf_FP_Matcher * fp_matcher,uint32_t queryFingerprintT1,uint64_t queryFingerprintHash){
 
-	size_t number_of_results = 0;
-
-	olaf_fp_db_find(fp_matcher->db,queryFingerprintHash,0,fp_matcher->db_results,fp_matcher->config->maxDBCollisions,&number_of_results);
+	int range = fp_matcher->config->searchRange;
+	size_t number_of_results = olaf_db_find(fp_matcher->db,queryFingerprintHash-range,queryFingerprintHash+range,fp_matcher->db_results,fp_matcher->config->maxDBCollisions);
 
 	//fprintf(stderr,"Number of results: %zu \n",number_of_results);
 
@@ -273,8 +270,9 @@ void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_finger
 	
 	for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
 		struct fingerprint f = fingerprints->fingerprints[i];
-		uint32_t hash = olaf_fp_extractor_hash(f);
+		uint64_t hash = olaf_fp_extractor_hash(f);
 
+		
 		olaf_fp_matcher_match_single_fingerprint(fp_matcher,f.timeIndex1,hash);
  
 		if(fp_matcher->config->includeOffByOneMatches){
@@ -336,7 +334,10 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 			
 			uint32_t matchIdentifier = match->matchIdentifier;
 
-			printf("%u, %d, %.2f, %.2f, %.2f, %.2f\n",matchIdentifier,match->matchCount, timeDelta,referenceStart,referenceStop,queryTime);
+			Olaf_Resource_Meta_data meta_data;
+			olaf_db_find_meta_data(fp_matcher->db,&matchIdentifier,&meta_data);
+
+			printf("%u, %s, %d, %.2f, %.2f, %.2f, %.2f\n",matchIdentifier,meta_data.path,match->matchCount, timeDelta,referenceStart,referenceStop,queryTime);
 		} else {
 
 			//Ignore matches with a small score

@@ -24,7 +24,6 @@
 		int frequencyBin;
 		int timeIndex;
 		float magnitude;
-		int printsPerPoint;
 	};
 
 	//this is shared with the interface to the outside
@@ -36,6 +35,8 @@
 	typedef struct Olaf_EP_Extractor Olaf_EP_Extractor;
 
 	Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config);
+
+	void olaf_ep_extractor_print_ep(struct eventpoint);
 
 	struct extracted_event_points * olaf_ep_extractor_extract(Olaf_EP_Extractor *, float* fft_magnitudes, int audioBlockIndex);
 

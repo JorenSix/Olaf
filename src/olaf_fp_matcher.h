@@ -17,7 +17,7 @@
 #define OLAF_FP_MATCHER_H
 
 	#include "olaf_fp_extractor.h"
-	#include "olaf_fp_db.h"
+	#include "olaf_db.h"
 	#include "olaf_config.h"
 	
 	//A matcher matches extracted fingerprints with a database
@@ -27,7 +27,7 @@
 	typedef struct Olaf_FP_Matcher Olaf_FP_Matcher;
 
 	//Create a new matcher which matches incoming fingerprints with a database. 
-	Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_FP_DB* db );
+	Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db );
 	
 	//Matches fingerprints to the database and updates internal state
  	void olaf_fp_matcher_match(Olaf_FP_Matcher *, struct extracted_fingerprints *);

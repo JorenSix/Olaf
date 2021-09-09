@@ -20,7 +20,7 @@
 #include "olaf_fp_extractor.h"
 
 struct Olaf_FP_File_Entry{
-	uint32_t hash;
+	uint64_t hash;
 	uint64_t value;
 };
 
@@ -34,10 +34,10 @@ struct Olaf_FP_File_Writer{
 
 Olaf_FP_File_Writer * olaf_fp_file_writer_new(Olaf_Config * config, uint32_t audio_file_identifier){
 
-	Olaf_FP_File_Writer *file_writer = (Olaf_FP_File_Writer*) malloc(sizeof(Olaf_FP_File_Writer));
+	Olaf_FP_File_Writer *file_writer = malloc(sizeof(Olaf_FP_File_Writer));
 
 	file_writer->entries_size = 1<<15;//over 9000
-	file_writer->entries = (struct Olaf_FP_File_Entry *) malloc(sizeof(struct Olaf_FP_File_Entry) * file_writer->entries_size);
+	file_writer->entries = calloc(file_writer->entries_size,sizeof(struct Olaf_FP_File_Entry));
 	file_writer->entry_index=0;
 	file_writer->audio_file_identifier = audio_file_identifier;
 	file_writer->config = config;
@@ -50,7 +50,7 @@ void olaf_fp_file_writer_grow_table(Olaf_FP_File_Writer * file_writer){
 	struct Olaf_FP_File_Entry * current_entries = file_writer->entries;
 
 	file_writer->entries_size = current_entries_size * 2;
-	file_writer->entries = (struct Olaf_FP_File_Entry *) malloc(sizeof(struct Olaf_FP_File_Entry) * file_writer->entries_size);
+	file_writer->entries = calloc(file_writer->entries_size,sizeof(struct Olaf_FP_File_Entry));
 
 	for(size_t i = 0 ; i < current_entries_size; i++){
 		file_writer->entries[i] = current_entries[i]; 
@@ -106,7 +106,7 @@ void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * file_writer){
 		char tdb_file_name[50];
 		snprintf(tdb_file_name, 50, "%u.tdb", file_writer->audio_file_identifier);
 
-		char * full_tdb_name = (char *) malloc(strlen(file_writer->config->dbFolder) +  strlen(tdb_file_name));
+		char * full_tdb_name = malloc(strlen(file_writer->config->dbFolder) +  strlen(tdb_file_name));
 		strcpy(full_tdb_name,file_writer->config->dbFolder);
 		strcat(full_tdb_name,tdb_file_name);
 
@@ -120,7 +120,7 @@ void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * file_writer){
 
 
 		for(size_t i = 0 ; i < file_writer->entry_index;i++){
-			fprintf(temp_db_file,"%u,%lu\n",file_writer->entries[i].hash,file_writer->entries[i].value);
+			fprintf(temp_db_file,"%llu,%llu\n",file_writer->entries[i].hash,file_writer->entries[i].value);
 		}
 
 		fclose(temp_db_file);

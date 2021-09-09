@@ -25,12 +25,15 @@
 	struct fingerprint{
 		int frequencyBin1;
 		int timeIndex1;
+		float magnitude1;
 
 		int frequencyBin2;
 		int timeIndex2;
-		
+		float magnitude2;
+
 		int frequencyBin3;
 		int timeIndex3;
+		float magnitude3;
 	};
 
 	//This struct is shared to report the fingerprints
@@ -52,12 +55,11 @@
 	//static methods:
 
 	//hash a fingerprint
-	uint32_t olaf_fp_extractor_hash(struct fingerprint f);
+	uint64_t olaf_fp_extractor_hash(struct fingerprint f);
+
+	void olaf_fp_extractor_print(struct fingerprint f);
 
 	//to sort hashes use this comparator
 	int olaf_fp_extractor_compare_fp(const void * a, const void * b);
-
-	//run a test to check encoding and decoding hashes and bit manipulations
-	void olaf_fp_extractor_fp_hash_test();
 
 #endif // OLAF_FP_EXTRACTOR_H

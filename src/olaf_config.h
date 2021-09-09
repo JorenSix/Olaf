@@ -16,6 +16,7 @@
 #include <stdbool.h> //bool 
 #include <string.h> //bool 
 #include <stdlib.h> //bool 
+#include <stdio.h>
 
 #ifndef OLAF_CONFIG_H
 #define OLAF_CONFIG_H
@@ -24,30 +25,25 @@
 
 	struct Olaf_Config{
 
-		char* dbFolder;
+		char * dbFolder;
 
 		//------ General Configuration
 
-		//The size of a single audio block, 
-		//  512 samples
+		//The size of a single audio block,
 		int audioBlockSize;
 		
 		//The sample rate of the incoming audio
-		// 	8000Hz
 		int audioSampleRate;
 
-		//The size of a step from one block of samples
-		// 256 samples (with an audio block size of 512 = 50% overlap)
+		//The size of a step from one block of samples to the next
 		int audioStepSize;
 
 		//The size of a single audio sample
 		//	32 bit float samples => 4 bytes
 		int bytesPerAudioSample;
 
-		//Print verbose info or not
-		// false
-		bool printDebugInfo;
-
+		//print debug info
+		bool verbose;
 
 		//------ EVENT POINT Configuration
 
@@ -58,6 +54,7 @@
 		//The filter size of the max filter in time (horizontal direction)
 		int filterSizeTime;
 		int halfFilterSizeTime;
+		
 		int filterSizeFrequency;
 		int halfFilterSizeFrequency;
 
@@ -85,9 +82,6 @@
 		int minFreqDistance;
 		int maxFreqDistance;
 
-		//Reuse each event point maximally this number of times
-		int maxFingerprintsPerPoint;
-
 		// 
 		int maxFingerprints;
 
@@ -99,6 +93,8 @@
 		//------------ Matcher configuration
 
 		int maxResults;
+
+		int searchRange;
 
 		//minimum 5 aligned matches before reporting match
 		int minMatchCount;
@@ -125,6 +121,8 @@
 	};
 
 	Olaf_Config* olaf_config_default();
+
+	Olaf_Config* olaf_config_test();
 
 	void olaf_config_destroy(Olaf_Config *);
 

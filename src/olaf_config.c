@@ -15,65 +15,63 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "olaf_config.h"
 
 Olaf_Config* olaf_config_default(){
-	Olaf_Config *config = (Olaf_Config*) malloc(sizeof(Olaf_Config));
+	Olaf_Config *config = malloc(sizeof(Olaf_Config));
 
 	//construct the directory to write db info to: /home/user/.olaf/db/
 	const char * homeDir = getenv("HOME");
 
 	//This assume a UNIX file separator
 	const char* dbDir = "/.olaf/db/";
-	char * fullDbFolderName = (char *) malloc(strlen(homeDir) +  strlen(dbDir));
+	char * fullDbFolderName = malloc(strlen(homeDir) +  strlen(dbDir));
 	strcpy(fullDbFolderName,homeDir);
 	strcat(fullDbFolderName,dbDir);
 
 	config->dbFolder = fullDbFolderName;
 
 	//audio info
-	config->audioBlockSize = 512;
-	config->audioSampleRate = 8000;
-	config->audioStepSize= config->audioBlockSize / 2;
+	config->audioBlockSize = 1024;
+	config->audioSampleRate = 16000;
+	config->audioStepSize= 128;
 
 	config->bytesPerAudioSample = 4; //32 bits float
-
-	//write debug files to visualize in sonic visualizer
-	config->printDebugInfo = false;
 
 	config->maxEventPoints=60;
 	config->eventPointThreshold = 30;
 
 	//the filter used in both frequency as time direction 
 	//to find maxima
-	config->filterSizeFrequency=85;//frequency bins 
+	config->filterSizeFrequency=103;//frequency bins 
 	config->halfFilterSizeFrequency=config->filterSizeFrequency/2;
 
-	config->filterSizeTime=5;// 5 * 32 =+- 150 ms
+	config->filterSizeTime=25;// 25 * 128/16 = 200 ms
 	config->halfFilterSizeTime=config->filterSizeTime/2;
 
 	//prevent silence to register as event points
-	config->minEventPointMagnitude = 0.04;
+	config->minEventPointMagnitude = 0.0;
+
+	config->verbose = false;
 	
 	//min time distance between two event points for fingerprint
-	config->minTimeDistance = 4; // 32ms x 2 (+-64ms) for fingerprint construction
+	config->minTimeDistance = 2; // 8ms x 2 for fingerprint construction
 	//max time distance between two event points for fingerprint
-	config->maxTimeDistance = config->minTimeDistance + 28; // 32ms * (2 + 16) = 576ms for fingerprint construction
+	config->maxTimeDistance = 33; // 8ms * 33 = 264ms for fingerprint construction
 	//min freq distance between two event points for fingerprint
-	config->minFreqDistance = 3; //bins for fingerprint construction
+	config->minFreqDistance = 1; //bins for fingerprint construction
 	//max freq distance between two event points for fingerprint
-	config->maxFreqDistance = config->minFreqDistance + (1<<6); //bins for fingerprint construction
-	//number of times a event point is reused
-	config->maxFingerprintsPerPoint = 3;
-
-	//to check if fingerprint is actually new
-	config->recentFingerprintSize=30;
-
+	config->maxFreqDistance = 128; //bins for fingerprint construction
+	
 	config->maxFingerprints=300;
 
 	//maximum number of results
 	config->maxResults = 10;
+
+	//The range around a hash to search
+	config->searchRange = 5;
 
 	//minimum 5 aligned matches before reporting match
 	config->minMatchCount = 6;
@@ -88,6 +86,19 @@ Olaf_Config* olaf_config_default(){
 	// triples the number of queries to the database to
 	// offset off by one errors (time discretisation error)
 	config->includeOffByOneMatches = true;
+
+	return config;
+}
+
+Olaf_Config* olaf_config_test(){
+	Olaf_Config* config =  olaf_config_default();
+	free(config->dbFolder);
+
+	const char* dbDir = "tests/olaf_test_db";
+	char * folderName = (char *) malloc(strlen(dbDir)+1);
+	strcpy(folderName,dbDir);
+
+	config->dbFolder = folderName;
 
 	return config;
 }

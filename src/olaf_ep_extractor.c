@@ -43,51 +43,40 @@ struct Olaf_EP_Extractor{
 	struct eventpoint * currentEventPoints;
 
 	struct extracted_event_points eventPoints;
-
-	FILE *spectrogram_file;
-	FILE *maxes_file;
 };
 
 Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){
 
-	Olaf_EP_Extractor *ep_extractor = (Olaf_EP_Extractor*) malloc(sizeof(Olaf_EP_Extractor));
+	Olaf_EP_Extractor *ep_extractor = malloc(sizeof(Olaf_EP_Extractor));
 
 	ep_extractor->config = config;
 
 	int halfAudioBlockSize = config->audioBlockSize / 2;
 
-	ep_extractor->horizontalMaxes = (float*) malloc(halfAudioBlockSize * sizeof(float));
+	ep_extractor->horizontalMaxes = calloc(halfAudioBlockSize ,sizeof(float));
 
-	ep_extractor->eventPoints.eventPoints = (struct eventpoint*) malloc(config->maxEventPoints * sizeof(struct eventpoint));
+	ep_extractor->eventPoints.eventPoints = calloc(config->maxEventPoints , sizeof(struct eventpoint));
 	ep_extractor->eventPoints.eventPointIndex = 0;
+
+	//initialize t with a high number
+	for(int i = 0 ; i < config->maxEventPoints; i++){
+		ep_extractor->eventPoints.eventPoints[i].timeIndex = 1<<23;
+	}
 	
-	ep_extractor->mags  = (float **) malloc(config->filterSizeTime * sizeof(float *));
-	ep_extractor->maxes = (float **) malloc(config->filterSizeTime * sizeof(float *));
+	ep_extractor->mags  = calloc(config->filterSizeTime , sizeof(float *));
+	ep_extractor->maxes = calloc(config->filterSizeTime , sizeof(float *));
 
 	for(int i = 0; i < config->filterSizeTime ;i++){
-		ep_extractor->maxes[i]= (float*) malloc(halfAudioBlockSize * sizeof(float));
-		ep_extractor->mags[i] = (float*) malloc(halfAudioBlockSize * sizeof(float));
+		ep_extractor->maxes[i]= calloc(halfAudioBlockSize , sizeof(float));
+		ep_extractor->mags[i] = calloc(halfAudioBlockSize , sizeof(float));
 	}
 
   	ep_extractor->filterIndex = 0;
-
-  	if(config->printDebugInfo){
-  		ep_extractor->spectrogram_file = fopen("spectrogram.csv", "w");
-  		ep_extractor->maxes_file = fopen("maxes.csv", "w");
-  	}
-
   	return ep_extractor;
 }
 
 void olaf_ep_extractor_destroy(Olaf_EP_Extractor * ep_extractor){
-
-	if(ep_extractor->config->printDebugInfo){
-		fclose(ep_extractor->maxes_file);
-		fclose(ep_extractor->spectrogram_file);
-	}
-
 	free(ep_extractor->eventPoints.eventPoints);
-	
 	free(ep_extractor->horizontalMaxes);
 
 	for(int i = 0; i < ep_extractor->config->filterSizeTime ;i++){
@@ -97,57 +86,7 @@ void olaf_ep_extractor_destroy(Olaf_EP_Extractor * ep_extractor){
 
   	free(ep_extractor->maxes);
   	free(ep_extractor->mags);
-
   	free(ep_extractor);
-}
-
-void printMagsToFile(Olaf_EP_Extractor * ep_extractor,float* mags){
-	
-	int halfAudioBlockSize = ep_extractor->config->audioBlockSize/2;
-
-	for(int i = 0 ; i <  halfAudioBlockSize ; i++){
-		fprintf(ep_extractor->spectrogram_file,"%f ,",mags[i]);
-	}
-
-	fprintf(ep_extractor->spectrogram_file,"\n");
-}
-
-void printMaxesToFile(Olaf_EP_Extractor * ep_extractor,float* maxes){
-	
-	int halfAudioBlockSize = ep_extractor->config->audioBlockSize/2;
-
-	for(int i = 0 ; i <  halfAudioBlockSize ; i++){
-		fprintf(ep_extractor->maxes_file,"%f ,",maxes[i]);
-	}
-	fprintf(ep_extractor->maxes_file,"\n");
-}
-
-
-void printMaxesToFileWithEventPoints(Olaf_EP_Extractor * ep_extractor,float* maxes){
-	
-	int halfAudioBlockSize = ep_extractor->config->audioBlockSize/2;
-
-	for(int i = 0 ; i <  halfAudioBlockSize ; i++){
-
-		struct eventpoint foundEP;
-		foundEP.timeIndex = -1;
-
-		for(int j = 0 ; j <  ep_extractor->config->maxEventPoints ; j++){
-			struct eventpoint ep = ep_extractor->eventPoints.eventPoints[j];
-			int timeIndex = ep_extractor->audioBlockIndex - ep_extractor->config->halfFilterSizeTime;
-
-			if(ep.timeIndex== timeIndex && ep.frequencyBin == i){
-				foundEP = ep;
-			}
-		}
-
-		if(foundEP.timeIndex>0){
-			fprintf(ep_extractor->maxes_file,"%f ,",maxes[i]*100);
-		}else{
-			fprintf(ep_extractor->maxes_file,"%f ,",0.0);
-		}	
-	}
-	fprintf(ep_extractor->maxes_file,"\n");
 }
 
 void olaf_ep_extractor_max_filter_time(float* data[],float * max,int length,int filterSize){
@@ -158,6 +97,10 @@ void olaf_ep_extractor_max_filter_time(float* data[],float * max,int length,int 
 				max[i]=data[j][i];
 		}
 	}
+}
+
+void olaf_ep_extractor_print_ep(struct eventpoint e){
+	fprintf(stderr,"t:%d, f:%d, mag:%.4f\n",e.timeIndex,e.frequencyBin,e.magnitude);
 }
 
 void olaf_ep_extractor_max_filter_frequency(float* data, float * max, int length,int half_filter_size ){
@@ -195,7 +138,8 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 			eventPoints[eventPointIndex].frequencyBin = frequencyBin;
 			eventPoints[eventPointIndex].magnitude = magnitude;
 
-			//fprintf(stderr,"Found ep at %d time index %d f bin %.06f mag \n",timeIndex,frequencyBin,magnitude);
+			//fprintf(stderr,"New EP found ");
+			//olaf_ep_extractor_print_ep(eventPoints[eventPointIndex]);
 			
 			eventPointIndex++;
 		}
@@ -203,23 +147,6 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 	
 	// do not forget to set the event point index for the next run
 	ep_extractor->eventPoints.eventPointIndex = eventPointIndex;
-
-	if(ep_extractor->config->printDebugInfo){
-
-		if(ep_extractor->audioBlockIndex==ep_extractor->config->filterSizeTime-1){
-			for(int i = 0 ; i < ep_extractor->config->halfFilterSizeTime ; i++){
-				printMaxesToFileWithEventPoints(ep_extractor,ep_extractor->maxes[i]);
-			}
-		}
-
-		//To print the maxes withouth horizontal max filter
-		//int halfFilterIndex = (filterSize)/2;
-		//float* maxes = ep_extractor->maxes[halfFilterIndex];
-		printMaxesToFileWithEventPoints(ep_extractor,ep_extractor->horizontalMaxes);
-
-		//Print maxes with horizontal max filter
-		//printMaxesToFileWithEventPoints(ep_extractor,ep_extractor->horizontalMaxes);
-	}
 }
 
 void rotate(Olaf_EP_Extractor * ep_extractor){
@@ -252,10 +179,6 @@ struct extracted_event_points * olaf_ep_extractor_extract(Olaf_EP_Extractor * ep
 	for(int j = 0 ; j < ep_extractor->config->audioBlockSize ; j+=2){
 		ep_extractor->mags[filterIndex][magnitudeIndex] = fft_out[j] * fft_out[j] + fft_out[j+1] * fft_out[j+1];
 		magnitudeIndex++;
-	}
-
-	if(ep_extractor->config->printDebugInfo){
-		printMagsToFile(ep_extractor,ep_extractor->mags[filterIndex]);
 	}
 
 	//process the fft frame in time (vertically)

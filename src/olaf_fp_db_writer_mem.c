@@ -33,14 +33,15 @@ int fp_hash_compare(const void * a, const void * b) {
 }
 
 struct Olaf_FP_DB_Writer{
-	uint64_t hashes[30000];
+	uint64_t hashes[100000];
 	size_t index;
 };
 
 
-Olaf_FP_DB_Writer * olaf_fp_db_writer_new(Olaf_FP_DB* db,uint32_t audio_file_identifier){
+Olaf_FP_DB_Writer * olaf_fp_db_writer_new(Olaf_DB* db,uint32_t audio_file_identifier){
 	(void)(db);
 	(void)(audio_file_identifier);
+
 	Olaf_FP_DB_Writer *db_writer = (Olaf_FP_DB_Writer*) malloc(sizeof(Olaf_FP_DB_Writer));
 
 	db_writer->index=0;
@@ -52,8 +53,8 @@ void olaf_fp_db_writer_store( Olaf_FP_DB_Writer * db_writer , struct extracted_f
 
 	for(size_t i = 0 ; i < fingerprints->fingerprintIndex; i++){
 		uint64_t fp_hash = olaf_fp_extractor_hash(fingerprints->fingerprints[i]);
-		uint64_t fp_time = fingerprints->fingerprints[i].timeIndex1;
-		db_writer->hashes[db_writer->index]= (fp_hash << 32) + fp_time ;
+		uint64_t fp_time = (uint16_t) fingerprints->fingerprints[i].timeIndex1;
+		db_writer->hashes[db_writer->index]= (fp_hash << 16) + fp_time ;
 		db_writer->index++;
 	}
 	fingerprints->fingerprintIndex = 0;
@@ -75,7 +76,7 @@ void olaf_fp_db_writer_destroy(Olaf_FP_DB_Writer * db_writer, bool store){
 
 		printf("#include <stdint.h>\n\nsize_t fp_ref_mem_length = %zu;\nconst uint64_t fp_ref_mem[] = {\n",db_writer->index);
 		for(size_t i = 0 ; i < db_writer->index;i++){
-			printf("%lu,\n",db_writer->hashes[i]);
+			printf("%llu,\n",db_writer->hashes[i]);
 		}
 		printf("};\n");
 	}

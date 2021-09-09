@@ -41,7 +41,7 @@ Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source){
 		exit(1);
 	}
 
-	Olaf_Reader *reader = (Olaf_Reader*) malloc(sizeof(Olaf_Reader));
+	Olaf_Reader *reader = malloc(sizeof(Olaf_Reader));
 	reader->config = config;
 	reader->audio_file = file;
 	reader->end_of_file_reached = true;

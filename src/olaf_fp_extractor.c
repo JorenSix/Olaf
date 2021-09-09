@@ -25,22 +25,16 @@
 struct Olaf_FP_Extractor{
 	int audioBlockIndex;
 	struct extracted_fingerprints fingerprints;
-	uint32_t * recentFingerprints;
-	int recentFingerprintIndex;
 	Olaf_Config * config;
 };
 
 Olaf_FP_Extractor * olaf_fp_extractor_new(Olaf_Config * config){
 
-	Olaf_FP_Extractor *fp_extractor = (Olaf_FP_Extractor*) malloc(sizeof(Olaf_FP_Extractor));
+	Olaf_FP_Extractor *fp_extractor = malloc(sizeof(Olaf_FP_Extractor));
 
 	fp_extractor->config = config;
 
-	fp_extractor->recentFingerprintIndex = 0;
-
-	fp_extractor->recentFingerprints = (uint32_t *) malloc(config->recentFingerprintSize * sizeof(uint32_t));
-
-	fp_extractor->fingerprints.fingerprints = (struct fingerprint*) malloc(config->maxFingerprints * sizeof(struct fingerprint));
+	fp_extractor->fingerprints.fingerprints = calloc(config->maxFingerprints , sizeof(struct fingerprint));
 
 	fp_extractor->fingerprints.fingerprintIndex = 0;
 
@@ -49,7 +43,6 @@ Olaf_FP_Extractor * olaf_fp_extractor_new(Olaf_Config * config){
 
 void olaf_fp_extractor_destroy(Olaf_FP_Extractor * fp_extractor){
 	free(fp_extractor->fingerprints.fingerprints);
-	free(fp_extractor->recentFingerprints);
 	free(fp_extractor);
 }
 
@@ -85,49 +78,83 @@ int olaf_ep_compare_event_points (const void * a, const void * b) {
 //A binary search for 1546xx in the reference database ends up at one of the above arrows. 
 //Subsequently all the 1546xx values are identified by iteration in both directions.
 //
-uint32_t olaf_fp_extractor_hash(struct fingerprint f){
+uint64_t olaf_fp_extractor_hash(struct fingerprint f){
+	int f1 = f.frequencyBin1;
+	int f2 = f.frequencyBin2;
+	int f3 = f.frequencyBin3;
 
-	//hash components
-	uint16_t deltaT1 = (f.timeIndex2 - f.timeIndex1);
-	uint16_t deltaT2 = (f.timeIndex3 - f.timeIndex2)/2;
+	int t1 = f.timeIndex1;
+	int t2 = f.timeIndex2;
+	int t3 = f.timeIndex3;
 
-	uint16_t f1LargerThanF2 = f.frequencyBin1 > f.frequencyBin2 ? 1 : 0;
-	uint16_t f2LargerThanF3 = f.frequencyBin2 > f.frequencyBin3 ? 1 : 0;
+	float m1 = f.magnitude1;
+	float m2 = f.magnitude2;
+	float m3 = f.magnitude3;
+
+	uint64_t f1LargerThanF2 = f2 > f3 ? 1 : 0;
+	uint64_t f2LargerThanF3 = f2 > f3 ? 1 : 0;
+	uint64_t f3LargerThanF1 = f3 > f1 ? 1 : 0;
+
+	uint64_t m1LargerThanm2 = m1 > m2 ? 1 : 0;
+	uint64_t m2LargerThanm3 = m2 > m3 ? 1 : 0;
+	uint64_t m3LargerThanm1 = m3 > m1 ? 1 : 0;
+
+	uint64_t dt1t2LargerThant3t2 = (t2 - t1) > (t3 - t2) ? 1 : 0;
+	uint64_t df1f2LargerThanf3f2 = abs(f2 - f1) > abs(f3 - f2) ? 1 : 0;
+
+	//9 bits f in range( 0 - 512) to 8 bits
+	uint64_t f1Range = (f1 >> 1);
+		
+	//7 bits (0-128) -> 5 bits
+	uint64_t df2f1 = (abs(f2 - f1) >> 2);
+	uint64_t df3f2 = (abs(f3 - f2) >> 2);
+		
+	//6 bits max
+	uint64_t diffT = t3 - t1;
+
+	uint64_t hash = 
+				((diffT                &  ((1<<6)  -1)   ) << 0 ) +
+		        ((f1LargerThanF2       &  ((1<<1 ) -1)   ) << 6 ) +
+		        ((f2LargerThanF3       &  ((1<<1 ) -1)   ) << 7 ) +
+		        ((f3LargerThanF1       &  ((1<<1 ) -1)   ) << 8 ) +
+		        ((m1LargerThanm2       &  ((1<<1 ) -1)   ) << 9 ) +
+		        ((m2LargerThanm3       &  ((1<<1 ) -1)   ) << 10) +
+		        ((m3LargerThanm1       &  ((1<<1 ) -1)   ) << 11) +
+		        ((dt1t2LargerThant3t2  &  ((1<<1 ) -1)   ) << 12) +
+		        ((df1f2LargerThanf3f2  &  ((1<<1 ) -1)   ) << 13) +
+		        ((f1Range              &  ((1<<8 ) -1)   ) << 14) +
+		        ((df2f1                &  ((1<<6 ) -1)   ) << 22) +
+		        ((df3f2                &  ((uint64_t) (1<<6 ) -1)   ) << 28) ;
 	
-	uint16_t frequencyBin1 = f.frequencyBin1;
-	
-	uint16_t deltaF1=abs(f.frequencyBin1 - f.frequencyBin2);
-	uint16_t deltaF2=abs(f.frequencyBin2 - f.frequencyBin3);
+	return hash;
+}
 
-	//fprintf(stderr,"f1: %0.3f  f1i: %d  f2: %0.3f f2i: %d  deltaF: %d deltaFi: %d \n",f.fractionalFrequencyBin1, (uint16_t) round(f.fractionalFrequencyBin1 * f_mul), f.fractionalFrequencyBin2, (uint16_t) round(f.fractionalFrequencyBin2 * f_mul), deltaFInterpolated, deltaFInterpolated);     
-	
-	//combine the hash components into a single 32 bit integer
-	uint32_t fp_hash = 
-			((frequencyBin1            &  ((1<<8 ) -1)   ) << 26) +
-	        ((f2LargerThanF3           &  ((1<<1 ) -1)   ) << 25) +
-	        ((f1LargerThanF2           &  ((1<<1 ) -1)   ) << 24) +
-	        ((deltaF1                  &  ((1<<7 ) -1)   ) << 17) +
-	        ((deltaF2                  &  ((1<<7 ) -1)   ) << 10) +
-	        ((deltaT2                  &  ((1<<5 ) -1)   ) <<  5) +
-	        ((deltaT1                  &  ((1<<5 ) -1)   ) <<  0) ;
-
-	return fp_hash;
+void olaf_fp_extractor_print(struct fingerprint f){
+	fprintf(stderr,"FP hash: %llu \n", olaf_fp_extractor_hash(f));
+	fprintf(stderr,"\tt1: %d, f1: %d, m1: %.3f\n", f.timeIndex1,f.frequencyBin1,f.magnitude1);
+	fprintf(stderr,"\tt2: %d, f2: %d, m2: %.3f\n", f.timeIndex2,f.frequencyBin2,f.magnitude2);
+	fprintf(stderr,"\tt3: %d, f3: %d, m3: %.3f\n", f.timeIndex3,f.frequencyBin3,f.magnitude3);
 }
 
 struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp_extractor,struct extracted_event_points * eventPoints,int audioBlockIndex){
+	
+	if(fp_extractor->config->verbose){
+		fprintf(stderr,"Combining event points into fingerprints: \n");
+		for(int i = 0 ; i < eventPoints->eventPointIndex ; i++){
+			fprintf(stderr,"\t idx: %d ",i);
+			olaf_ep_extractor_print_ep(eventPoints->eventPoints[i]);
+		}
+	}
+	
 	for(int i = 0; i < eventPoints->eventPointIndex ; i++){
 
 		int t1 = eventPoints->eventPoints[i].timeIndex;
 		int f1 = eventPoints->eventPoints[i].frequencyBin;
-		int ppp1 = eventPoints->eventPoints[i].printsPerPoint;
+		float m1 =  eventPoints->eventPoints[i].magnitude;
 
 		//do not evaluate empty points
 		if(f1==0 && t1==0)
 			break;
-
-		//do not evaulate points with more than x prints per event point
-		if(ppp1>fp_extractor->config->maxFingerprintsPerPoint)
-			continue;
 
 		//do not evaluate event points that are too recent
 		int diffToCurrentTime = audioBlockIndex-fp_extractor->config->maxTimeDistance;
@@ -138,20 +165,17 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 
 			int t2 =  eventPoints->eventPoints[j].timeIndex;
 			int f2 =  eventPoints->eventPoints[j].frequencyBin;
-			int ppp2 =  eventPoints->eventPoints[j].printsPerPoint;
+			float m2 =  eventPoints->eventPoints[j].magnitude;
 
 			int fDiff = abs(f1 - f2);
 			int tDiff = t2-t1;
 
 			assert(t2>=t1);
+			assert(tDiff>=0);
 
 			//do not evaluate points to far in the future
 			if(tDiff > fp_extractor->config->maxTimeDistance)
 				break;
-
-			//do not evaulate points with more than x prints per event point
-			if(ppp2>fp_extractor->config->maxFingerprintsPerPoint)
-				continue;
 
 			if(tDiff >= fp_extractor->config->minTimeDistance && 
 				tDiff <= fp_extractor->config->maxTimeDistance && 
@@ -164,58 +188,43 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 
 					int t3 =  eventPoints->eventPoints[k].timeIndex;
 					int f3 =  eventPoints->eventPoints[k].frequencyBin;
-					int ppp3 =  eventPoints->eventPoints[k].printsPerPoint;
+					float m3 =  eventPoints->eventPoints[k].magnitude;
 
 					//do not evaluate points to far in the future
 					if(tDiff > fp_extractor->config->maxTimeDistance)
 						break;
 
-					//do not evaulate points with more than x prints per event point
-					if(ppp3>fp_extractor->config->maxFingerprintsPerPoint)
-						continue;
-
 					fDiff = abs(f2 - f3);
 					tDiff = t3-t2;
+					assert(t3>=t2);
+					assert(tDiff>=0);
 
 					if(	tDiff >= fp_extractor->config->minTimeDistance && 
 						tDiff <= fp_extractor->config->maxTimeDistance && 
 						fDiff >= fp_extractor->config->minFreqDistance && 
 						fDiff <= fp_extractor->config->maxFreqDistance){
 
+						assert(t3>t2);
+
 						//temporarily store (do not increment fingerprint index, unless it is not yet discovered)
 						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex1 = t1;
 						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex2 = t2;
 						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex3 = t3;
+
 						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].frequencyBin1 = f1;				
 						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].frequencyBin2 = f2;
 						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].frequencyBin3 = f3;
+						
+						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].magnitude1 = m1;				
+						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].magnitude2 = m2;
+						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].magnitude3 = m3;
 
-						uint32_t fingerprintHash = olaf_fp_extractor_hash(fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex]);
-
-						//check if it is already discovered
-						bool newFingerprint = true;
-						for(int k = 0 ; k < fp_extractor->config->recentFingerprintSize ; k++ ){
-							if(fingerprintHash == fp_extractor->recentFingerprints[k]){
-								newFingerprint = false;
-								break;
-							}
+						if(fp_extractor->config->verbose){
+							fprintf(stderr,"Fingerprint at index %zu\n",fp_extractor->fingerprints.fingerprintIndex);
+							olaf_fp_extractor_print(fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex]);
 						}
-
-						if(newFingerprint){
-							eventPoints->eventPoints[i].printsPerPoint++;
-							eventPoints->eventPoints[j].printsPerPoint++;
-
-							//int fDiffBins = abs(f1 - f2);
-							//fprintf(stderr,"t1: %d  t2: %d  tdiff: %d (bins) f1: %d f2: %d  fdiff: %d (cents) fdiff: %d (bins)\n",t1,t2,tDiff,f1,f2,fDiff,fDiffBins);
-							
-							fp_extractor->fingerprints.fingerprintIndex++;
-
-							fp_extractor->recentFingerprints[fp_extractor->recentFingerprintIndex] = fingerprintHash;
-							fp_extractor->recentFingerprintIndex++;
-							if(fp_extractor->recentFingerprintIndex == fp_extractor->config->recentFingerprintSize)
-								fp_extractor->recentFingerprintIndex=0;
-
-						}
+						
+						fp_extractor->fingerprints.fingerprintIndex++;
 					}
 				}
 			}
@@ -229,40 +238,34 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 
 		//mark the event points that are too old
 		if(eventPoints->eventPoints[i].timeIndex <= cutoffTime){
-			eventPoints->eventPoints[i].timeIndex = 1<<16;
-			eventPoints->eventPoints[i].printsPerPoint = 0;
+			eventPoints->eventPoints[i].timeIndex = 1<<23;
 			eventPoints->eventPoints[i].frequencyBin = 0;
 			eventPoints->eventPoints[i].magnitude = 0;
-		}
-
-		//mark the event points that are used the max number of times
-		if(eventPoints->eventPoints[i].printsPerPoint > fp_extractor->config->maxFingerprintsPerPoint){
-			eventPoints->eventPoints[i].timeIndex = 1<<16;
-			eventPoints->eventPoints[i].printsPerPoint = 0;
-			eventPoints->eventPoints[i].frequencyBin = 0;
 		}
 	}
 
 	//sort the array from low timeIndex to high
 	//the marked event points have a high time index
+	//qsort(eventPoints->eventPoints,fp_extractor->config->maxEventPoints, sizeof(struct eventpoint), olaf_ep_compare_event_points);
 	qsort(eventPoints->eventPoints,eventPoints->eventPointIndex, sizeof(struct eventpoint), olaf_ep_compare_event_points);
 
 	//find the first marked event point: this is where the next point needs to be stored
 	for(int i = 0 ; i <eventPoints->eventPointIndex ; i++){
 
-		if(eventPoints->eventPoints[i].timeIndex==1<<16){
+		if(eventPoints->eventPoints[i].timeIndex == 1<<23){
 			//the next point needs to be stored at this index
-			//fprintf(stderr,"New event point index %d , old index %d,  current time %d (%d ms) , cutoff time %d \n",i,eventPoints->eventPointIndex,audioBlockIndex,audioBlockIndex * 32,cutoffTime);
 			eventPoints->eventPointIndex  = i;
-
-			//for(int j = 0 ; j < eventPoints->eventPointIndex ; j++){
-			//	fprintf(stderr,"\tNew ev %d %d %d\n",eventPoints->eventPoints[j].timeIndex,eventPoints->eventPoints[j].frequencyBin,eventPoints->eventPoints[j].printsPerPoint); 
-			//}
-
 			break;
 		}
 	}
-	//fprintf(stderr,"New ev\n");
+	//eventPoints->eventPointIndex  = 0;
+	/*
+	fprintf(stderr,"New EP index %d \n",eventPoints->eventPointIndex);
+	for(int i = 0 ; i < eventPoints->eventPointIndex ; i++){
+		fprintf(stderr,"idx:%d ",i);
+		olaf_ep_extractor_print_ep(eventPoints->eventPoints[i]);
+	}
+	*/
 
 	return &fp_extractor->fingerprints;
 }

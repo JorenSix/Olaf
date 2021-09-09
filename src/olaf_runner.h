@@ -13,22 +13,36 @@
 
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-#ifndef OLAF_FP_DB_WRITER_H
-#define OLAF_FP_DB_WRITER_H
-	#include <stdint.h>
-	
+#ifndef OLAF_RUNNER_H
+#define OLAF_RUNNER_H
+
+	#include "olaf_config.h"
 	#include "olaf_db.h"
-	#include "olaf_fp_extractor.h"
+	#include "pffft.h"
 
-	typedef struct Olaf_FP_DB_Writer Olaf_FP_DB_Writer;
+	enum Olaf_Command {query = 0, store = 1, delete = 2};
 
-	Olaf_FP_DB_Writer * olaf_fp_db_writer_new(Olaf_DB* db,uint32_t audio_file_identifier);
+	typedef struct Olaf_Runner Olaf_Runner;
 
-	void olaf_fp_db_writer_store( Olaf_FP_DB_Writer * , struct extracted_fingerprints * );
+	struct Olaf_Runner{
+		//the olaf configuration
+		Olaf_Config * config;
 
-	void olaf_fp_db_writer_delete( Olaf_FP_DB_Writer * , struct extracted_fingerprints * );
+		enum Olaf_Command command;
 
-	void olaf_fp_db_writer_destroy(Olaf_FP_DB_Writer *, bool store);
+		//The database	
+		Olaf_DB* db;
 
-#endif //OLAF_FP_DB_WRITER_H
-	
+		//The fft struct that is reused
+		PFFFT_Setup *fftSetup;
+
+		//In and output fft data
+		float *fft_in;
+		float *fft_out;
+	};
+
+	Olaf_Runner * olaf_runner_new(enum Olaf_Command cmd);
+
+	void olaf_runner_destroy(Olaf_Runner * runner);
+
+#endif //OLAF_RUNNER_H

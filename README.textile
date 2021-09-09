@@ -133,22 +133,9 @@ h3. Delete fingerprints
 
 Deletion of fingerprints is similar to adding prints:
 
-<pre>olaf del item.mp3</pre>
+<pre>olaf delete item.mp3</pre>
 
 Note that it is currently unclear what the performance implications are when adding and removing many items to the db. In other words: how balanced the B+ tree remains with many leaves removed.
-
-
-h3. Bulk storage
-
-With many millions of fingerprints LMDB becomes slower. This is problematic when storing tens of thousands of items in the reference database. The bulk_store and bulk_load commands provide a faster solution. With bulk store fingerprints are stored in text files on disk. This allows multiple threads to extract and store fingerprints simultaneously. The bulk load commands takes these texts files and, using LMDB's append feature, commits them to the database __in order__ which is many magnitudes faster. 
-
-
-<pre>olaf bulk_store ...
-olaf bulk_load</pre>
-
-The disadvantage is that additional disk space is needed to temporary store two versions of the fingerprints. 
-
-Once the database is initialized bulk_store should not be used again. The order can not be guaranteed: new fingerprints will likely come before the last entry in the database.
 
 h2. Limitations
 
@@ -174,10 +161,16 @@ Some relevant reading material about (landmark based) acoustic fingerprinting. T
 # Sonnleitner, Reinhard  and Widmer, Gerhard "__
 Robust Quad-Based Audio Fingerprinting__":http://dx.doi.org/10.1109/TASLP.2015.2509248 (2015)
 
+
+The programming style of Olaf attempts to use an OOP inspired way to organize code and divide responsibilities and interfaces. 
+For more information see on this style consult this document about "OOP in C":https://www.state-machine.com/doc/AN_OOP_in_C.pdf. Also 
+of interest is the "Modern C book by Jens Gustedt":https://modernc.gforge.inria.fr/.
+
 h2. Credits
 
 * "PFFFT":https://bitbucket.org/jpommier/pffft/src/default/  a pretty fast FFT library. BSD license
 * "LMDB":https://symas.com/lmdb/ "Lightning Memory-Mapped Database":https://en.wikipedia.org/wiki/Lightning_Memory-Mapped_Database, a fast key value store with a permissive software license (the OpenLDAP Public License) by Howard Chu.
+* "Hash table":https://github.com/fragglet/c-algorithms by Simon Howard, ISC lisence
 
 Olaf by Joren Six at IPEM, Ghent University.
 
