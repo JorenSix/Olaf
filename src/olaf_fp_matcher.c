@@ -201,7 +201,7 @@ void olaf_fp_matcher_m_results_grow(Olaf_FP_Matcher * fp_matcher,int queryFinger
 // 
 void olaf_fp_matcher_tally_results(Olaf_FP_Matcher * fp_matcher,int queryFingerprintT1,int referenceFingerprintT1,uint32_t matchIdentifier){
 	
-	int timeDiff = queryFingerprintT1 - referenceFingerprintT1;
+	int timeDiff = (queryFingerprintT1 - referenceFingerprintT1);
 
 	//The time difference is expected to remain equal for a real match
 	//The time difference to a certain match should remain equal
@@ -271,7 +271,6 @@ void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_finger
 	for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
 		struct fingerprint f = fingerprints->fingerprints[i];
 		uint64_t hash = olaf_fp_extractor_hash(f);
-
 		
 		olaf_fp_matcher_match_single_fingerprint(fp_matcher,f.timeIndex1,hash);
  

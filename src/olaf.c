@@ -11,7 +11,7 @@
 
 void print_help(const char* message){
 	fprintf(stderr,"%s",message);
-	fprintf(stderr,"\tolaf_c [query audio.raw | store [raw_audio.raw id]... | stats | name_to_id file_name.mp3 | delete raw_audio.raw id ]\n");
+	fprintf(stderr,"\tolaf_c [query audio.raw | print audio.raw |store [raw_audio.raw id]... | stats | name_to_id file_name.mp3 | delete raw_audio.raw id ]\n");
 	exit(-10);
 }
 
@@ -30,6 +30,8 @@ int main(int argc, const char* argv[]){
 		cmd = query;
 	} else if(strcmp(command,"delete") == 0){
 		cmd = delete;
+	} else if(strcmp(command,"print") == 0){
+		cmd = print;
 	} else if(strcmp(command,"name_to_id") == 0){
 		//print the hash an exit
 		printf("%u\n",olaf_db_string_hash(argv[2],strlen(argv[2])));

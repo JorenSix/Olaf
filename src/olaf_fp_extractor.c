@@ -98,6 +98,10 @@ uint64_t olaf_fp_extractor_hash(struct fingerprint f){
 	uint64_t m1LargerThanm2 = m1 > m2 ? 1 : 0;
 	uint64_t m2LargerThanm3 = m2 > m3 ? 1 : 0;
 	uint64_t m3LargerThanm1 = m3 > m1 ? 1 : 0;
+	
+	m1LargerThanm2 = 0;
+	m2LargerThanm3 = 0;
+	m3LargerThanm1 = 0;
 
 	uint64_t dt1t2LargerThant3t2 = (t2 - t1) > (t3 - t2) ? 1 : 0;
 	uint64_t df1f2LargerThanf3f2 = abs(f2 - f1) > abs(f3 - f2) ? 1 : 0;

@@ -54,8 +54,11 @@ Olaf_Config* olaf_config_default(){
 	//prevent silence to register as event points
 	config->minEventPointMagnitude = 0.0;
 
+	//debug statements
 	config->verbose = false;
 	
+	//For over the air queries it is best to ignore magnitude info
+	config->useMagnitudeInfo=false;
 	//min time distance between two event points for fingerprint
 	config->minTimeDistance = 2; // 8ms x 2 for fingerprint construction
 	//max time distance between two event points for fingerprint
@@ -71,7 +74,7 @@ Olaf_Config* olaf_config_default(){
 	config->maxResults = 10;
 
 	//The range around a hash to search
-	config->searchRange = 5;
+	config->searchRange = 6;
 
 	//minimum 5 aligned matches before reporting match
 	config->minMatchCount = 6;

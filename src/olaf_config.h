@@ -73,7 +73,9 @@
 
 		
 		//-----------Fingerprint configuration
-
+		//For over the air queries it is best to 
+		//not include magnitude info in fingerprint
+		bool useMagnitudeInfo;
 		//the minimum and maximum time distance of event points in 
 		//
 		int minTimeDistance;

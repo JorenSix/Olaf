@@ -93,6 +93,9 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 	
 		match = (uint64_t*) bsearch(&packed_key, olaf_db->ref_fp, olaf_db->ref_fp_length, sizeof (uint64_t), olaf_dp_packed_hash_compare);
 		//stop the search if a match if found.
+		if(match !=NULL){
+			fprintf(stderr, "Bsearch for %llu matches \n",current_key);
+		}
 		if(match!=NULL) break;
 	}
 	 
@@ -112,6 +115,7 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 			if(ref_hash >= start_key && ref_hash <= stop_key){
 				if(results_index<results_size){
 					uint64_t t = ref_t;
+					fprintf(stderr, "ON or Before %llu is between %llu and %llu \n",ref_hash, start_key,stop_key);
 					results[result_index]=(t << 32) + result_match_id;
 					result_index++;
 				}else{
@@ -131,6 +135,7 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 			if(ref_hash >= start_key && ref_hash <= stop_key){
 				if(results_index<results_size){
 					uint64_t t = ref_t;
+					fprintf(stderr, "AFTER %llu is between %llu and %llu \n",ref_hash, start_key,stop_key);
 					results[result_index]= (t << 32) + result_match_id;
 					result_index++;
 				}else{
@@ -192,6 +197,7 @@ uint32_t olaf_db_string_hash(const char *key, size_t len){
 
 
 void olaf_db_store_meta_data(Olaf_DB * olaf_db, uint32_t * key, Olaf_Resource_Meta_data * value){
+	puts("Ingore meta-data");
 	(void)(olaf_db);
 	(void)(key);
 	(void)(value);
