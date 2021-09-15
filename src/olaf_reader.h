@@ -24,6 +24,8 @@
 
     size_t olaf_reader_read(Olaf_Reader *,float *);
 
+    size_t olaf_reader_total_samples_read(Olaf_Reader *);
+
     // free up memory and release resources
     void olaf_reader_destroy(Olaf_Reader * );
 

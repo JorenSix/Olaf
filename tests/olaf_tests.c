@@ -6,7 +6,17 @@
 #include "olaf_reader.h"
 #include "olaf_db.h"
 
+void olaf_db_mem_unpack(uint64_t packed, uint64_t * hash, uint32_t * t){
+	*hash = (packed >> 16);
+	*t = (uint32_t)((uint16_t) packed) ; 
+}
 
+uint64_t olaf_db_mem_pack(uint64_t hash, uint32_t t){
+	uint64_t packed = 0;
+	packed = (hash<<16);
+	packed += t;
+	return packed;
+}
 
 
 void olaf_reader_test(){

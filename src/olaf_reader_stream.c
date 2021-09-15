@@ -16,9 +16,13 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <signal.h>
 
 #include "olaf_config.h"
 #include "olaf_reader.h"
+
+//have we reached the end of the file?
+volatile bool end_of_file_reached;
 
 struct Olaf_Reader{
 	//the olaf configuration
@@ -27,24 +31,37 @@ struct Olaf_Reader{
 	//The file currently being read
 	FILE* audio_file;
 
-	//have we reached the end of the file?
-	bool end_of_file_reached;
+	
+
+	size_t total_samples_read;
 };
+
+void olaf_reader_trap(int signal){
+	if(signal == SIGINT){
+		end_of_file_reached = true;
+	}
+}
 
 Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source){
 
-
-	FILE* file = fopen(source,"rb");  // r for read, b for binary
-
-	if (file==NULL) {
-		fprintf(stderr,"Audio file %s not found or unreadable.\n",source);
-		exit(1);
-	}
+	signal(SIGINT, olaf_reader_trap);
 
 	Olaf_Reader *reader = malloc(sizeof(Olaf_Reader));
 	reader->config = config;
+	reader->total_samples_read = 0;
+
+	FILE* file = NULL;
+	if(source == NULL){
+		file = freopen(NULL, "rb", stdin);
+	}else{
+		file = fopen(source,"rb");  // r for read, b for binary
+		if (file==NULL) {
+			fprintf(stderr,"Audio file %s not found or unreadable.\n",source);
+			exit(1);
+		}
+	}
+	
 	reader->audio_file = file;
-	reader->end_of_file_reached = true;
 
 	return reader;
 }
@@ -54,14 +71,16 @@ size_t olaf_reader_read(Olaf_Reader *reader ,float * audio_block){
 	size_t number_of_samples_read;
 
 	size_t step_size = reader->config->audioStepSize;
+	size_t block_size = reader->config->audioBlockSize;
+	size_t overlap_size = block_size - step_size;
 
 	//make room for the new samples: shift the oldest to the beginning
-	for(size_t i = 0 ; i < step_size;i++){
+	for(size_t i = 0 ; i < overlap_size;i++){
 		audio_block[i]=audio_block[i+step_size];
 	}
 
 	//start from the middle of the array
-	float* startAddress = &audio_block[step_size];
+	float* startAddress = &audio_block[overlap_size];
 
 	// copy the file into the audioData:
 	number_of_samples_read = fread(startAddress,reader->config->bytesPerAudioSample,step_size,reader->audio_file);
@@ -70,22 +89,26 @@ size_t olaf_reader_read(Olaf_Reader *reader ,float * audio_block){
 	for(size_t i = number_of_samples_read ; i < step_size ;i++){
 		audio_block[i] = 0;
 	}
-
 	
 	if(feof(reader->audio_file)) {
-      reader->end_of_file_reached = true;
+		end_of_file_reached = true;
     }
+	reader->total_samples_read+=number_of_samples_read;
 
 	return number_of_samples_read;
 }
 
+size_t olaf_reader_total_samples_read(Olaf_Reader * reader){
+	return reader->total_samples_read;
+}
+
 void olaf_reader_destroy(Olaf_Reader *  reader){
 
-	if(!reader->end_of_file_reached){
-		printf(stderr, "Warning: not reached end of file\n");
+	if(!end_of_file_reached){
+		fprintf(stderr, "Warning: not reached end of file\n");
 	}	
 
-	// after reading the file to memory, close the file
-	fclose(reader->audio_file); 
+	// after reading , close the file
+	fclose(reader->audio_file);
 	free(reader);
 }

@@ -116,7 +116,7 @@ void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * file_writer){
 		}
 
 		//sort results by match count, lowest match count first
-		qsort(file_writer->entries,  file_writer->entry_index, sizeof(struct Olaf_FP_File_Entry), olaf_fp_file_writer_compare_entries);
+		qsort(file_writer->entries, file_writer->entries_size, sizeof(struct Olaf_FP_File_Entry), olaf_fp_file_writer_compare_entries);
 
 
 		for(size_t i = 0 ; i < file_writer->entry_index;i++){

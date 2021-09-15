@@ -304,7 +304,7 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key, uint
 
 		if( keyInt > stop_key) break;
 
-		//fprintf(stderr,"key:  %p %llu, value: %p  %llu \n",mdb_key.mv_data,keyInt,mdb_value.mv_data,valueInt);
+		fprintf(stderr,"Found key:  %p %llu, value: %p  %llu \n",mdb_key.mv_data,keyInt,mdb_value.mv_data,valueInt);
 
 		if(result_index >= results_size){
 			fprintf(stderr,"Results full, expected less than %zu hash collisions\n",results_size);
@@ -321,13 +321,15 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key, uint
 
 		rc = mdb_cursor_get(cursor, &mdb_key, &mdb_value, MDB_NEXT_DUP );
 		if(rc == MDB_NOTFOUND ){
-			//printf("No Next Dup for key:  %p %u \n",mdb_key.mv_data,keyInt);
+			printf("No Next Dup for key:  %p %llu \n",mdb_key.mv_data,keyInt);
 			rc = mdb_cursor_get(cursor, &mdb_key, &mdb_value, MDB_NEXT);
 		}
 
 	} while (rc == 0);
 
 	mdb_cursor_close(cursor);
+
+	fprintf(stderr,"start key: %llu stop key: %llu  results %zu \n",start_key,stop_key,number_of_results);
 
 	return number_of_results;
 }
@@ -382,7 +384,7 @@ void olaf_db_stats_verbose(Olaf_DB * olaf_db){
 		uint64_t hash = *((uint64_t *) (mdb_key.mv_data));
 		uint64_t val = *((uint64_t *) (mdb_value.mv_data));
 
-		uint32_t ref_t1 =  (uint32_t) (val >> 32);
+		uint32_t ref_t1 = (uint32_t) (val >> 32);
 		uint32_t ref_id = (uint32_t) val;
 
 		number_of_fps++;

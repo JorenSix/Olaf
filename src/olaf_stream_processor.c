@@ -29,6 +29,7 @@ struct Olaf_Stream_Processor{
 	float *audio_data;
 };
 
+
 Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner * runner,const char* raw_path,const char* orig_path){
 
 	Olaf_Stream_Processor * processor = malloc(sizeof(Olaf_Stream_Processor));
@@ -39,17 +40,12 @@ Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner * runner,const cha
 		processor->audio_identifier = olaf_db_string_hash(orig_path,strlen(orig_path));
 
 	processor->runner = runner;
-
 	processor->config = runner->config;
-
 	processor->ep_extractor = olaf_ep_extractor_new(processor->config);
 	processor->fp_extractor = olaf_fp_extractor_new(processor->config);
-
 	processor->reader = olaf_reader_new(processor->config,raw_path);
-
-	//Input audio samples
-	processor->audio_data = calloc(processor->config->audioBlockSize , sizeof(float)); 
-
+	processor->audio_data = calloc(processor->config->audioBlockSize , sizeof(float)); //Input audio samples
+	
 	return processor;
 }
 
@@ -62,9 +58,8 @@ void olaf_stream_processor_destroy(Olaf_Stream_Processor * processor){
 	free(processor);
 }
 
-
 void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
-
+	
 	int audioBlockIndex = 0;
 
 	Olaf_FP_DB_Writer *fp_db_writer = NULL;
@@ -73,22 +68,17 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 	fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,100);
 
 	if(processor->runner->command == query ){
-			fp_matcher = olaf_fp_matcher_new(processor->config,processor->runner->db);
+		fp_matcher = olaf_fp_matcher_new(processor->config,processor->runner->db);
 	} else if(processor->runner->command == store || processor->runner->command == delete){
-			fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,processor->audio_identifier);
+		fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,processor->audio_identifier);
 	}else if(processor->runner->command == print ){
-			fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,processor->audio_identifier);
+		fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,processor->audio_identifier);
 	}
-
-	size_t tot_samples_read = 0;
-	size_t tot_fp_extracted = 0;
 
 	struct extracted_event_points * eventPoints = NULL;
 	struct extracted_fingerprints * fingerprints;
 
 	size_t samples_read = olaf_reader_read(processor->reader,processor->audio_data);
-	tot_samples_read += samples_read;
-
 	size_t samples_expected = processor->config->audioStepSize;
 
 	clock_t start, end;
@@ -101,10 +91,8 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 	float *fft_out= processor->runner->fft_out;
 
 	const float* window = olaf_fft_window(processor->config->audioBlockSize);
-
 	while(samples_read==samples_expected){
 		samples_read = olaf_reader_read(processor->reader,processor->audio_data);
-		tot_samples_read += samples_read;
 		
 		// windowing + copy to fft input
 		for(int j = 0 ; j <  processor->config->audioBlockSize ; j++){
@@ -122,13 +110,11 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 			//combine the event points into fingerprints
 			fingerprints = olaf_fp_extractor_extract(processor->fp_extractor,eventPoints,audioBlockIndex);
 
-			tot_fp_extracted = tot_fp_extracted + fingerprints->fingerprintIndex;
-
 			if(processor->runner->command == query){
 				//use the fingerprints to match with the reference database
 				//report matches if found
 				olaf_fp_matcher_match(fp_matcher,fingerprints);
-			}else if(processor->runner->command ==store){
+			}else if(processor->runner->command == store){
 				//use the fp's to store in the db
 				olaf_fp_db_writer_store(fp_db_writer,fingerprints);
 			} else if(processor->runner->command == delete){
@@ -142,27 +128,27 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 					fprintf(stdout,"%d, %d, %.3f\n", f.timeIndex3,f.frequencyBin3,f.magnitude3);
 				}
 			}
-
 			fingerprints->fingerprintIndex = 0;
 		}
-		
 		//increase the audio buffer counter
 		audioBlockIndex++;
-	}
 
+		if(audioBlockIndex % 100 == 0 && strcmp(processor->orig_path , "stdin")){
+			double audioDuration = (double) olaf_reader_total_samples_read(processor->reader) / (double) processor->config->audioSampleRate;
+			fprintf(stderr,"Time: %.3fs  fps: %zu \n",audioDuration,olaf_fp_extractor_total(processor->fp_extractor));
+		}
+	}
 	//handle the last event points
 	fingerprints = olaf_fp_extractor_extract(processor->fp_extractor,eventPoints,audioBlockIndex);
-	double audioDuration = (double) tot_samples_read / (double) processor->config->audioSampleRate;
+	double audioDuration = (double) olaf_reader_total_samples_read(processor->reader) / (double) processor->config->audioSampleRate;
 
 	if(processor->runner->command == query){
 		//use the fingerprints to match with the reference database
 		//report matches if found
 		olaf_fp_matcher_match(fp_matcher,fingerprints);
-
 		olaf_fp_matcher_print_header();
 		olaf_fp_matcher_print_results(fp_matcher);
 		olaf_fp_matcher_destroy(fp_matcher);
-
 	}else if(processor->runner->command == store){
 		//use the fp's to store in the db
 		olaf_fp_db_writer_store(fp_db_writer,fingerprints);
@@ -174,7 +160,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		}else{
 			strcpy(meta_data.path,processor->orig_path);
 		}
-		meta_data.fingerprints = tot_fp_extracted;
+		meta_data.fingerprints = olaf_fp_extractor_total(processor->fp_extractor);
 		olaf_db_store_meta_data(processor->runner->db,&processor->audio_identifier,&meta_data);
 	} else if(processor->runner->command == delete){
 		olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
@@ -196,5 +182,5 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		verb = "Deleted";
 	}
 
-    fprintf(stderr,"%s %lu fp's from %.1fs in %.3fs (%.0f times realtime) \n",verb,tot_fp_extracted, audioDuration,cpu_time_used,ratio);
+    fprintf(stderr,"%s %lu fp's from %.1fs in %.3fs (%.0f times realtime) \n",verb,olaf_fp_extractor_total(processor->fp_extractor), audioDuration,cpu_time_used,ratio);
 }

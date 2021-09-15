@@ -51,6 +51,8 @@
 
 	// extract fingerprints from a list of event points
 	struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor *,struct extracted_event_points * ,int);
+	
+	size_t olaf_fp_extractor_total(Olaf_FP_Extractor * fp_extractor);
 
 	//static methods:
 

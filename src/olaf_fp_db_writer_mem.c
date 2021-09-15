@@ -33,7 +33,8 @@ int fp_hash_compare(const void * a, const void * b) {
 }
 
 struct Olaf_FP_DB_Writer{
-	uint64_t hashes[100000];
+	uint64_t* hashes;
+	size_t hashes_size;
 	size_t index;
 };
 
@@ -42,7 +43,9 @@ Olaf_FP_DB_Writer * olaf_fp_db_writer_new(Olaf_DB* db,uint32_t audio_file_identi
 	(void)(db);
 	(void)(audio_file_identifier);
 
-	Olaf_FP_DB_Writer *db_writer = (Olaf_FP_DB_Writer*) malloc(sizeof(Olaf_FP_DB_Writer));
+	Olaf_FP_DB_Writer *db_writer = malloc(sizeof(Olaf_FP_DB_Writer));
+	db_writer->hashes_size = 100000;
+	db_writer->hashes = calloc(sizeof(uint64_t),db_writer->hashes_size);
 
 	db_writer->index=0;
 	
@@ -72,7 +75,7 @@ void olaf_fp_db_writer_destroy(Olaf_FP_DB_Writer * db_writer, bool store){
 	(void)(store);
 
 	if(db_writer->index > 0){
-		qsort(db_writer->hashes, db_writer->index, sizeof(uint64_t), fp_hash_compare);
+		qsort(db_writer->hashes, db_writer->hashes_size, sizeof(uint64_t), fp_hash_compare);
 
 		printf("#include <stdint.h>\n\nsize_t fp_ref_mem_length = %zu;\nconst uint64_t fp_ref_mem[] = {\n",db_writer->index);
 		for(size_t i = 0 ; i < db_writer->index;i++){

@@ -26,6 +26,7 @@ struct Olaf_FP_Extractor{
 	int audioBlockIndex;
 	struct extracted_fingerprints fingerprints;
 	Olaf_Config * config;
+	size_t total_fp_extracted;
 };
 
 Olaf_FP_Extractor * olaf_fp_extractor_new(Olaf_Config * config){
@@ -37,6 +38,7 @@ Olaf_FP_Extractor * olaf_fp_extractor_new(Olaf_Config * config){
 	fp_extractor->fingerprints.fingerprints = calloc(config->maxFingerprints , sizeof(struct fingerprint));
 
 	fp_extractor->fingerprints.fingerprintIndex = 0;
+	fp_extractor->total_fp_extracted=0;
 
 	return fp_extractor;
 }
@@ -50,6 +52,10 @@ int olaf_ep_compare_event_points (const void * a, const void * b) {
 	struct eventpoint aPoint = *(struct eventpoint*) a;
 	struct eventpoint bPoint = *(struct eventpoint*) b;
 	return (aPoint.timeIndex - bPoint.timeIndex);
+}
+
+size_t olaf_fp_extractor_total(Olaf_FP_Extractor * fp_extractor){
+	return fp_extractor->total_fp_extracted;
 }
 
 // Calculates a hash from a fingerprint struct. A hash fits in a 32bit unsigned int.
@@ -114,7 +120,7 @@ uint64_t olaf_fp_extractor_hash(struct fingerprint f){
 	uint64_t df3f2 = (abs(f3 - f2) >> 2);
 		
 	//6 bits max
-	uint64_t diffT = t3 - t1;
+	uint64_t diffT = (t3 - t1);
 
 	uint64_t hash = 
 				((diffT                &  ((1<<6)  -1)   ) << 0 ) +
@@ -251,7 +257,7 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 	//sort the array from low timeIndex to high
 	//the marked event points have a high time index
 	//qsort(eventPoints->eventPoints,fp_extractor->config->maxEventPoints, sizeof(struct eventpoint), olaf_ep_compare_event_points);
-	qsort(eventPoints->eventPoints,eventPoints->eventPointIndex, sizeof(struct eventpoint), olaf_ep_compare_event_points);
+	qsort(eventPoints->eventPoints,fp_extractor->config->maxEventPoints, sizeof(struct eventpoint), olaf_ep_compare_event_points);
 
 	//find the first marked event point: this is where the next point needs to be stored
 	for(int i = 0 ; i <eventPoints->eventPointIndex ; i++){
@@ -262,6 +268,8 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 			break;
 		}
 	}
+
+	fp_extractor->total_fp_extracted+=fp_extractor->fingerprints.fingerprintIndex;
 	//eventPoints->eventPointIndex  = 0;
 	/*
 	fprintf(stderr,"New EP index %d \n",eventPoints->eventPointIndex);

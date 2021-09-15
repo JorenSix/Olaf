@@ -31,6 +31,7 @@ ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,flac,wma,M4A,W
 AUDIO_DURATION_COMMAND = "ffprobe -i \"__input__\" -show_entries format=duration -v quiet -of csv=\"p=0\""
 AUDIO_CONVERT_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -i \"__input__\" -ac 1 -ar 16000 -f f32le -acodec pcm_f32le \"__output__\""
 AUDIO_CONVERT_COMMAND_WITH_START_DURATION = "ffmpeg -hide_banner -y -loglevel panic -ss __start__ -i \"__input__\" -t __duration__ -ac 1 -ar 16000 -f f32le -acodec pcm_f32le \"__output__\""
+MIC_INPUT = "ffmpeg -hide_banner -loglevel panic  -f avfoundation -i 'none:default' -ac 1 -ar 16000 -f f32le -acodec pcm_f32le pipe:1"
 
 #expand the argument to a list of files to process.
 # a file is simply added to the list
@@ -221,6 +222,34 @@ def store(index,length,audio_filename)
 	end
 end
 
+def microphone
+	argument = ""
+	puts "#{MIC_INPUT} | #{EXECUTABLE_LOCATION} query"
+	Open3.popen3("#{MIC_INPUT} | #{EXECUTABLE_LOCATION} query") do |stdin, stdout, stderr, wait_thr|
+		pid = wait_thr.pid
+
+		Thread.new do 
+			sleep(1)
+			Process.kill("SIGALRM", pid)
+		end
+
+		Thread.new do
+			sleep(5)
+			Process.kill("SIGINFO", pid)
+		end
+		
+		#Thread.new do
+		#	stdout.each {|l| puts l }
+		#end
+
+		#Thread.new do
+		#	stderr.each {|l| puts l }
+		#end
+
+		wait_thr.value
+	end
+end
+
 def store_all(audio_filenames)
 	audio_filenames_escaped = Array.new
 
@@ -245,7 +274,9 @@ def store_all(audio_filenames)
 			argument = argument + " \"#{tempfile.path}\" \"#{audio_filenames_escaped[index]}\"" 
 		end
 
+		puts "#{EXECUTABLE_LOCATION} store #{argument}"
 		Open3.popen3("#{EXECUTABLE_LOCATION} store #{argument}") do |stdin, stdout, stderr, wait_thr|
+		
 			Thread.new do
     			stdout.each {|l| puts l }
   			end
@@ -303,6 +334,8 @@ if command.eql? "store"
 	#audio_files.each_with_index do |audio_file, index|
 		#store(index+1,audio_files.length,audio_file)
 	#end
+elsif command.eql? "mic"
+	microphone
 elsif command.eql? "delete"
 	audio_files.each_with_index do |audio_file, index|
 		delete(index+1,audio_files.length,audio_file)
@@ -317,7 +350,6 @@ elsif command.eql? "query"
 		query(index+1,audio_files.length,audio_file,false)
 	end
 elsif command.eql? "dedup"
-	
 	audio_files.each_with_index do |audio_file, index|
 		store(index+1,audio_files.length,audio_file)
 	end

@@ -104,22 +104,17 @@
 		//To prevent that noise matches 
 		int minMatchTimeDiff;
 
-		int maxResultAge;//7.5 seconds
+		//After this time in seconds a match is forgotten
+		//this especially relevant for streams
+		float keepMatchesFor;
+
+		//Print result every x seconds
+		float printResultEvery;
 
 		//maximum number of results returned from the database
 		//It can be considered as the number of times a fingerprint hash
 		//is allowed to collide
 		int maxDBCollisions;
-
-		//if true then each fingerprint query is repeated three times:
-		//  once with the original time bin, 
-		//  once with the original time bin + 1,
-		//  once with the original time bin - 1
-		// This to include off by one matches, which might increase matches.
-		//   the disadvantage is that
-		//   query performance decreases (from 1 query -> 3 queries per print)
-		bool includeOffByOneMatches;
-
 	};
 
 	Olaf_Config* olaf_config_default();

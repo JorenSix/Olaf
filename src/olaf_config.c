@@ -36,7 +36,7 @@ Olaf_Config* olaf_config_default(){
 	//audio info
 	config->audioBlockSize = 1024;
 	config->audioSampleRate = 16000;
-	config->audioStepSize= 128;
+	config->audioStepSize = 128;
 
 	config->bytesPerAudioSample = 4; //32 bits float
 
@@ -74,21 +74,19 @@ Olaf_Config* olaf_config_default(){
 	config->maxResults = 10;
 
 	//The range around a hash to search
-	config->searchRange = 6;
+	config->searchRange = 5;
 
 	//minimum 5 aligned matches before reporting match
 	config->minMatchCount = 6;
 
-	//Forget matches after x audio blocks
-	config->maxResultAge = 350;//7.5 seconds
+	//Forget matches after x seconds
+	//or never when zero
+	config->keepMatchesFor = 0;//seconds
+	//print results after x seconds or only at the end of stream (when zero)
+	config->printResultEvery = 0;//seconds
 	
 	//number of matches (hash collisions) 
 	config->maxDBCollisions = 1000;//for larger data sets use around 2000
-
-	//Find matches for t1 + 1, t1 + 0 and t1 -0 or not
-	// triples the number of queries to the database to
-	// offset off by one errors (time discretisation error)
-	config->includeOffByOneMatches = true;
 
 	return config;
 }

@@ -115,7 +115,6 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 			if(ref_hash >= start_key && ref_hash <= stop_key){
 				if(results_index<results_size){
 					uint64_t t = ref_t;
-					fprintf(stderr, "ON or Before %llu is between %llu and %llu \n",ref_hash, start_key,stop_key);
 					results[result_index]=(t << 32) + result_match_id;
 					result_index++;
 				}else{
@@ -135,7 +134,7 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 			if(ref_hash >= start_key && ref_hash <= stop_key){
 				if(results_index<results_size){
 					uint64_t t = ref_t;
-					fprintf(stderr, "AFTER %llu is between %llu and %llu \n",ref_hash, start_key,stop_key);
+					
 					results[result_index]= (t << 32) + result_match_id;
 					result_index++;
 				}else{
@@ -170,9 +169,15 @@ bool olaf_db_find_single(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key)
 			break;
 		}
 
+		fprintf(stderr, "Found %llu is between %llu and %llu \n",ref_hash, start_key,stop_key);
+
+
+
 		//hash between start and stop: found!
 		return true;
 	}
+
+	//fprintf(stderr, "NOT found between %llu and %llu \n", start_key,stop_key);
 
 	return false;
 }

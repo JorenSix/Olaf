@@ -100,6 +100,9 @@ The query command extracts fingerprints and compares them with what is in the da
 olaf query query_fragment.opus
 </pre>
 
+See http://www.ffmpeg.org/ffmpeg-devices.html#Input-Devices
+<pre>ffmpeg -f avfoundation -list_devices true -i ""</pre>
+<pre>ffmpeg -f avfoundation -i "none:default" -ac 1 -ar 16000 -f f32le -acodec pcm_f32le pipe:1 | olaf query </pre>
 
 h3. Monitor
 
@@ -136,6 +139,10 @@ Deletion of fingerprints is similar to adding prints:
 <pre>olaf delete item.mp3</pre>
 
 Note that it is currently unclear what the performance implications are when adding and removing many items to the db. In other words: how balanced the B+ tree remains with many leaves removed.
+
+
+
+
 
 h2. Limitations
 

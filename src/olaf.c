@@ -11,7 +11,7 @@
 
 void print_help(const char* message){
 	fprintf(stderr,"%s",message);
-	fprintf(stderr,"\tolaf_c [query audio.raw | print audio.raw |store [raw_audio.raw id]... | stats | name_to_id file_name.mp3 | delete raw_audio.raw id ]\n");
+	fprintf(stderr,"\tolaf_c [query audio.raw audio.wav | print audio.raw audio.wav |store [raw_audio.raw audio.wav]... | stats | name_to_id file_name.mp3 | delete raw_audio.raw audio.wav ]\n");
 	exit(-10);
 }
 
@@ -51,16 +51,27 @@ int main(int argc, const char* argv[]){
 	}
 
 	Olaf_Runner * runner = olaf_runner_new(cmd);
-	//for each audio file
-	for(int arg_index = 2 ; arg_index < argc ; arg_index+=2){
-		const char* raw_path =  argv[arg_index];
-		const char* orig_path = orig_path = argv[arg_index + 1];
-		
-		Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_path,orig_path);
+
+	if(cmd == query && argc == 2){
+		//read audio samples from standard input
+		runner->config->printResultEvery = 3;//print results every three seconds
+		runner->config->keepMatchesFor = 10;//keep matches for 7 seconds
+
+		Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,NULL,"stdin");
 		olaf_stream_processor_process(processor);
 		olaf_stream_processor_destroy(processor);
-		
+	}else{
+		//for each audio file
+		for(int arg_index = 2 ; arg_index < argc ; arg_index+=2){
+			const char* raw_path =  argv[arg_index];
+			const char* orig_path = argv[arg_index + 1];
+			Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_path,orig_path);
+			olaf_stream_processor_process(processor);
+			olaf_stream_processor_destroy(processor);
+		}
 	}
+
 	olaf_runner_destroy(runner);
+
 	return 0;
 }
