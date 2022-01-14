@@ -1,4 +1,3 @@
-#Compiles the default olaf version for use on traditional computers
 OLAF_COMMON_OBJ= \
   pffft.o \
   midl.o \
@@ -42,16 +41,16 @@ bin/olaf_mem: $(OLAF_MEM_OBJ)
 	mkdir -p bin
 	$(CC) -o $@ $(OLAF_MEM_OBJ) $(LINK_FLAGS)
 
-OLAF_TEST_OBJS = olaf_config.o olaf_reader_stream.o  olaf_tests.o midl.o mdb.o olaf_db.o
+OLAF_TEST_OBJS = olaf_config.o olaf_reader_stream.o olaf_tests.o midl.o mdb.o olaf_db.o
 
 olaf_tests.o: tests/olaf_tests.c
-	$(CC) -o $@ $(OLAF_DISK_OBJ) $(LINK_FLAGS)
+	$(CC) -o $@ -c $(CFLAGS) -I src $<
 
 bin/olaf_tests: $(OLAF_TEST_OBJS)
 	mkdir -p bin
 	mkdir -p tests/olaf_test_db
 	rm -f tests/olaf_test_db/*
-	$(CC) -o $@ $(OLAF_MEM_OBJ) $(LINK_FLAGS)
+	$(CC) -o $@ $(OLAF_TEST_OBJS) $(LINK_FLAGS)
 
 EMSCRIPTEN_FLAGS=-s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s EXPORTED_FUNCTIONS="['_malloc','_free']" -s EXPORTED_RUNTIME_METHODS='["cwrap"]'
 EMSCRIPTEN_CC_FLAGS=-O3 -Wall -lm -lc -W -I.
