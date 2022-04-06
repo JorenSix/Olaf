@@ -63,6 +63,26 @@ open "http://localhost:8000/spectrogram.html" #open the url in standard browser
 
 By default the Olaf web version matches with fingerprints defined in a header file. 
 
+h2. Compilation with Zig
+
+Alternatively you can build Olaf with "zig":https://ziglang.org/. Zig is a programming language which also ships with a c compiler. In this project Zig is employed as an easy to use cross compiler.
+
+A @zig.build@ file is provided. Just call "zig build" to compile for your platform. On an M1 mac it gives the following:
+
+<pre>
+zig build
+file zig-out/bin/olaf_c: Mach-O 64-bit executable arm64
+</pre>
+
+The power of Zig is, however, more obvious when an other target is provided. For a list of platforms, please consult the output of @zig targets@. To build a windows executable:
+
+<pre>
+zig build -Dtarget=x86_64-windows-gnu -Drelease-small
+zig-out/bin/olaf_c.exe: PE32+ executable (console) x86-64, for MS Windows
+</pre>
+
+A pre-built windows executable can be found in @pre-built@
+
 h2. Olaf Usage
 
 Olaf provides a command line interface it can be called using olaf subapplication [argument...]. For each task Olaf has to perform, there is a subapplication. There are subapplications to store fingerprints and to query audio fragments. A typical interaction with olaf could look like this:
