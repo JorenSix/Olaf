@@ -184,6 +184,15 @@ def with_converted_audio_part(audio_filename_escaped,start,duration)
 	tempfile.unlink
 end
 
+def to_raw(index,length,audio_filename)
+	audio_filename_escaped = escape_audio_filename(audio_filename)
+	return unless audio_filename_escaped
+	with_converted_audio(audio_filename_escaped) do |tempfile|
+		system("cp #{tempfile.path} .")
+		puts "#{index}/#{length},#{File.basename audio_filename},#{File.basename tempfile}\n"
+	end
+end
+
 def escape_audio_filename(audio_filename)
 	begin
 		audio_filename.gsub(/(["])/, '\\\\\1')
@@ -334,6 +343,10 @@ if command.eql? "store"
 	#audio_files.each_with_index do |audio_file, index|
 		#store(index+1,audio_files.length,audio_file)
 	#end
+elsif command.eql? "to_raw"
+	audio_files.each_with_index do |audio_file, index|
+		to_raw(index+1,audio_files.length,audio_file)
+	end
 elsif command.eql? "mic"
 	microphone
 elsif command.eql? "delete"

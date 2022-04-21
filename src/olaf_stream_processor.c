@@ -133,7 +133,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		//increase the audio buffer counter
 		audioBlockIndex++;
 
-		if(audioBlockIndex % 100 == 0 && strcmp(processor->orig_path , "stdin")){
+		if(audioBlockIndex % 100 == 0 && strcmp(processor->orig_path , "stdin") == 0){
 			double audioDuration = (double) olaf_reader_total_samples_read(processor->reader) / (double) processor->config->audioSampleRate;
 			fprintf(stderr,"Time: %.3fs  fps: %zu \n",audioDuration,olaf_fp_extractor_total(processor->fp_extractor));
 		}
