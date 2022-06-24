@@ -4,5 +4,3 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
-    env_file:
-      - docker.env
