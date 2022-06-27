@@ -1,4 +1,4 @@
-FROM ubuntu:latest
+FROM node:16 as installer
 
 
 RUN apt-get update
@@ -13,4 +13,8 @@ COPY . .
 RUN make && make install-su
 
 RUN echo "Running!"
+
+
+FROM installer
+
 ENTRYPOINT ["tail", "-f", "/dev/null"]
