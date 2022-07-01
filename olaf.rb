@@ -218,14 +218,12 @@ def store(index,length,audio_filename)
 	audio_filename_escaped = escape_audio_filename(audio_filename)
 	return unless audio_filename_escaped
 
-	audio_identifer = audio_filename_to_olaf_id(audio_filename_escaped)
-
 	#Do not store same audio twice
 	if(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
 		puts "#{index}/#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
 	else
 		with_converted_audio(audio_filename_escaped) do |tempfile|
-			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} store \"#{tempfile.path}\" \"audio_filename_escaped\"")
+			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} store \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")
 			puts "#{index}/#{length} #{File.basename audio_filename} #{stderr.strip}" 
 		end
 	end
@@ -256,46 +254,6 @@ def microphone
 		#end
 
 		wait_thr.value
-	end
-end
-
-def store_all(audio_filenames)
-	audio_filenames_escaped = Array.new
-
-	audio_filenames.each do |audio_filename|
-		audio_filename_escaped = escape_audio_filename(audio_filename)
-		next unless audio_filename_escaped
-
-		if(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
-			puts "#{File.basename audio_filename} INVALID audio file? Duration zero."
-		else
-			audio_filenames_escaped << audio_filename_escaped
-		end
-	end
-
-	return unless audio_filenames_escaped.size > 0
-
-	with_converted_audio_files(audio_filenames_escaped) do |tempfiles|
-
-		argument = ""
-
-		tempfiles.each_with_index do |tempfile, index|
-			argument = argument + " \"#{tempfile.path}\" \"#{audio_filenames_escaped[index]}\"" 
-		end
-
-		#puts "#{EXECUTABLE_LOCATION} store #{argument}"
-		Open3.popen3("#{EXECUTABLE_LOCATION} store #{argument}") do |stdin, stdout, stderr, wait_thr|
-		
-			Thread.new do
-    			stdout.each {|l| puts l }
-  			end
-
-  			Thread.new do
-    			stderr.each {|l| puts l }
-  			end
-
-			wait_thr.value
-		end
 	end
 end
 
@@ -331,18 +289,9 @@ end
 return unless command 
 
 if command.eql? "store"
-
-	slice_number = 0
-	slice_size = 50
-	audio_files.each_slice(slice_size) do |audio_files_slice|
-		store_all(audio_files_slice)
-		slice_number = slice_number + 1
-		puts "Processed #{[slice_number * slice_size,audio_files.size].min} / #{audio_files.size}"
+	audio_files.each_with_index do |audio_file, index|
+		store(index+1,audio_files.length,audio_file)
 	end
-
-	#audio_files.each_with_index do |audio_file, index|
-		#store(index+1,audio_files.length,audio_file)
-	#end
 elsif command.eql? "to_raw"
 	audio_files.each_with_index do |audio_file, index|
 		to_raw(index+1,audio_files.length,audio_file)
