@@ -283,7 +283,7 @@ def store_all(audio_filenames)
 			argument = argument + " \"#{tempfile.path}\" \"#{audio_filenames_escaped[index]}\"" 
 		end
 
-		puts "#{EXECUTABLE_LOCATION} store #{argument}"
+		#puts "#{EXECUTABLE_LOCATION} store #{argument}"
 		Open3.popen3("#{EXECUTABLE_LOCATION} store #{argument}") do |stdin, stdout, stderr, wait_thr|
 		
 			Thread.new do
