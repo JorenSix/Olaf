@@ -120,6 +120,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 			} else if(processor->runner->command == delete){
 				olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
 			} else if(processor->runner->command == print){
+				
 				for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
 					struct fingerprint f = fingerprints->fingerprints[i];
 					fprintf(stdout,"%llu, ", olaf_fp_extractor_hash(f));

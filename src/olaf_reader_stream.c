@@ -16,7 +16,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <signal.h>
+//#include <signal.h> //signal not supported by wasm
 
 #include "olaf_config.h"
 #include "olaf_reader.h"
@@ -31,20 +31,18 @@ struct Olaf_Reader{
 	//The file currently being read
 	FILE* audio_file;
 
-	
-
 	size_t total_samples_read;
 };
 
-void olaf_reader_trap(int signal){
-	if(signal == SIGINT){
-		end_of_file_reached = true;
-	}
-}
+//void olaf_reader_trap(int signal){
+//	if(signal == SIGINT){
+//		end_of_file_reached = true;
+//	}
+//}
 
 Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source){
 
-	signal(SIGINT, olaf_reader_trap);
+	//signal(SIGINT, olaf_reader_trap);
 
 	Olaf_Reader *reader = malloc(sizeof(Olaf_Reader));
 	reader->config = config;

@@ -9,4 +9,5 @@ bin/*
 *mkv
 zig-out/*
 zig-cache/*
-
+src/zig-cache/*
+wasm/*

@@ -71,17 +71,23 @@ A @zig.build@ file is provided. Just call "zig build" to compile for your platfo
 
 <pre>
 zig build
-file zig-out/bin/olaf_c: Mach-O 64-bit executable arm64
+file zig-out/bin/olaf_c # Mach-O 64-bit executable arm64
 </pre>
 
-The power of Zig is, however, more obvious when an other target is provided. For a list of platforms, please consult the output of @zig targets@. To build a windows executable:
+The power of Zig is, however, more obvious when an other target is provided. For a list of platforms, please consult the output of @zig targets@. To build a windows executable run the following commands. Afterwards, pre-built windows executable can be found in @pre-built@
 
 <pre>
 zig build -Dtarget=x86_64-windows-gnu -Drelease-small
-zig-out/bin/olaf_c.exe: PE32+ executable (console) x86-64, for MS Windows
+file zig-out/bin/olaf_c.exe # PE32+ executable (console) x86-64, for MS Windows
 </pre>
 
-A pre-built windows executable can be found in @pre-built@
+Zig allso supports WebAssembly as a target platform as an alterative to Emscripten. The @zig.build@ file includes a conditional to build the memory db for WASM. To get a WASM binary call the following:
+
+<pre>
+zig build -Dtarget=wasm32-wasi-musl -Drelease-small
+file zig-out/bin/olaf_c.wasm #WebAssembly (wasm) binary module version 0x1 (MVP)
+</pre>
+
 
 h2. Olaf Usage
 
