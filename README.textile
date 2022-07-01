@@ -1,5 +1,5 @@
 h1. OLAF -  Overly Lightweight Acoustic Fingerprinting
-----------------------
+
 
 Olaf is a C application / library for landmark based acoustic fingerprinting. Olaf is able to extract fingerprints from an audio stream, and either store those fingerprints in a database, or find a match between extracted fingerprints and stored fingerprints. Olaf does this efficiently in order to be used on **embedded platforms**, traditional computers or in web browsers via WASM. 
 
