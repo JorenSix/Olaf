@@ -306,7 +306,7 @@ def delete(index,length,audio_filename)
 	
 	#Do not store same audio twice
 	with_converted_audio(audio_filename_escaped) do |tempfile|
-		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} delete \"#{tempfile.path}\" #{audio_identifer}")
+		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} delete \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")
 		puts "#{index}/#{length} #{File.basename audio_filename} #{stderr.strip}" 
 	end
 end
