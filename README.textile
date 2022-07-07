@@ -88,6 +88,18 @@ zig build -Dtarget=wasm32-wasi-musl -Drelease-small
 file zig-out/bin/olaf_c.wasm #WebAssembly (wasm) binary module version 0x1 (MVP)
 </pre>
 
+h2. Olaf on Docker
+
+Olaf can be containerized with "Docker":https://www.docker.com/. The provided Dockerfile is based on "Alpine linux":https://www.alpinelinux.org/ and installs only the needed requirements. A way to build the container and run Olaf:
+
+<pre>
+docker build -t olaf:1.0 .
+wget "https://filesamples.com/samples/audio/mp3/sample3.mp3"
+docker run -v $HOME/.olaf/docker_dbs:/root/.olaf -v $PWD:/root/audio olaf:1.0 olaf store sample3.mp3
+docker run -v $HOME/.olaf/docker_dbs:/root/.olaf -v $PWD:/root/audio olaf:1.0 olaf stats
+</pre>
+
+In this case the @$HOME/.olaf/docker_dbs@ is mapped to @/root/.olaf@ in the container to store the database. The audio enters tye system via a mapping of @$PWD@ to @/root/audio@ in the container, which is also the work dir in the container. So relative paths with respect to @$PWD@ of the host can be resolved in the container, absolute paths can not.
 
 h2. Olaf Usage
 

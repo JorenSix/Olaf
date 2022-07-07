@@ -1,20 +1,21 @@
-FROM node:16 as installer
+FROM alpine:latest
 
+RUN apk update
+RUN apk add ruby ffmpeg gcc git make musl-dev
 
-RUN apt-get update
-RUN apt-get -y install ffmpeg ruby make gcc
+RUN mkdir -p /usr/src/olaf
 
-RUN mkdir /usr/src/app
-
-WORKDIR /usr/src/app
+WORKDIR /usr/src/olaf
 
 COPY . .
 
 RUN make && make install-su
 
-RUN echo "Running!"
+RUN echo "Olaf installed!"
 
+RUN mkdir -p /root/audio
+WORKDIR /root/audio
 
-FROM installer
+RUN rm -rf /usr/src/olaf
 
-ENTRYPOINT ["tail", "-f", "/dev/null"]
+RUN rm -rf /root/.olaf
