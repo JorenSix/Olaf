@@ -69,6 +69,14 @@ install:
 	sudo cp olaf.rb /usr/local/bin/olaf
 	sudo chmod +x /usr/local/bin/olaf
 
+#installs olaf as root user
+install-su:
+	mkdir -p ~/.olaf/db/
+	cp bin/olaf_c /usr/local/bin/olaf_c
+	chmod +x /usr/local/bin/olaf_c
+	cp olaf.rb /usr/local/bin/olaf
+	chmod +x /usr/local/bin/olaf
+
 #removes all installed files
 uninstall:
 	rm -r ~/.olaf
