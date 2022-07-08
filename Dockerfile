@@ -11,8 +11,8 @@ RUN apk update
 # - ffmpeg to convert audio
 # - make, gcc and musl-dev to compile Olaf
 #
-# The version of each dependency is not that
-# the interfaces used should be rather stable over time
+# The version of each dependency is not that critical
+# The interfaces used should be rather stable over time
 RUN apk add ruby ffmpeg gcc make musl-dev
 
 #Create a temporary directory for the source files
@@ -37,5 +37,6 @@ WORKDIR /root/audio
 RUN rm -rf /usr/src/olaf
 
 #The database folder will be mounted from the host so that
-#the database persists over time
+# the database + configuration persists over time
+# the folder can be removed
 RUN rm -rf /root/.olaf
