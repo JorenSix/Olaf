@@ -307,7 +307,6 @@ elsif command.eql? "print"
 		print(index+1,audio_files.length,audio_file)
 	end
 elsif command.eql? "query"
-	puts "query index,total queries, query name, match name, match id, match count (#), q to ref time delta (s), ref start (s), ref stop (s), query time (s)\n"
 	audio_files.each_with_index do |audio_file, index|
 		query(index+1,audio_files.length,audio_file,false)
 	end

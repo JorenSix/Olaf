@@ -308,8 +308,7 @@ int olaf_fp_sort_results_by_match_count(const void * a, const void * b) {
 }
 
 void olaf_fp_matcher_print_header(){
-	//matchIdentifier,match->matchCount, timeDeltaS,referenceStart,referenceStop,queryTimeS
-	printf("match id, match count (#), q to ref time delta (s), ref start (s), ref stop (s), query time (s)\n");
+	printf("match count (#), q start (s) , q stop (s), ref path, ref ID, ref start (s), ref stop (s)\n");
 }
 
 //Print the final results: sort the m_results array and print
@@ -326,17 +325,20 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 		if(match->matchCount >= fp_matcher->config->minMatchCount){
 			float secondsPerBlock = ((float) fp_matcher->config->audioStepSize) / ((float) fp_matcher->config->audioSampleRate);
 			float timeDelta = secondsPerBlock * (match->queryFingerprintT1 - match->referenceFingerprintT1);
-			float queryTime =   secondsPerBlock * match->queryFingerprintT1;
+			//float queryTime =   secondsPerBlock * match->queryFingerprintT1;
 
 			float referenceStart =  match->firstReferenceFingerprintT1 * secondsPerBlock;
 			float referenceStop =  match->lastReferenceFingerprintT1 * secondsPerBlock;
+
+			float queryStart =  match->firstReferenceFingerprintT1 * secondsPerBlock - timeDelta;
+			float queryStop =  match->lastReferenceFingerprintT1 * secondsPerBlock -timeDelta;
 			
 			uint32_t matchIdentifier = match->matchIdentifier;
 
 			Olaf_Resource_Meta_data meta_data;
 			olaf_db_find_meta_data(fp_matcher->db,&matchIdentifier,&meta_data);
 
-			printf("%u, %s, %d, %.2f, %.2f, %.2f, %.2f\n",matchIdentifier,meta_data.path,match->matchCount, timeDelta,referenceStart,referenceStop,queryTime);
+			printf("%d, %.2f, %.2f, %s, %u, %.2f, %.2f\n",match->matchCount,queryStart,queryStop,meta_data.path,matchIdentifier,referenceStart,referenceStop);
 		} else {
 			//Ignore matches with a small score
 			//for performance reasons
@@ -346,7 +348,7 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 
 	//report empty results if not results are found
 	if(fp_matcher->m_results_index == 0 || fp_matcher->m_results[0].matchCount < fp_matcher->config->minMatchCount ){
-		printf("%u, %d, %.2f, %.2f, %.2f, %.2f\n",0,0, 0.0,0.0,0.0,0.0);
+		printf("%d, %.2f, %.2f, %s, %u, %.2f, %.2f\n",0,0.0,0.0,"",0,0.0,0.0);
 	}
 }
 

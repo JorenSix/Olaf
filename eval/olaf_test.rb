@@ -3,10 +3,14 @@ require 'tempfile'
 require 'tmpdir'
 
 ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
-AUDIO_FILES_TO_CHECK_FOR_TRUE_POSITIVES = 50
-AUDIO_FILES_TO_CHECK_FOR_FALSE_POSITIVES = 50
-AUDIO_FILES_OTHERS = 1000
+AUDIO_FILES_TO_CHECK_FOR_TRUE_POSITIVES = 100
+AUDIO_FILES_TO_CHECK_FOR_FALSE_POSITIVES = 100
+AUDIO_FILES_OTHERS = 400
 QUERY_LENGTHS = [10]
+RANDOM_SEED = 1
+
+#Make the test deterministic on the seed
+Kernel.srand(RANDOM_SEED)
 
 def file_length(file)
   duration_command = "ffprobe -i \"#{file}\" -show_entries format=duration -v quiet -of csv=\"p=0\""
@@ -178,7 +182,7 @@ audio_file_list_tmp = Tempfile.new(['audio_file_list', '.txt'])
 audio_file_list_tmp.write(audio_file_list_content)
 audio_file_list_tmp.flush
 
-puts "Store the true positive list"
+puts "Store the reference items (true positives + distractors) from file #{audio_file_list_tmp.path}"
 system("olaf store '#{audio_file_list_tmp.path}'")
 audio_file_list_tmp.close
 audio_file_list_tmp.unlink
@@ -218,20 +222,22 @@ end
 
 def print_olaf_query_result(query_file,modification,parameter,ref_file_start,matches,tp_or_tn_expected)
   lines = `olaf query #{query_file} 2>/dev/null`.split("\n")
+
   lines.shift #remove header
   line = lines.first
 
+  #match count (#), q start (s) , q stop (s), ref path, ref ID, ref start (s), ref stop (s)
   #store only first match
-  ind,length, q_file_basename, result_name, match_id, score, time_diff, start_ref, stop_ref, q_time = line.split(",")
-  
+
+  score,query_start,query_stop,ref_path,ref_id,ref_start,ref_stop = line.split(",")
   m = Match.new
 
   m.score = score.to_i
-  m.result_file_name = result_name
+  m.result_file_name = ref_path
   m.modification = modification
   m.parameter = parameter
-  m.ref_file_start = ref_file_start.to_f
-  m.time_diff = time_diff.to_f
+  m.ref_file_start = ref_start.to_f
+  m.time_diff = ref_start.to_f - query_start.to_f
   m.match_expected = ("tp"==tp_or_tn_expected)
   m.query_file = query_file
 
@@ -258,6 +264,9 @@ matches = Array.new
 hash_files.each do |ref_file, tn_or_tp|
   
   Dir.mktmpdir do |target_dir|
+
+    puts "Storing query audio in #{target_dir}"
+
     QUERY_LENGTHS.each do |query_length|
       target_extension = File.extname(ref_file).gsub(".","")
       input_file,ref_file_start = cut_random_piece_to_dir(ref_file,target_dir,query_length)
@@ -269,15 +278,6 @@ hash_files.each do |ref_file, tn_or_tp|
       #no modification only reencoding
       target_file = input_file
       print_olaf_query_result(target_file,"none","0",ref_file_start,matches,tn_or_tp)
-
-      # #Create pitch shifted queries
-      # (-2..2).step(2).each do |shift| 
-      #   unless shift==0
-      #     target_file = File.join(target_dir,"#{basename}___pitch_shift_#{shift}_cents.#{target_extension}")
-      #     create_pitch_shifted_file(input_file,target_file,shift)
-      #     print_olaf_query_result(target_file,"pitch_shift",shift.to_s,ref_file_start,matches,tn_or_tp)
-      #   end
-      # end
 
       # #Create time stretched and sped up queries
       # (98..102).step(1).each do |i|
@@ -298,9 +298,9 @@ hash_files.each do |ref_file, tn_or_tp|
       create_flanger_file(input_file,target_file)
       print_olaf_query_result(target_file,"flanger","0",ref_file_start,matches,tn_or_tp)
 
-      # target_file = File.join(target_dir,"#{basename}___band_passed_2000Hz.#{target_extension}")
-      # band_pass_filter(input_file,target_file,2000)
-      # print_olaf_query_result(target_file,"band_passed","2000Hz",ref_file_start,matches,tn_or_tp)
+      target_file = File.join(target_dir,"#{basename}___band_passed_2000Hz.#{target_extension}")
+      band_pass_filter(input_file,target_file,2000)
+      print_olaf_query_result(target_file,"band_passed","2000Hz",ref_file_start,matches,tn_or_tp)
 
       target_file = File.join(target_dir,"#{basename}___chorus.#{target_extension}")
       chorus(input_file,target_file)
@@ -309,15 +309,10 @@ hash_files.each do |ref_file, tn_or_tp|
       target_file = File.join(target_dir,"#{basename}___echo.#{target_extension}")
       echo(input_file,target_file)
       print_olaf_query_result(target_file,"echo","0",ref_file_start,matches,tn_or_tp)
-
-      # target_file = File.join(target_dir,"#{basename}___tremolo.#{target_extension}")
-      # tremolo(input_file,target_file)
-      # print_olaf_query_result(target_file,"tremolo","",ref_file_start,matches,tn_or_tp)
     end     
   end
-  #now the temp directory and queries doe not exist any more
+  #now the temp directory and queries do not exist any more
 end
-
 
 tp = 0
 tn = 0
