@@ -48,13 +48,13 @@ def audio_file_list(arg,files_to_process)
 		audio_files_in_txt = File.read(arg).split("\n")
 		audio_files_in_txt.each do |audio_filename|
 			audio_filename = File.expand_path(audio_filename)
-			if File.exists?(audio_filename)
+			if File.exist?(audio_filename)
 				files_to_process << audio_filename
 			else
 				STDERR.puts "Could not find: #{audio_filename}"
 			end
 		end
-	elsif File.exists? arg
+	elsif File.exist? arg
 		files_to_process << arg
 	else
 		STDERR.puts "Could not find: #{arg}"
@@ -269,7 +269,7 @@ def delete(index,length,audio_filename)
 	end
 end
 
-#create the db folder unless it exists
+#create the db folder unless it exist
 FileUtils.mkdir_p DB_FOLDER unless File.exist?(DB_FOLDER)
 
 command  = ARGV[0]
