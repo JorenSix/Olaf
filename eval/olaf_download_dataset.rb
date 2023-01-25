@@ -45,9 +45,4 @@ exit -1 unless check_files(REF_TARGET_FOLDER,"*.mp3",100*1024)
 download_files(QUERY_URL, QUERY_TARGET_FOLDER, QUERY_FILES)
 exit -1 unless check_files(QUERY_TARGET_FOLDER,"*.mp3",100*1024)
 
-system("olaf store #{ref_target_folder}/*mp3")
-
 exit 0
-
-
-  
