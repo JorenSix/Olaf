@@ -1,3 +1,5 @@
+!https://github.com/JorenSix/Olaf/actions/workflows/make.yml/badge.svg(Olaf build and test status)!
+
 h1. OLAF -  Overly Lightweight Acoustic Fingerprinting
 
 

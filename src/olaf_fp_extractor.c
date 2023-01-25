@@ -218,7 +218,7 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 
 						if(fp_extractor->fingerprints.fingerprintIndex >=  fp_extractor->config->maxFingerprints){
 							// We have reached the max amount of fingerprints we can store in this batch
-							fprintf(stderr,"Fingerprint maximum index %zu, fingerprints are ignored, consider increasing config->maxFingerprints \n",fp_extractor->fingerprints.fingerprintIndex);
+							fprintf(stderr,"Fingerprint maximum index %zu, fingerprints are ignored, consider increasing config->maxFingerprints if you see this often. \n",fp_extractor->fingerprints.fingerprintIndex);
 						}else{
 							//temporarily store (do not increment fingerprint index, unless it is not yet discovered)
 							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex1 = t1;
