@@ -32,7 +32,7 @@ jobs:
       with:
         ruby-version: '3.1'
     - name: build olaf
-        run: make build
+    - run: make build
     - name: instal olaf
-        run: make install
+    - run: make install
 
