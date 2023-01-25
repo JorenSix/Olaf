@@ -85,7 +85,7 @@
 		int maxFreqDistance;
 
 		// 
-		int maxFingerprints;
+		size_t maxFingerprints;
 
 		// number of recent fingerprints to compare a 
 		// new fingerprint with to see if it is actually new or

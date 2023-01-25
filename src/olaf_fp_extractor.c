@@ -216,25 +216,30 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 
 						assert(t3>t2);
 
-						//temporarily store (do not increment fingerprint index, unless it is not yet discovered)
-						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex1 = t1;
-						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex2 = t2;
-						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex3 = t3;
+						if(fp_extractor->fingerprints.fingerprintIndex >=  fp_extractor->config->maxFingerprints){
+							// We have reached the max amount of fingerprints we can store in this batch
+							fprintf(stderr,"Fingerprint maximum index %zu, fingerprints are ignored, consider increasing config->maxFingerprints \n",fp_extractor->fingerprints.fingerprintIndex);
+						}else{
+							//temporarily store (do not increment fingerprint index, unless it is not yet discovered)
+							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex1 = t1;
+							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex2 = t2;
+							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex3 = t3;
 
-						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].frequencyBin1 = f1;				
-						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].frequencyBin2 = f2;
-						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].frequencyBin3 = f3;
-						
-						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].magnitude1 = m1;				
-						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].magnitude2 = m2;
-						fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].magnitude3 = m3;
+							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].frequencyBin1 = f1;				
+							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].frequencyBin2 = f2;
+							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].frequencyBin3 = f3;
+							
+							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].magnitude1 = m1;				
+							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].magnitude2 = m2;
+							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].magnitude3 = m3;
 
-						if(fp_extractor->config->verbose){
-							fprintf(stderr,"Fingerprint at index %zu\n",fp_extractor->fingerprints.fingerprintIndex);
-							olaf_fp_extractor_print(fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex]);
+							if(fp_extractor->config->verbose){
+								fprintf(stderr,"Fingerprint at index %zu\n",fp_extractor->fingerprints.fingerprintIndex);
+								olaf_fp_extractor_print(fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex]);
+							}
+							
+							fp_extractor->fingerprints.fingerprintIndex++;
 						}
-						
-						fp_extractor->fingerprints.fingerprintIndex++;
 					}
 				}
 			}
