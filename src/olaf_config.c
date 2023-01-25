@@ -27,9 +27,11 @@ Olaf_Config* olaf_config_default(){
 
 	//This assume a UNIX file separator
 	const char* dbDir = "/.olaf/db/";
-	char * fullDbFolderName = malloc(strlen(homeDir) +  strlen(dbDir));
+	size_t length = strlen(homeDir) +  strlen(dbDir) + 1;
+	char * fullDbFolderName = malloc(length);
 	strcpy(fullDbFolderName,homeDir);
 	strcat(fullDbFolderName,dbDir);
+	fullDbFolderName[length-1] = '\0';
 
 	config->dbFolder = fullDbFolderName;
 
