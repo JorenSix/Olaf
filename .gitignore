@@ -11,3 +11,5 @@ zig-out/*
 zig-cache/*
 src/zig-cache/*
 wasm/*
+eval/dataset/*
+
