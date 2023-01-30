@@ -193,6 +193,7 @@ h2. Limitations
 * Performance implications when removing many items from the database are currently unclear. In other words: how balanced does the B+tree remain when removing many leaves.
 * Olaf is single threaded. The main reasons are simplicity and limitations of embedded platforms. The single threaded design keeps the code simple. On embedded platforms with single core CPU's multithreading makes no sense. 
 On traditional computers there might be a performance gain by implementing multi-threading. However, the time spent on decoding audio and storing fingerprints is much larger than analysis/extraction so the gain might be limited. As an work-around multiple processes can be used simultaniously to query the database.
+* The limitation of the number of tracks that can be indexed and queried on a single computer is not known. Olaf has been used to index and query the "fma_full dataset":https://github.com/mdeff/fma. This dataset contains 100 000 tracks totaling more than 340 days of audio. The dataset, around 800GB of mp3s, were indexed in a 15GB database and query speed remained at a respectable 80 times realtime: it only takes a single second to query 80 seconds of audio. With the datastructure having logaritmic complexity the limit of the number of songs per pc might be a couple of times higher.   
 
 h2. Further Reading
 
