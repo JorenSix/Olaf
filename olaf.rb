@@ -24,6 +24,7 @@ require 'open3'
 DB_FOLDER = File.expand_path("~/.olaf/db") #needs to be the same in the c code
 EXECUTABLE_LOCATION = "/usr/local/bin/olaf_c"
 CHECK_INCOMING_AUDIO = true
+SKIP_DUPLICATES = true
 MONITOR_LENGTH_IN_SECONDS = 7
 AVAILABLE_THREADS = 7 #change to e.g. your number of CPU cores -1
 
@@ -60,6 +61,12 @@ def audio_file_list(arg,files_to_process)
 		STDERR.puts "Could not find: #{arg}"
 	end
 	files_to_process
+end
+
+def has(audio_file)
+	result = `#{EXECUTABLE_LOCATION} has '#{audio_file}'`
+	result_line = result.split("\n")[1]
+	result_line.split(";").size > 1
 end
 
 def audio_file_duration(audio_file)
@@ -221,6 +228,8 @@ def store(index,length,audio_filename)
 	#Do not store same audio twice
 	if(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
 		puts "#{index}/#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
+	elsif (SKIP_DUPLICATES && has(audio_filename_escaped))
+		puts "#{index}/#{length} #{File.basename audio_filename} SKIP: already stored audio "
 	else
 		with_converted_audio(audio_filename_escaped) do |tempfile|
 			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} store \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")

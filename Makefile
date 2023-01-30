@@ -64,7 +64,7 @@ destroy_db:
 #Installs olaf on its default location
 install:
 	mkdir -p ~/.olaf/db/
-	sudo cp bin/olaf_c /usr/local/bin/olaf_c
+	sudo mv bin/olaf_c /usr/local/bin/olaf_c
 	sudo chmod +x /usr/local/bin/olaf_c
 	sudo cp olaf.rb /usr/local/bin/olaf
 	sudo chmod +x /usr/local/bin/olaf

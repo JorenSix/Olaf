@@ -120,13 +120,12 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 			} else if(processor->runner->command == delete){
 				olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
 			} else if(processor->runner->command == print){
-				
 				for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
 					struct fingerprint f = fingerprints->fingerprints[i];
 					fprintf(stdout,"%llu, ", olaf_fp_extractor_hash(f));
-					fprintf(stdout,"%d, %d, %.3f, ", f.timeIndex1,f.frequencyBin1,f.magnitude1);
-					fprintf(stdout,"%d, %d, %.3f, ", f.timeIndex2,f.frequencyBin2,f.magnitude2);
-					fprintf(stdout,"%d, %d, %.3f\n", f.timeIndex3,f.frequencyBin3,f.magnitude3);
+					fprintf(stdout,"%d, %d, %.6f, ", f.timeIndex1,f.frequencyBin1,f.magnitude1);
+					fprintf(stdout,"%d, %d, %.6f, ", f.timeIndex2,f.frequencyBin2,f.magnitude2);
+					fprintf(stdout,"%d, %d, %.6f\n", f.timeIndex3,f.frequencyBin3,f.magnitude3);
 				}
 			}
 			fingerprints->fingerprintIndex = 0;
@@ -139,6 +138,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 			fprintf(stderr,"Time: %.3fs  fps: %zu \n",audioDuration,olaf_fp_extractor_total(processor->fp_extractor));
 		}
 	}
+	
 	//handle the last event points
 	fingerprints = olaf_fp_extractor_extract(processor->fp_extractor,eventPoints,audioBlockIndex);
 	double audioDuration = (double) olaf_reader_total_samples_read(processor->reader) / (double) processor->config->audioSampleRate;

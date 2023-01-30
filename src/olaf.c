@@ -33,7 +33,7 @@ int main(int argc, const char* argv[]){
 	} else if(strcmp(command,"print") == 0){
 		cmd = print;
 	} else if(strcmp(command,"name_to_id") == 0){
-		//print the hash an exit
+		//print the hash and exit
 		printf("%u\n",olaf_db_string_hash(argv[2],strlen(argv[2])));
 		exit(0);
 		return 0;
@@ -46,8 +46,30 @@ int main(int argc, const char* argv[]){
 		olaf_config_destroy(config);
 		exit(0);
 		return 0;
+	} else if(strcmp(command,"has") == 0){
+		//print database statistics and exit
+		Olaf_Config* config = olaf_config_default();
+		Olaf_DB* db = olaf_db_new(config->dbFolder,true);
+		printf("audio file path; internal identifier; duration (s); fingerprints (#)\n");
+		for(int arg_index = 2 ; arg_index < argc ; arg_index++){
+			const char* orig_path = argv[arg_index];
+			uint32_t audio_id = olaf_db_string_hash(orig_path,strlen(orig_path));
+			if(olaf_db_has_meta_data(db,&audio_id)){
+				Olaf_Resource_Meta_data e;
+				olaf_db_find_meta_data(db,&audio_id,&e);
+				printf("%s;%u;%.3f;%ld\n",orig_path,audio_id,e.duration,e.fingerprints);
+			}else{
+				printf("%s;;;\n",orig_path);
+			}
+		}
+		olaf_db_destroy(db);
+		olaf_config_destroy(config);
+		exit(0);
+		return 0;
 	}else {
-		
+		fprintf(stderr,"%s Unkown command: \n",command);
+		exit(-10);
+		return -10;
 	}
 
 	Olaf_Runner * runner = olaf_runner_new(cmd);
@@ -56,7 +78,7 @@ int main(int argc, const char* argv[]){
 		//read audio samples from standard input
 		runner->config->printResultEvery = 3;//print results every three seconds
 		runner->config->keepMatchesFor = 10;//keep matches for 7 seconds
-		
+
 		Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,NULL,"stdin");
 		olaf_stream_processor_process(processor);
 		olaf_stream_processor_destroy(processor);
