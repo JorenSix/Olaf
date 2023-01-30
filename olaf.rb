@@ -95,7 +95,7 @@ def monitor(index,length,audio_filename,ignore_self_match, skip_size)
 
 					#ignore self matches if requested (for deduplication)
 					unless(ignore_self_match and query_audio_identifer.eql? matching_audio_id)
-						puts "#{index}, #{length}_#{start}s, #{File.basename audio_filename}, #{File.basename filename}, #{line}\n"
+						puts "#{index}, #{length}_#{start}s, #{File.basename audio_filename}, #{line}\n"
 					end
 				else 
 					puts "#{index}, #{length}_#{start}s, #{File.basename audio_filename}, #{line}"
@@ -213,10 +213,9 @@ def print(index,length,audio_filename)
 	audio_filename_escaped = escape_audio_filename(audio_filename)
 	return unless audio_filename_escaped
 	with_converted_audio(audio_filename_escaped) do |tempfile|
-	
 		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} print \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")
 		stdout.split("\n").each do |line|
-			puts "#{index}/#{length},#{File.basename audio_filename},#{line}\n"
+			puts "#{index}/#{length},#{File.expand_path audio_filename},#{line}\n"
 		end
 	end
 end
