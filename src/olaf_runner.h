@@ -20,7 +20,7 @@
 	#include "olaf_db.h"
 	#include "pffft.h"
 
-	enum Olaf_Command {query = 0, store = 1, delete = 2, print = 3, has = 4};
+	enum Olaf_Command {query = 0, store = 1, delete = 2, print = 3};
 
 	typedef struct Olaf_Runner Olaf_Runner;
 

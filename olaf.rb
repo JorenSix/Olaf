@@ -22,6 +22,7 @@ require 'tempfile'
 require 'open3'
 
 DB_FOLDER = File.expand_path("~/.olaf/db") #needs to be the same in the c code
+CACHE_FOLDER = File.expand_path("~/.olaf/cache") #needs to be the same in the c code
 EXECUTABLE_LOCATION = "/usr/local/bin/olaf_c"
 CHECK_INCOMING_AUDIO = true
 SKIP_DUPLICATES = true
@@ -64,9 +65,13 @@ def audio_file_list(arg,files_to_process)
 end
 
 def has(audio_file)
-	result = `#{EXECUTABLE_LOCATION} has '#{audio_file}'`
-	result_line = result.split("\n")[1]
-	result_line.split(";").size > 1
+	result = `#{EXECUTABLE_LOCATION} has '#{audio_file} 2>/dev/null'`
+	unless(result.empty?)
+		result_line = result.split("\n")[1]
+		result_line.split(";").size > 1
+	else
+		false
+	end
 end
 
 def audio_file_duration(audio_file)
@@ -220,6 +225,42 @@ def print(index,length,audio_filename)
 	end
 end
 
+def store_cached
+	Dir.glob(File.join(CACHE_FOLDER,"*tdb")).each  do |cache_file|
+		audio_file_name = nil
+		File.open(cache_file, "r") do |f|
+  			first_line =  f.gets
+  			audio_file_name = first_line.split(",")[1].strip
+		end
+
+		puts "olaf store_cached #{cache_file} #{audio_file_name}"
+	end
+end
+
+def cache(index,length,audio_filename)
+	audio_filename_escaped = escape_audio_filename(audio_filename)
+	return unless audio_filename_escaped
+
+	with_converted_audio(audio_filename_escaped) do |tempfile|
+		
+
+		audio_identifier = `olaf_c name_to_id '#{audio_filename_escaped}'`.strip
+		cache_file_name = File.join(CACHE_FOLDER,"#{audio_identifier}.tdb")
+		if File.exist? cache_file_name
+			puts "#{index}/#{length},#{File.basename audio_filename},#{cache_file_name}, SKIPPED: already present"
+		else
+			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} print \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")
+			data = stdout.split("\n")
+			File.open(cache_file_name,"w") do |cache_file|
+				data.each do |line|
+					cache_file.puts "#{index}/#{length},#{File.expand_path audio_filename},#{line}\n"
+				end
+			end
+			puts "#{index}/#{length},#{File.basename audio_filename},#{cache_file_name},#{data.size}"
+		end
+	end
+end
+
 def store(index,length,audio_filename)
 	audio_filename_escaped = escape_audio_filename(audio_filename)
 	return unless audio_filename_escaped
@@ -277,8 +318,9 @@ def delete(index,length,audio_filename)
 	end
 end
 
-#create the db folder unless it exist
+#create the db folders unless it exist
 FileUtils.mkdir_p DB_FOLDER unless File.exist?(DB_FOLDER)
+FileUtils.mkdir_p CACHE_FOLDER unless File.exist?(CACHE_FOLDER)
 
 command  = ARGV[0]
 
@@ -318,6 +360,13 @@ elsif command.eql? "query"
 	audio_files.each_with_index do |audio_file, index|
 		query(index+1,audio_files.length,audio_file,false)
 	end
+elsif command.eql? "cache"
+	require 'threach'
+	audio_files.threach(AVAILABLE_THREADS, :each_with_index) do |audio_file, index|
+		cache(index+1,audio_files.length,audio_file)
+	end
+elsif command.eql? "store_cached"
+	store_cached
 elsif command.eql? "dedup"
 	audio_files.each_with_index do |audio_file, index|
 		store(index+1,audio_files.length,audio_file)

@@ -8,6 +8,7 @@ compile:
 	gcc -c src/olaf_fp_file_writer.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_db.c 				-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer.c 		-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_fp_db_writer_cache.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_ep_extractor.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_extractor.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_reader_stream.c 	-W -Wall -std=c11 -pedantic -O2

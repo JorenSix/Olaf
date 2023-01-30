@@ -295,8 +295,6 @@ void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_finger
 		}
 	}
 	
-
-
 	//make room for new fingerprints in the shared struct!
 	fingerprints->fingerprintIndex=0;
 }
