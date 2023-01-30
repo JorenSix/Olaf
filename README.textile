@@ -180,6 +180,19 @@ Deletion of fingerprints is similar to adding prints:
 
 Note that it is currently unclear what the performance implications are when adding and removing many items to the db. In other words: how balanced the B+ tree remains with many leaves removed.
 
+h3. Cache fingerprints and store cached fingerprints
+
+Caching prints can be practical to speed up indexing. Olaf is single threaded mainly for use on embedded platforms. Additionally, the data storage of Olaf only allows one write thread (multiple readers are allowed). However, on more powerfull computing machinery it might be of interest to use multiple cores to extract fingerprints. This can speed up indexing significantly. 
+
+The way around this is to cache fingerprints to a file with all available cores and later store all prints in the index.
+
+<pre>
+olaf cache *.mp3
+olaf store_cached
+</pre>
+
+By default the script uses 7 cores and needs the @threach@ ruby gem. Install this with @gem install threach@. Also a default is the storage place for cached items: @~/.olaf/cache@. These default can be changed in the @/usr/local/bin/olaf@ ruby file. The configuratiion can be found at the top.
+ 
 
 
 

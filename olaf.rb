@@ -65,7 +65,7 @@ def audio_file_list(arg,files_to_process)
 end
 
 def has(audio_file)
-	result = `#{EXECUTABLE_LOCATION} has '#{audio_file} 2>/dev/null'`
+	result = `#{EXECUTABLE_LOCATION} has '#{audio_file}'`
 	unless(result.empty?)
 		result_line = result.split("\n")[1]
 		result_line.split(";").size > 1
@@ -226,14 +226,23 @@ def print(index,length,audio_filename)
 end
 
 def store_cached
-	Dir.glob(File.join(CACHE_FOLDER,"*tdb")).each  do |cache_file|
-		audio_file_name = nil
+	cached_files = Dir.glob(File.join(CACHE_FOLDER,"*tdb"))
+	length = cached_files.size
+	cached_files.each_with_index  do |cache_file,index|
+		audio_filename = nil
 		File.open(cache_file, "r") do |f|
   			first_line =  f.gets
-  			audio_file_name = first_line.split(",")[1].strip
+  			audio_filename = first_line.split(",")[1].strip
 		end
 
-		puts "olaf store_cached #{cache_file} #{audio_file_name}"
+		audio_filename_escaped = escape_audio_filename(audio_filename)
+
+		if (SKIP_DUPLICATES && has(audio_filename_escaped))
+			puts "#{index}/#{length} #{File.basename audio_filename} SKIP: already stored audio "
+		else
+			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} store_cached \"#{cache_file}\"")
+			puts "#{index}/#{length} #{File.basename audio_filename} #{stdout.strip}" 
+		end
 	end
 end
 

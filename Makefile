@@ -70,6 +70,10 @@ install:
 	sudo cp olaf.rb /usr/local/bin/olaf
 	sudo chmod +x /usr/local/bin/olaf
 
+install_r:
+	sudo cp olaf.rb /usr/local/bin/olaf
+	sudo chmod +x /usr/local/bin/olaf
+
 #installs olaf as root user
 install-su:
 	mkdir -p ~/.olaf/db/
