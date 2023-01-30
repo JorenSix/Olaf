@@ -27,6 +27,7 @@ mem:
 	gcc -c src/olaf_db_mem.c 			-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer_mem.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_file_writer.c 	-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_fp_db_writer_cache.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_runner.c 			-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_stream_processor.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_ep_extractor.c 		-W -Wall -std=c11 -pedantic -O2

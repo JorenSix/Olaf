@@ -24,7 +24,7 @@
 
 	#define MAX_LINE_LEN 2048
 	#define MAX_TOKEN_LEN 512
-	#define FP_ARRAY_SIZE 512
+	#define FP_ARRAY_SIZE 25000
 
 	typedef struct Olaf_FP_DB_Writer_Cache Olaf_FP_DB_Writer_Cache;
 
