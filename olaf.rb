@@ -20,6 +20,7 @@ require 'json'
 require 'fileutils'
 require 'tempfile'
 require 'open3'
+require 'find'
 
 DB_FOLDER = File.expand_path("~/.olaf/db") #needs to be the same in the c code
 CACHE_FOLDER = File.expand_path("~/.olaf/cache") #needs to be the same in the c code
@@ -63,6 +64,19 @@ def audio_file_list(arg,files_to_process)
 	end
 	files_to_process
 end
+
+#Folder size in MB
+def folder_size(folder)
+	folder = folder
+	total_size = 0
+	Find.find(folder) do |path|
+	  if File.file?(path)
+	    total_size += File.size(path)
+	  end
+	end
+	total_size / (1024.0 * 1024.0)
+end
+
 
 def has(audio_file)
 	result = `#{EXECUTABLE_LOCATION} has '#{audio_file}'`
@@ -315,6 +329,40 @@ def microphone
 	end
 end
 
+def clear(arguments)
+	force = arguments.include? "-f"
+	delete_db = force
+	delete_cache = force
+
+	if !force
+		puts "Proceed with deleting the olaf db (#{"%d MB" % folder_size(DB_FOLDER)} #{DB_FOLDER})? (yes/no)"
+		confirmation = gets.chomp
+		if confirmation == "yes"
+		  delete_db = true
+		else
+		  puts "Nothing deleted"
+		end
+
+		puts "Proceed with deleting the olaf cache (#{"%d MB" % folder_size(CACHE_FOLDER)} #{CACHE_FOLDER})? (yes/no)"
+		confirmation = gets.chomp
+		if confirmation == "yes"
+			delete_cache = true
+		else
+			puts "Operation cancelled."
+		end
+	end
+
+	if(delete_db)
+		puts "Clear the database folder."
+		FileUtils.rm Dir.glob("#{DB_FOLDER}/*") if File.exist? DB_FOLDER
+	end
+
+	if(delete_cache)
+		puts "Clear the cache folder"
+		FileUtils.rm Dir.glob("#{DB_FOLDER}/*") if File.exist? DB_FOLDER
+	end
+end
+
 def delete(index,length,audio_filename)
 
 	audio_filename_escaped = escape_audio_filename(audio_filename)
@@ -341,8 +389,10 @@ end
 ARGV.shift
 
 audio_files = Array.new
-ARGV.each do |audio_argument|
-	audio_files = audio_file_list(audio_argument,audio_files)
+unless %w(mic clear store_cached ).include? command
+	ARGV.each do |audio_argument|
+		audio_files = audio_file_list(audio_argument,audio_files)
+	end
 end
 
 return unless command 
@@ -400,6 +450,5 @@ elsif command.eql? "monitor"
 		monitor(index + 1,audio_files.length,audio_file,false, MONITOR_LENGTH_IN_SECONDS)
 	end
 elsif command.eql? "clear"
-	puts "Clear the db"
-	system("rm #{DB_FOLDER}/*")
+	clear(ARGV)
 end
