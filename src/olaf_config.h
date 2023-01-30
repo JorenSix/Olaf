@@ -94,7 +94,7 @@
 
 		//------------ Matcher configuration
 
-		int maxResults;
+		size_t maxResults;
 
 		int searchRange;
 

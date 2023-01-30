@@ -325,7 +325,7 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 		qsort(fp_matcher->m_results, fp_matcher->m_results_size, sizeof(struct match_result), olaf_fp_sort_results_by_match_count);
 
 	//print the result from high to low
-	for(size_t i = 0 ; i < fp_matcher->m_results_index ; i++){
+	for(size_t i = 0 ; i < fp_matcher->m_results_index && i <  fp_matcher->config->maxResults ; i++){
 		struct match_result * match = &fp_matcher->m_results[i];
 
 		if(match->matchCount >= fp_matcher->config->minMatchCount){
