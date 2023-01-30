@@ -31,6 +31,8 @@ struct Olaf_DB{
 	MDB_dbi dbi_fps;
 	MDB_dbi dbi_resource_map;
 
+	bool warning_given;
+
 	const char * mdb_folder;
 };
 
@@ -44,6 +46,8 @@ void e(int status_code){
 Olaf_DB * olaf_db_new(const char * mdb_folder,bool readonly){
 
 	Olaf_DB *olaf_db = malloc(sizeof(Olaf_DB));
+
+	olaf_db->warning_given = false;
 
 	//configure the max db size in bytes to be 1TB
 	//Fails silently when 1TB is reached
@@ -307,7 +311,11 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key, uint
 		//fprintf(stderr,"Found key:  %p %llu, value: %p  %llu \n",mdb_key.mv_data,keyInt,mdb_value.mv_data,valueInt);
 
 		if(result_index >= results_size){
-			fprintf(stderr,"Results full, expected less than %zu hash collisions\n",results_size);
+			//warn only once!
+			if(!olaf_db->warning_given){
+				olaf_db->warning_given = true;
+				fprintf(stderr,"Warning: Results full, expected less than %zu hash collisions, configure config->maxDBCollisions to a higher number for larger indexex \n",results_size);
+			}
 			break;
 		}
 

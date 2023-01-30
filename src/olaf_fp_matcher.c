@@ -174,13 +174,19 @@ void olaf_fp_matcher_m_results_grow(Olaf_FP_Matcher * fp_matcher,int queryFinger
 	fp_matcher->m_results_index = 0;
 	for(size_t prev_index = 0 ; prev_index < prev_size; prev_index++){
 
-		int age = queryFingerprintT1 - prev_m_results[prev_index].queryFingerprintT1;
-		int match_count = prev_m_results[prev_index].matchCount;
-
-		int max_age = (int) ((fp_matcher->config->keepMatchesFor  * fp_matcher->config->audioSampleRate) /  fp_matcher->config->audioStepSize);
-		bool too_old = age > max_age;
-		bool too_popular = match_count >= fp_matcher->config->minMatchCount;
-		if(!too_old && !too_popular){
+		//never ignore too old matches if running a regular query with
+		//fp_matcher->config->keepMatchesFor=0
+		//only ignore old matches in streaming situations (from microphone e.g.)
+		bool too_old = false;
+		if (fp_matcher->config->keepMatchesFor != 0){
+			int age = queryFingerprintT1 - prev_m_results[prev_index].queryFingerprintT1;
+			int max_age = (int) ((fp_matcher->config->keepMatchesFor  * fp_matcher->config->audioSampleRate) /  fp_matcher->config->audioStepSize);
+			too_old = age > max_age;
+		}
+		
+		//int match_count = prev_m_results[prev_index].matchCount;
+		//bool too_popular = match_count >= fp_matcher->config->minMatchCount;
+		if(!too_old){
 			fp_matcher->m_results[fp_matcher->m_results_index]=prev_m_results[prev_index];
 
 			//store the match in the hash table
@@ -330,8 +336,8 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 			float referenceStart =  match->firstReferenceFingerprintT1 * secondsPerBlock;
 			float referenceStop =  match->lastReferenceFingerprintT1 * secondsPerBlock;
 
-			float queryStart =  match->firstReferenceFingerprintT1 * secondsPerBlock - timeDelta;
-			float queryStop =  match->lastReferenceFingerprintT1 * secondsPerBlock -timeDelta;
+			float queryStart =  match->firstReferenceFingerprintT1 * secondsPerBlock + timeDelta;
+			float queryStop =  match->lastReferenceFingerprintT1 * secondsPerBlock  + timeDelta;
 			
 			uint32_t matchIdentifier = match->matchIdentifier;
 

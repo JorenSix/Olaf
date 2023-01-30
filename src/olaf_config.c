@@ -78,7 +78,7 @@ Olaf_Config* olaf_config_default(){
 	//The range around a hash to search
 	config->searchRange = 5;
 
-	//minimum 5 aligned matches before reporting match
+	//minimum aligned matches before reporting match
 	config->minMatchCount = 6;
 
 	//Forget matches after x seconds
@@ -88,7 +88,7 @@ Olaf_Config* olaf_config_default(){
 	config->printResultEvery = 0;//seconds
 	
 	//number of matches (hash collisions) 
-	config->maxDBCollisions = 1000;//for larger data sets use around 2000
+	config->maxDBCollisions = 2000;//for larger data sets use around 2000
 
 	return config;
 }

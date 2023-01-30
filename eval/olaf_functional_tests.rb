@@ -59,6 +59,9 @@ REF_FILES = Dir.glob(File.join(REF_TARGET_FOLDER,"*mp3")).sort
 QUERY_TARGET_FOLDER = "dataset/queries"
 QUERY_FILES = Dir.glob(File.join(QUERY_TARGET_FOLDER,"*mp3")).sort
 
+
+assert("Test dataset check: If not found, download it first! call e.g. 'ruby eval/olaf_download_dataset.rb'") { REF_FILES.size > 0 && QUERY_FILES.size > 0 }
+
 REF_FILES.each do |file|
     cmd = "olaf store '#{file}'"
     assert("Command : #{cmd}") { system(cmd) }
@@ -99,5 +102,7 @@ QUERY_FILES.each do |file|
       assert("Found time in ref #{first_match.ref_stop} should be close to expected time #{query_ref_stop}") { (first_match.ref_stop - query_ref_stop).abs < 2.0}  
     end
 end
+
+assert("Reached end of tests!") { true}
 
 exit 0
