@@ -20,6 +20,8 @@
 #include <math.h>   
 #include "olaf_deque.h"
 
+void olaf_max_filter_naive(float* array, size_t array_size , size_t filter_width , float* maxvalues );
+
 void olaf_max_filter(float* array, size_t array_size , size_t filter_width , float* maxvalues );
 
 #endif // OLAF_MAX_FILTER
