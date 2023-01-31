@@ -24,7 +24,7 @@ Olaf_Runner * olaf_runner_new(enum Olaf_Command cmd){
 	runner->fft_in = pffft_aligned_malloc(bytesPerAudioBlock);//fft input
 	runner->fft_out= pffft_aligned_malloc(bytesPerAudioBlock);//fft output
 
-	bool readonly_db = cmd == query;
+	bool readonly_db = (cmd == query || cmd == print);
 
 	if(runner->config->verbose){
 		fprintf(stderr, "Open DB at folder '%s'\n", runner->config->dbFolder);
