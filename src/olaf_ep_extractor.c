@@ -20,6 +20,7 @@
 
 #include "olaf_ep_extractor.h"
 #include "olaf_config.h"
+#include "olaf_max_filter.h"
 
 //state information
 struct Olaf_EP_Extractor{
@@ -104,6 +105,10 @@ void olaf_ep_extractor_print_ep(struct eventpoint e){
 }
 
 void olaf_ep_extractor_max_filter_frequency(float* data, float * max, int length,int half_filter_size ){
+	size_t filterSize = half_filter_size + half_filter_size + 1;
+	olaf_max_filter(data,length,filterSize , max);
+
+	/*
 	for(int i = 0 ; i < length;i++){
 		int startIndex = i - half_filter_size > 0 ? i - half_filter_size : 0;
 		int stopIndex = i + half_filter_size < length ? i + half_filter_size + 1: length;
@@ -112,7 +117,28 @@ void olaf_ep_extractor_max_filter_frequency(float* data, float * max, int length
 			if(data[j]>max[i])
 				max[i]=data[j];
 		}
+	}*/
+
+	
+	/*	
+	float other[length];
+	
+	for(int i = 0 ; i < length;i++){
+		int startIndex = i - half_filter_size > 0 ? i - half_filter_size : 0;
+		int stopIndex = i + half_filter_size < length ? i + half_filter_size + 1: length;
+		other[i] = -100000;
+		for(int j = startIndex ; j < stopIndex; j++){
+			if(data[j]>other[i])
+				other[i]=data[j];
+		}
 	}
+
+	for(size_t i = 0; i < (size_t) length ; i++){
+		if(other[i] > max[i]){
+			fprintf(stderr,"%f %f  %f %zu\n",max[i],other[i],data[i],i);
+		}
+	}
+	*/
 }
 
 void extract_internal(Olaf_EP_Extractor * ep_extractor){

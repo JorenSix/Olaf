@@ -5,6 +5,8 @@
 #include "olaf_config.h"
 #include "olaf_reader.h"
 #include "olaf_db.h"
+#include "olaf_deque.h"
+#include "olaf_max_filter.h"
 
 void olaf_db_mem_unpack(uint64_t packed, uint64_t * hash, uint32_t * t){
 	*hash = (packed >> 16);
@@ -41,11 +43,74 @@ void olaf_reader_test(){
 		tot_samples_read += samples_read;
 	}
 	
+	printf("%zu \n",tot_samples_read);
 	assert(tot_samples_read==16000);
 
 	free(audio_data);
 	olaf_reader_destroy(reader);
 	olaf_config_destroy(config);
+}
+
+void olaf_deque_tests(){
+	Olaf_Deque * deque = olaf_deque_new(100);
+	olaf_deque_push_back(deque,5);
+	olaf_deque_push_back(deque,6);
+	olaf_deque_push_back(deque,7);
+	olaf_deque_push_back(deque,9);
+
+	assert(olaf_deque_front(deque) == 5);
+	assert(olaf_deque_back(deque) == 9);
+
+	olaf_deque_pop_back(deque);
+	assert(olaf_deque_back(deque) == 7);
+
+	olaf_deque_pop_front(deque);
+	assert(olaf_deque_front(deque) == 6);
+
+	assert(olaf_deque_empty(deque) == false);
+	olaf_deque_pop_front(deque);
+	olaf_deque_pop_front(deque);
+	olaf_deque_pop_front(deque);
+	olaf_deque_pop_front(deque);
+	assert(olaf_deque_empty(deque) == true);
+	olaf_deque_destroy(deque);
+}
+
+void olaf_max_filter_test(){
+
+	float array[10] = {1,1,1,7,6,7,9,3,2,2};
+	size_t array_size = 10;
+	size_t filter_width = 3;
+	float max_values[array_size];
+
+	olaf_max_filter(array,array_size, filter_width , max_values );
+
+	assert(max_values[0] == 1);
+	assert(max_values[1] == 1);
+	assert(max_values[2] == 7);
+	assert(max_values[3] == 7);
+	assert(max_values[4] == 7);
+	assert(max_values[5] == 9);
+	assert(max_values[6] == 9);
+	assert(max_values[7] == 9);
+	assert(max_values[8] == 3);
+	assert(max_values[9] == 3);
+
+	filter_width = 5;
+	olaf_max_filter(array,array_size, filter_width , max_values);
+
+	assert(max_values[0] == 7); //1,1,1,7,6
+	assert(max_values[1] == 7); //1,1,1,7,6
+	assert(max_values[2] == 7); //1,1,1,7,6
+	assert(max_values[3] == 7); //1,1,7,6,7
+	assert(max_values[4] == 9); //1,7,6,7,9
+	assert(max_values[5] == 9); //7,6,7,9,3
+	assert(max_values[6] == 9); //6,7,9,3,2
+	assert(max_values[7] == 9); //7,9,3,2,2
+	assert(max_values[8] == 9); //7,9,3,2,2
+	assert(max_values[9] == 9); //7,9,3,2,2
+
+	printf("%f  \n",max_values[8]);
 }
 
 void olaf_db_tests(){
@@ -119,6 +184,8 @@ void olaf_pack_test(){
 int main(int argc, const char* argv[]){
 	(void)(argc);
 	(void)(argv);
+	olaf_max_filter_test();
+	olaf_deque_tests();
 	olaf_db_tests();
 	olaf_reader_test();
 	olaf_pack_test();

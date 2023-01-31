@@ -3,7 +3,6 @@ tests/olaf_test_db/*
 bin/*
 *.o
 *.csv
-*raw
 *.vs*
 *wav
 *mkv

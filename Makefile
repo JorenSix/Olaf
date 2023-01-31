@@ -4,6 +4,9 @@ compile:
 	gcc -c src/midl.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/mdb.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/hash-table.c     		-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/queue.c  		   		-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_deque.c  	   		-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_max_filter.c  	   	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_file_writer.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_db.c 				-W -Wall -std=c11 -pedantic -O2
@@ -18,6 +21,26 @@ compile:
 	gcc -c src/olaf_config.c 			-W -Wall -std=c11 -pedantic -O2
 	mkdir -p bin
 	gcc -o bin/olaf_c *.o 			-lc -lm -ffast-math -pthread
+
+compile_gprof:
+	gcc -c src/pffft.c 					-pg -W -Wall -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
+	gcc -c src/midl.c 					-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/mdb.c 					-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/hash-table.c     		-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf.c 					-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_fp_file_writer.c 	-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_db.c 				-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_fp_db_writer.c 		-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_fp_db_writer_cache.c -pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_ep_extractor.c 		-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_fp_extractor.c 		-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_reader_stream.c 	-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_runner.c 			-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_stream_processor.c 	-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_fp_matcher.c 		-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_config.c 			-pg -W -Wall -std=c11 -pedantic -O2
+	mkdir -p bin
+	gcc -o bin/olaf_c *.o 			-pg -lc -lm -ffast-math -pthread
 
 #The memory database version is equal to the embedded version
 mem:
@@ -92,6 +115,9 @@ uninstall:
 test:
 	gcc -c src/olaf_config.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_reader_stream.c -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/queue.c  		   		-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_deque.c  	   		-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_max_filter.c  	   	-W -Wall -std=c11 -pedantic -O2
 	gcc -c tests/olaf_tests.c	-Isrc	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/midl.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/mdb.c 					-W -Wall -std=c11 -pedantic -O2
@@ -99,4 +125,4 @@ test:
 	mkdir -p bin
 	gcc -o bin/olaf_tests *.o		-lc -lm -ffast-math
 	mkdir -p tests/olaf_test_db
-	rm tests/olaf_test_db/*
+	- rm tests/olaf_test_db/*
