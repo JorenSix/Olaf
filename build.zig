@@ -18,11 +18,15 @@ pub fn build(b: *std.build.Builder) void {
     if (target.getCpuArch() == .wasm32 and target.getOsTag() == .wasi) {
         exe.addCSourceFile("src/hash-table.c", &cflags);
         exe.addCSourceFile("src/pffft.c", &cflags);
+        exe.addCSourceFile("src/queue.c", &cflags);
+        exe.addCSourceFile("src/olaf_deque.c", &cflags);
+        exe.addCSourceFile("src/olaf_max_filter.c", &cflags);
         exe.addCSourceFile("src/olaf.c", &cflags);
         exe.addCSourceFile("src/olaf_config.c", &cflags);
         exe.addCSourceFile("src/olaf_db_mem.c", &cflags);
         exe.addCSourceFile("src/olaf_ep_extractor.c", &cflags);
         exe.addCSourceFile("src/olaf_fp_db_writer.c", &cflags);
+        exe.addCSourceFile("src/olaf_fp_db_writer_cache.c", &cflags);
         exe.addCSourceFile("src/olaf_fp_extractor.c", &cflags);
         exe.addCSourceFile("src/olaf_fp_matcher.c", &cflags);
         exe.addCSourceFile("src/olaf_reader_stream.c", &cflags);
@@ -34,11 +38,15 @@ pub fn build(b: *std.build.Builder) void {
         exe.addCSourceFile("src/mdb.c", &cflags);
         exe.addCSourceFile("src/midl.c", &cflags);
         exe.addCSourceFile("src/pffft.c", &cflags);
+        exe.addCSourceFile("src/queue.c", &cflags);
+        exe.addCSourceFile("src/olaf_deque.c", &cflags);
+        exe.addCSourceFile("src/olaf_max_filter.c", &cflags);
         exe.addCSourceFile("src/olaf.c", &cflags);
         exe.addCSourceFile("src/olaf_config.c", &cflags);
         exe.addCSourceFile("src/olaf_db.c", &cflags);
         exe.addCSourceFile("src/olaf_ep_extractor.c", &cflags);
         exe.addCSourceFile("src/olaf_fp_db_writer.c", &cflags);
+        exe.addCSourceFile("src/olaf_fp_db_writer_cache.c", &cflags);
         exe.addCSourceFile("src/olaf_fp_extractor.c", &cflags);
         exe.addCSourceFile("src/olaf_fp_matcher.c", &cflags);
         exe.addCSourceFile("src/olaf_reader_stream.c", &cflags);
