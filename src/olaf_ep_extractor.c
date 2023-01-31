@@ -140,7 +140,7 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 	int eventPointIndex = ep_extractor->eventPoints.eventPointIndex;
 
 	//do not start at zero 
-	for(int j = 1 ; j < halfAudioBlockSize - 1 ; j++){
+	for(int j = 2 ; j < halfAudioBlockSize - 1 ; j++){
 		float maxVal = ep_extractor->horizontalMaxes[j];
 		float currentVal = ep_extractor->mags[halfFilterSizeTime][j];
 
