@@ -132,3 +132,7 @@ test:
 	gcc -o bin/olaf_tests *.o		-lc -lm -ffast-math
 	mkdir -p tests/olaf_test_db
 	- rm tests/olaf_test_db/*
+
+zig_win:
+	zig build -Dtarget=x86_64-windows-gnu -Drelease-small
+	
