@@ -264,23 +264,23 @@ def cache(index,length,audio_filename)
 	audio_filename_escaped = escape_audio_filename(audio_filename)
 	return unless audio_filename_escaped
 
-	with_converted_audio(audio_filename_escaped) do |tempfile|
-		
+	audio_identifier = `olaf_c name_to_id '#{audio_filename_escaped}'`.strip
+	cache_file_name = File.join(CACHE_FOLDER,"#{audio_identifier}.tdb")
 
-		audio_identifier = `olaf_c name_to_id '#{audio_filename_escaped}'`.strip
-		cache_file_name = File.join(CACHE_FOLDER,"#{audio_identifier}.tdb")
-		if File.exist? cache_file_name
-			puts "#{index}/#{length},#{File.basename audio_filename},#{cache_file_name}, SKIPPED: already present"
-		else
-			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} print \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")
-			data = stdout.split("\n")
-			File.open(cache_file_name,"w") do |cache_file|
-				data.each do |line|
-					cache_file.puts "#{index}/#{length},#{File.expand_path audio_filename},#{line}\n"
-				end
+	if File.exist? cache_file_name
+		puts "#{index}/#{length},#{File.basename audio_filename},#{cache_file_name}, SKIPPED: already present"
+		return
+	end
+	
+	with_converted_audio(audio_filename_escaped) do |tempfile|
+		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} print \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")
+		data = stdout.split("\n")
+		File.open(cache_file_name,"w") do |cache_file|
+			data.each do |line|
+				cache_file.puts "#{index}/#{length},#{File.expand_path audio_filename},#{line}\n"
 			end
-			puts "#{index}/#{length},#{File.basename audio_filename},#{cache_file_name},#{data.size}"
 		end
+		puts "#{index}/#{length},#{File.basename audio_filename},#{cache_file_name},#{data.size}"
 	end
 end
 

@@ -140,7 +140,7 @@ void olaf_fp_db_writer_cache_store( Olaf_FP_DB_Writer_Cache * db_writer_cache){
 	//store meta data
     Olaf_Resource_Meta_data meta_data;
     strcpy(meta_data.path,db_writer_cache->audio_filename);
-    printf("Store meta data %s \n",meta_data.path);
+    //printf("Store meta data %s \n",meta_data.path);
 	meta_data.duration = approximateDuration;	
 	meta_data.fingerprints = db_writer_cache->fp_counter;
 	uint32_t audio_identifier = (uint32_t) db_writer_cache->audio_file_identifier;
