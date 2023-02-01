@@ -30,10 +30,10 @@ struct Olaf_Deque{
 };
 
 Olaf_Deque * olaf_deque_new(size_t max_size){
-	Olaf_Deque * olaf_deque = malloc(sizeof(Olaf_Deque));
+	Olaf_Deque * olaf_deque = (Olaf_Deque *) malloc(sizeof(Olaf_Deque));
 	olaf_deque->max_size = max_size;
 	olaf_deque->value_index = 0;
-	olaf_deque->values = calloc(olaf_deque->max_size ,sizeof(size_t));
+	olaf_deque->values = (size_t *) calloc(olaf_deque->max_size ,sizeof(size_t));
 	olaf_deque->queue = queue_new();
 	return olaf_deque;
 }
@@ -49,12 +49,12 @@ void olaf_deque_push_back(Olaf_Deque * olaf_deque,size_t value){
 }
 
 size_t olaf_deque_back(Olaf_Deque * olaf_deque){
-	size_t * value = queue_peek_tail(olaf_deque->queue);
+	size_t * value = (size_t *) queue_peek_tail(olaf_deque->queue);
 	return *(value); 
 }
 
 size_t olaf_deque_front(Olaf_Deque * olaf_deque){
-	size_t * value = queue_peek_head(olaf_deque->queue);
+	size_t * value = (size_t *) queue_peek_head(olaf_deque->queue);
 	return *(value); 
 }
 

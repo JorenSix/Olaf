@@ -33,13 +33,13 @@ struct Olaf_FP_Extractor{
 
 Olaf_FP_Extractor * olaf_fp_extractor_new(Olaf_Config * config){
 
-	Olaf_FP_Extractor *fp_extractor = malloc(sizeof(Olaf_FP_Extractor));
+	Olaf_FP_Extractor *fp_extractor = (Olaf_FP_Extractor *) malloc(sizeof(Olaf_FP_Extractor));
 
 	fp_extractor->warning_given = false;
 	
 	fp_extractor->config = config;
 
-	fp_extractor->fingerprints.fingerprints = calloc(config->maxFingerprints , sizeof(struct fingerprint));
+	fp_extractor->fingerprints.fingerprints = (struct fingerprint *) calloc(config->maxFingerprints , sizeof(struct fingerprint));
 
 	fp_extractor->fingerprints.fingerprintIndex = 0;
 	fp_extractor->total_fp_extracted=0;

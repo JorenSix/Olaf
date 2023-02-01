@@ -20,7 +20,7 @@
 #include "olaf_config.h"
 
 Olaf_Config* olaf_config_default(){
-	Olaf_Config *config = malloc(sizeof(Olaf_Config));
+	Olaf_Config *config = (Olaf_Config *) malloc(sizeof(Olaf_Config));
 
 	//construct the directory to write db info to: /home/user/.olaf/db/
 	const char * homeDir = getenv("HOME");
@@ -28,7 +28,7 @@ Olaf_Config* olaf_config_default(){
 	//This assume a UNIX file separator
 	const char* dbDir = "/.olaf/db/";
 	size_t length = strlen(homeDir) +  strlen(dbDir) + 1;
-	char * fullDbFolderName = malloc(length);
+	char * fullDbFolderName = (char *) malloc(length);
 	strcpy(fullDbFolderName,homeDir);
 	strcat(fullDbFolderName,dbDir);
 	fullDbFolderName[length-1] = '\0';

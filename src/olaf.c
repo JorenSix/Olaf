@@ -71,16 +71,16 @@ int main(int argc, const char* argv[]){
 	}
 
 	const char* command = argv[1];
-	enum Olaf_Command cmd = query; 
+	int runner_mode = OLAF_RUNNER_MODE_QUERY; 
 	
 	if(strcmp(command,"store") == 0){
-		cmd = store;
+		runner_mode = OLAF_RUNNER_MODE_STORE;
 	} else if(strcmp(command,"query") == 0){
-		cmd = query;
+		runner_mode = OLAF_RUNNER_MODE_QUERY;
 	} else if(strcmp(command,"delete") == 0){
-		cmd = delete;
+		runner_mode = OLAF_RUNNER_MODE_DELETE;
 	} else if(strcmp(command,"print") == 0){
-		cmd = print;
+		runner_mode = OLAF_RUNNER_MODE_PRINT;
 	} else if(strcmp(command,"name_to_id") == 0){
 		//print the hash and exit
 		printf("%u\n",olaf_db_string_hash(argv[2],strlen(argv[2])));
@@ -97,9 +97,9 @@ int main(int argc, const char* argv[]){
 		olaf_print_help("Unkonwn command\n");
 	}
 
-	Olaf_Runner * runner = olaf_runner_new(cmd);
+	Olaf_Runner * runner = olaf_runner_new(runner_mode);
 
-	if(cmd == query && argc == 2){
+	if(runner_mode == OLAF_RUNNER_MODE_QUERY && argc == 2){
 		//read audio samples from standard input
 		runner->config->printResultEvery = 3;//print results every three seconds
 		runner->config->keepMatchesFor = 10;//keep matches for 7 seconds

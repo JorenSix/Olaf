@@ -113,7 +113,7 @@ void olaf_fp_db_writer_cache_read_csv_file(Olaf_FP_DB_Writer_Cache * db_writer_c
 
 
 Olaf_FP_DB_Writer_Cache * olaf_fp_db_writer_cache_new(Olaf_DB* db,Olaf_Config * config,const char *csv_filename){
-	Olaf_FP_DB_Writer_Cache *db_writer_cache = malloc(sizeof(Olaf_FP_DB_Writer_Cache));
+	Olaf_FP_DB_Writer_Cache *db_writer_cache = (Olaf_FP_DB_Writer_Cache *) malloc(sizeof(Olaf_FP_DB_Writer_Cache));
 
 	db_writer_cache->db = db;
 	db_writer_cache->config = config;

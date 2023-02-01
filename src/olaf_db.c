@@ -45,7 +45,7 @@ void e(int status_code){
 
 Olaf_DB * olaf_db_new(const char * mdb_folder,bool readonly){
 
-	Olaf_DB *olaf_db = malloc(sizeof(Olaf_DB));
+	Olaf_DB *olaf_db = (Olaf_DB *) malloc(sizeof(Olaf_DB));
 
 	olaf_db->warning_given = false;
 

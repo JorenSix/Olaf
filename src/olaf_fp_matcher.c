@@ -108,7 +108,7 @@ int uint64_t_equal(void *vlocation1, void *vlocation2){
 
 //Creates a new matcher 
 Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db ){
-	Olaf_FP_Matcher *fp_matcher = malloc(sizeof(Olaf_FP_Matcher));
+	Olaf_FP_Matcher *fp_matcher = (Olaf_FP_Matcher *) malloc(sizeof(Olaf_FP_Matcher));
 
 	fp_matcher->db = db;
 
@@ -118,10 +118,10 @@ Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db ){
 	fp_matcher->m_results_size =  config->maxDBCollisions;
 
 	//The database results are integers which combine a time info and match id
-	fp_matcher->db_results = calloc(fp_matcher->m_results_size , sizeof(uint64_t));
+	fp_matcher->db_results = (uint64_t *) calloc(fp_matcher->m_results_size , sizeof(uint64_t));
 	fp_matcher->config = config;
 	fp_matcher->result_hash_table = hash_table_new(uint64_t_hash,uint64_t_equal);
-	fp_matcher->m_results = calloc(fp_matcher->m_results_size , sizeof(struct match_result));
+	fp_matcher->m_results = (struct match_result *) calloc(fp_matcher->m_results_size , sizeof(struct match_result));
 	fp_matcher->m_results_index = 0;
 	fp_matcher->last_print_at = 0;
 
@@ -156,7 +156,7 @@ void olaf_fp_matcher_m_results_grow(Olaf_FP_Matcher * fp_matcher,int queryFinger
 	fp_matcher->m_results_size = 2 * fp_matcher->m_results_size;
 
 	//allocate new memory
-	fp_matcher->m_results = calloc( fp_matcher->m_results_size, sizeof(struct match_result));
+	fp_matcher->m_results = (struct match_result *) calloc( fp_matcher->m_results_size, sizeof(struct match_result));
 
 	if (fp_matcher->m_results == NULL){
 		fprintf(stderr,"Failed to allocate memory to grow all results array to %zu elements ",fp_matcher->m_results_size);
@@ -220,7 +220,7 @@ void olaf_fp_matcher_tally_results(Olaf_FP_Matcher * fp_matcher,int queryFingerp
 
 	uint64_t result_hash_table_key = diff_part + match_part;
 	
-	struct match_result * match = hash_table_lookup(fp_matcher->result_hash_table,&result_hash_table_key);
+	struct match_result * match = (struct match_result *) hash_table_lookup(fp_matcher->result_hash_table,&result_hash_table_key);
 
 	if(match!=NULL){
 		//Update match when found

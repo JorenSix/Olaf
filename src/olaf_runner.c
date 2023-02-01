@@ -4,10 +4,10 @@
 #include "pffft.h"
 #include "assert.h"
 
-Olaf_Runner * olaf_runner_new(enum Olaf_Command cmd){
-	Olaf_Runner *runner = malloc(sizeof(Olaf_Runner));
+Olaf_Runner * olaf_runner_new(int mode){
+	Olaf_Runner *runner = (Olaf_Runner *) malloc(sizeof(Olaf_Runner));
 
-	runner->command = cmd;
+	runner->mode = mode;
 	//Get the default configuration
 	runner->config = olaf_config_default();
 
@@ -21,10 +21,10 @@ Olaf_Runner * olaf_runner_new(enum Olaf_Command cmd){
 	// We are only interested in real part
 	runner->fftSetup = pffft_new_setup(runner->config->audioBlockSize,PFFFT_REAL);
 	
-	runner->fft_in = pffft_aligned_malloc(bytesPerAudioBlock);//fft input
-	runner->fft_out= pffft_aligned_malloc(bytesPerAudioBlock);//fft output
+	runner->fft_in = (float *) pffft_aligned_malloc(bytesPerAudioBlock);//fft input
+	runner->fft_out= (float *) pffft_aligned_malloc(bytesPerAudioBlock);//fft output
 
-	bool readonly_db = (cmd == query || cmd == print);
+	bool readonly_db = (mode == OLAF_RUNNER_MODE_QUERY || mode == OLAF_RUNNER_MODE_PRINT);
 
 	if(runner->config->verbose){
 		fprintf(stderr, "Open DB at folder '%s'\n", runner->config->dbFolder);

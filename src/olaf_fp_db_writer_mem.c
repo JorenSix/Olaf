@@ -43,9 +43,9 @@ Olaf_FP_DB_Writer * olaf_fp_db_writer_new(Olaf_DB* db,uint32_t audio_file_identi
 	(void)(db);
 	(void)(audio_file_identifier);
 
-	Olaf_FP_DB_Writer *db_writer = malloc(sizeof(Olaf_FP_DB_Writer));
+	Olaf_FP_DB_Writer *db_writer = (Olaf_FP_DB_Writer *) malloc(sizeof(Olaf_FP_DB_Writer));
 	db_writer->hashes_size = 100000;
-	db_writer->hashes = calloc(sizeof(uint64_t),db_writer->hashes_size);
+	db_writer->hashes = (uint64_t *) calloc(sizeof(uint64_t),db_writer->hashes_size);
 
 	db_writer->index=0;
 	

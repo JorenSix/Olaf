@@ -44,7 +44,7 @@ Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source){
 
 	//signal(SIGINT, olaf_reader_trap);
 
-	Olaf_Reader *reader = malloc(sizeof(Olaf_Reader));
+	Olaf_Reader *reader = (Olaf_Reader *) malloc(sizeof(Olaf_Reader));
 	reader->config = config;
 	reader->total_samples_read = 0;
 

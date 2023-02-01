@@ -43,7 +43,7 @@ Olaf_DB * olaf_db_new(const char * db_file_folder,bool readonly){
 	(void)(db_file_folder);
 	(void)(readonly);
 
-	Olaf_DB *olaf_db = malloc(sizeof(Olaf_DB));
+	Olaf_DB *olaf_db = (Olaf_DB *) malloc(sizeof(Olaf_DB));
 
 	//Point to the const data in the header
 	olaf_db->ref_fp = olaf_db_mem_fps;

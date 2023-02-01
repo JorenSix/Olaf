@@ -20,7 +20,10 @@
 	#include "olaf_db.h"
 	#include "pffft.h"
 
-	enum Olaf_Command {query = 0, store = 1, delete = 2, print = 3};
+	#define OLAF_RUNNER_MODE_QUERY  233
+	#define OLAF_RUNNER_MODE_STORE  434
+	#define OLAF_RUNNER_MODE_DELETE 653
+	#define OLAF_RUNNER_MODE_PRINT  9043
 
 	typedef struct Olaf_Runner Olaf_Runner;
 
@@ -28,7 +31,7 @@
 		//the olaf configuration
 		Olaf_Config * config;
 
-		enum Olaf_Command command;
+		int mode;
 
 		//The database	
 		Olaf_DB* db;
@@ -41,7 +44,7 @@
 		float *fft_out;
 	};
 
-	Olaf_Runner * olaf_runner_new(enum Olaf_Command cmd);
+	Olaf_Runner * olaf_runner_new(int mode);
 
 	void olaf_runner_destroy(Olaf_Runner * runner);
 

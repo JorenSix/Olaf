@@ -36,7 +36,7 @@ struct Olaf_FP_DB_Writer{
 
 
 Olaf_FP_DB_Writer * olaf_fp_db_writer_new(Olaf_DB* db,uint32_t audio_file_identifier){
-	Olaf_FP_DB_Writer *db_writer = malloc(sizeof(Olaf_FP_DB_Writer));
+	Olaf_FP_DB_Writer *db_writer = (Olaf_FP_DB_Writer *) malloc(sizeof(Olaf_FP_DB_Writer));
 
 	db_writer->db = db;
 	db_writer->threshold = 0.8 * (1<<12);

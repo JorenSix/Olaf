@@ -48,15 +48,15 @@ struct Olaf_EP_Extractor{
 
 Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){
 
-	Olaf_EP_Extractor *ep_extractor = malloc(sizeof(Olaf_EP_Extractor));
+	Olaf_EP_Extractor *ep_extractor = (Olaf_EP_Extractor *) malloc(sizeof(Olaf_EP_Extractor));
 
 	ep_extractor->config = config;
 
 	int halfAudioBlockSize = config->audioBlockSize / 2;
 
-	ep_extractor->horizontalMaxes = calloc(halfAudioBlockSize ,sizeof(float));
+	ep_extractor->horizontalMaxes = (float *) calloc(halfAudioBlockSize ,sizeof(float));
 
-	ep_extractor->eventPoints.eventPoints = calloc(config->maxEventPoints , sizeof(struct eventpoint));
+	ep_extractor->eventPoints.eventPoints = (struct eventpoint *) calloc(config->maxEventPoints , sizeof(struct eventpoint));
 	ep_extractor->eventPoints.eventPointIndex = 0;
 
 	//initialize t with a high number
@@ -64,12 +64,12 @@ Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){
 		ep_extractor->eventPoints.eventPoints[i].timeIndex = 1<<23;
 	}
 	
-	ep_extractor->mags  = calloc(config->filterSizeTime , sizeof(float *));
-	ep_extractor->maxes = calloc(config->filterSizeTime , sizeof(float *));
+	ep_extractor->mags  =(float **) calloc(config->filterSizeTime , sizeof(float *));
+	ep_extractor->maxes = (float **) calloc(config->filterSizeTime , sizeof(float *));
 
 	for(int i = 0; i < config->filterSizeTime ;i++){
-		ep_extractor->maxes[i]= calloc(halfAudioBlockSize , sizeof(float));
-		ep_extractor->mags[i] = calloc(halfAudioBlockSize , sizeof(float));
+		ep_extractor->maxes[i]= (float *) calloc(halfAudioBlockSize , sizeof(float));
+		ep_extractor->mags[i] = (float *) calloc(halfAudioBlockSize , sizeof(float));
 	}
 
   	ep_extractor->filterIndex = 0;

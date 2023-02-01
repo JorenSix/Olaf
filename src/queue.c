@@ -78,7 +78,7 @@ int queue_push_head(Queue *queue, QueueValue data)
 
 	/* Create the new entry and fill in the fields in the structure */
 
-	new_entry = malloc(sizeof(QueueEntry));
+	new_entry = (QueueEntry *) malloc(sizeof(QueueEntry));
 
 	if (new_entry == NULL) {
 		return 0;
@@ -165,7 +165,7 @@ int queue_push_tail(Queue *queue, QueueValue data)
 
 	/* Create the new entry and fill in the fields in the structure */
 
-	new_entry = malloc(sizeof(QueueEntry));
+	new_entry = (QueueEntry *) malloc(sizeof(QueueEntry));
 
 	if (new_entry == NULL) {
 		return 0;
