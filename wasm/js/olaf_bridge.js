@@ -42,14 +42,15 @@ function processAudioWithOlaf(audioProcessingEvent) {
 
     audioBlockIndex = js_wrapped_olaf_fingerprint_match(dataHeap.byteOffset,fingerprintHeap.byteOffset);
 
-    
     //Retrieve the frequency domain data
     var frequencyData = new Float32Array(Module.HEAPF32.buffer, inputAudioPtr, audioInputBuffer.length);
 
+    /*
     frequencyDataArray.push([frequencyData,audioBlockIndex,false]);
     if(frequencyDataArray.length > 100){
       frequencyDataArray.shift()
     }
+    */
 
     //Retrieve the fingerprint data
     fingerprintData = new Uint32Array(Module.HEAPU32.buffer, fingerprintPtr, 256*6);
@@ -61,7 +62,7 @@ function processAudioWithOlaf(audioProcessingEvent) {
       var f2 = fingerprintData[i+3];
       var fhash = fingerprintData[i+4];
       var inDb = fingerprintData[i+5];
-
+      
       fingerprintsToPlot.push([t1,f1,t2,f2,fhash,inDb]);
 
       t1 = fingerprintData[i+6];
@@ -70,16 +71,17 @@ function processAudioWithOlaf(audioProcessingEvent) {
     //Module._free(dataHeap.byteOffset);
     //Module._free(fingerprintHeap.byteOffset);
 
-    drawFrequencyData()
+   //drawFrequencyData()
 }
 
     
 function startOrStopAudio(){
   if(audioContext == null){
 
-  	console.log("Starting audio stream")
+  	console.log("Starting audio stream");
   	navigator.mediaDevices.getUserMedia({audio: true,video: false}).then(stream => {
 
+        microphoneStream = stream;
     		audioContext = new AudioContext({sampleRate: 16000});
     		microphone = audioContext.createMediaStreamSource(stream);
 
@@ -92,7 +94,16 @@ function startOrStopAudio(){
     	}).catch(err => { alert("Microphone is required." + err);});
 
   }else{
+    console.log("Stopping audio stream");
+
+    microphoneStream.getTracks().forEach(function(track) {
+        if (track.readyState == 'live') {
+            track.stop();
+        }
+    });
+
     audioContext.close();
+    microphoneStream = null;
     audioContext = null;
     audioBlockIndex=0;
   }

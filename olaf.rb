@@ -213,9 +213,14 @@ end
 def to_raw(index,length,audio_filename)
 	audio_filename_escaped = escape_audio_filename(audio_filename)
 	return unless audio_filename_escaped
+	
+	basename = File.basename(audio_filename,File.extname(audio_filename))
+	raw_audio_filename = "olaf_audio_#{basename}.raw"
+	return if File.exist?(raw_audio_filename)
+	
 	with_converted_audio(audio_filename_escaped) do |tempfile|
-		system("cp #{tempfile.path} .")
-		puts "#{index}/#{length},#{File.basename audio_filename},#{File.basename tempfile}\n"
+		system("cp '#{tempfile.path}' '#{raw_audio_filename}'")
+		puts "#{index}/#{length},#{File.basename audio_filename},#{raw_audio_filename}\n"
 	end
 end
 
@@ -252,7 +257,7 @@ def store_cached
 		audio_filename_escaped = escape_audio_filename(audio_filename)
 
 		if (SKIP_DUPLICATES && has(audio_filename_escaped))
-			puts "#{index}/#{length} #{File.basename audio_filename} SKIP: already stored audio "
+			puts "#{index}/#{length} #{File.basename audio_filename} SKIPPED: already indexed audio file"
 		else
 			stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} store_cached \"#{cache_file}\"")
 			puts "#{index}/#{length} #{File.basename audio_filename} #{stdout.strip}" 
@@ -268,7 +273,12 @@ def cache(index,length,audio_filename)
 	cache_file_name = File.join(CACHE_FOLDER,"#{audio_identifier}.tdb")
 
 	if File.exist? cache_file_name
-		puts "#{index}/#{length},#{File.basename audio_filename},#{cache_file_name}, SKIPPED: already present"
+		puts "#{index}/#{length},#{File.basename audio_filename},#{cache_file_name}, SKIPPED: cache file already present"
+		return
+	end
+
+	if (SKIP_DUPLICATES && has(audio_filename_escaped))
+		puts "#{index}/#{length} #{File.basename audio_filename} SKIPPED: already indexed audio file "
 		return
 	end
 	

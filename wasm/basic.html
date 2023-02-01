@@ -1,0 +1,41 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<title>Olaf basic</title>
+	<style>
+		body {
+			padding-left: 5%;
+			padding-right: 5%;
+			font-family: sans-serif;
+		}
+
+	</style>
+</head>
+<body>
+	<h1>Basic WASM Olaf audio fingerprinting</h1>
+
+	<button onclick="startOrStopAudio()">Start or stop audio</button>
+
+	<label style="margin-top:2em;display: block;">Match found: <input disabled type="checkbox"></input></label>
+	
+	<textarea id="console_out" readonly style="margin-top:2em;display: block;width:100%;padding:0;height:60vh;font-family: monospace;">Press the start button to begin audio fingerprinting.</textarea>
+
+	<script>
+		var audioContext = null;
+		var microphoneStream = null;
+
+  		(()=>{
+		  const console_log = window.console.log;
+		  window.console.log = function(...args){
+		    console_log(...args);
+		    var textarea = document.getElementById('console_out');
+		    if(!textarea) return;
+		    args.forEach(arg=>textarea.value += `${JSON.stringify(arg)}\n`);
+		  }
+		})();
+	</script>
+
+	<script src="js/olaf.js"></script>
+	<script src="js/olaf_bridge.js"></script>
+</body>
+</html>

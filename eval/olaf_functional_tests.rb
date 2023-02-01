@@ -103,6 +103,50 @@ QUERY_FILES.each do |file|
     end
 end
 
+#convert the dataset to raw
+system("olaf to_raw #{REF_TARGET_FOLDER}")
+system("mkdir -p dataset/raw/ref")
+system("mv olaf_audio* dataset/raw/ref")
+REF_FILES_RAW = Dir.glob(File.join("dataset/raw/ref","*raw")).sort
+assert("Conversion of audio to raw"){REF_FILES_RAW.size == REF_FILES.size}
+
+system("olaf to_raw #{QUERY_TARGET_FOLDER}")
+system("mkdir -p dataset/raw/queries")
+system("mv olaf_audio* dataset/raw/queries")
+QUERY_FILES_RAW = Dir.glob(File.join("dataset/raw/queries","*raw")).sort
+assert("Conversion of audio to raw"){QUERY_FILES_RAW.size == QUERY_FILES.size}
+
+MEM_BINARY_LOCATION = "bin/olaf_mem"
+system("make clean")
+system("make mem")
+assert("Mem binary should exist!"){File.exist? MEM_BINARY_LOCATION}
+#create a new mem db
+system("#{MEM_BINARY_LOCATION} store  dataset/raw/ref/*1051039.raw 1051039.mp3 > src/olaf_fp_ref_mem.h")
+
+system("make clean")
+#compile a mem version with the new database
+system("make mem")
+assert("Mem binary should exist!"){File.exist? MEM_BINARY_LOCATION}
+
+raw_query = "dataset/raw/queries/olaf_audio_1051039_34s-54s.raw"
+cmd = `#{MEM_BINARY_LOCATION} query #{raw_query} 105_query.wav`
+
+lines = cmd.split("\n").map{|l| "1,1, queryfile," + l }
+lines = lines.drop(1)
+lines = lines.map{|l| OlafResultLine.new(l) }.delete_if{|l| !l.valid}
+
+first_match = lines.first
+query_filename = File.basename(raw_query,File.extname(raw_query))
+query_filename =~/(\d+)_(\d+)s-(\d+)s/
+query_ref_id = $1.to_i
+query_ref_start = $2.to_i
+query_ref_stop = $3.to_i
+ref_id = File.basename(first_match.ref_path,File.extname(first_match.ref_path)).to_i
+assert("Found id #{ref_id} should be equal to expected id #{query_ref_id}") { query_ref_id == ref_id} 
+assert("Found time in ref #{first_match.ref_start} should be close to expected time #{query_ref_start}") { (first_match.ref_start - query_ref_start).abs < 2.5}
+assert("Found time in ref #{first_match.ref_stop} should be close to expected time #{query_ref_stop}") { (first_match.ref_stop - query_ref_stop).abs < 2.5}
+
+
 assert("Reached end of tests!") { true}
 
 exit 0

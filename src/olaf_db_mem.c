@@ -94,7 +94,7 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 		match = (uint64_t*) bsearch(&packed_key, olaf_db->ref_fp, olaf_db->ref_fp_length, sizeof (uint64_t), olaf_dp_packed_hash_compare);
 		//stop the search if a match if found.
 		if(match !=NULL){
-			//fprintf(stderr, "Bsearch for %llu matches \n",current_key);
+			//fprintf(stderr, "Found match for %llu (packed: %llu) matches (between start %llu and stop %llu) \n",current_key,packed_key,start_key,stop_key);
 		}
 		if(match!=NULL) break;
 	}
@@ -147,7 +147,7 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 		}
 		number_of_results = result_index;
 	}else{
-		//printf("Not found %llu, start %llu, stop %llu, bits %d \n",key,start_key,stop_key,bits_to_ignore);
+		//printf("Not, start %llu, stop %llu \n",start_key,stop_key);
 		number_of_results = 0;
 	}
 	return number_of_results;

@@ -19,14 +19,6 @@ var maxMag = 0;
 
 var drawnPoints = new Set();
 
-function drawText(){
-	let text = new PIXI.Text('Click to start\nmicrophone',{fontFamily : 'Arial', fontSize: 28, fill : 0x000000, align : 'center'});
-	text.x = width/2;
-	text.y = height/2;
-	text.anchor.set(0.5, 0.5);
-	app.stage.addChild(text);
-}
-
 function audioBlockIndexToX(t){
     var delta = (audioBlockIndex - t - 1);
     return width - delta * speed;
@@ -219,15 +211,19 @@ function drawFingerprints(){
 function onClick(){
 	console.log("click")
 
-	app.stage.removeChild(app.stage.getChildAt(0))
-
 	startOrStopAudio();
 }
 
-drawText();
+
 
 // Combines both mouse click + touch tap
 app.stage.on('pointertap', onClick);
+
+app.renderer.view.onclick = function(e) {
+  console.log(e);
+};
+
+console.log(app.renderer.view);
 
 window.addEventListener('resize', function(event){
 	width = window.innerWidth;

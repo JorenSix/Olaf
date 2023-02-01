@@ -102,7 +102,7 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 		pffft_transform_ordered(state.fftSetup, state.fft_in, state.fft_out, 0, PFFFT_FORWARD);
 
 		//extract event points
-		state.eventPoints  =  olaf_ep_extractor_extract(state.ep_extractor,state.fft_out,state.audioBlockIndex);
+		state.eventPoints = olaf_ep_extractor_extract(state.ep_extractor,state.fft_out,state.audioBlockIndex);
 
 		//printf("Event point index: %d \n",state.eventPoints->eventPointIndex);
 

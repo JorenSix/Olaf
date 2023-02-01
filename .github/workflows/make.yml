@@ -35,6 +35,5 @@ jobs:
     - run: make install
     - run: make clean
     - run: make mem
-    - run: make clean
     - run: ruby eval/olaf_download_dataset.rb
     - run: ruby eval/olaf_functional_tests.rb

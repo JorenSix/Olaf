@@ -262,7 +262,10 @@ void olaf_fp_matcher_match_single_fingerprint(Olaf_FP_Matcher * fp_matcher,uint3
 	int range = fp_matcher->config->searchRange;
 	size_t number_of_results = olaf_db_find(fp_matcher->db,queryFingerprintHash-range,queryFingerprintHash+range,fp_matcher->db_results,fp_matcher->config->maxDBCollisions);
 
-	//fprintf(stderr,"Number of results: %zu \n",number_of_results);
+	if(fp_matcher->config->verbose){
+		fprintf(stderr,"Matched fp hash %llu with database at q t1 %u, search range %d.\n\tNumber of results: %zu \n",queryFingerprintHash,queryFingerprintT1,range,number_of_results);
+	}
+	
 
 	for(size_t i = 0 ; i < number_of_results ; i++){
 		//The 32 most significant bits represent ref t1

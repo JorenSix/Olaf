@@ -54,7 +54,7 @@ Olaf_Config* olaf_config_default(){
 	config->halfFilterSizeTime=config->filterSizeTime/2;
 
 	//prevent silence to register as event points
-	config->minEventPointMagnitude = 0.0;
+	config->minEventPointMagnitude = 0.001;
 
 	//debug statements
 	config->verbose = false;
