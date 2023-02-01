@@ -57,8 +57,13 @@ void olaf_fp_db_writer_store( Olaf_FP_DB_Writer * db_writer , struct extracted_f
 	for(size_t i = 0 ; i < fingerprints->fingerprintIndex; i++){
 		uint64_t fp_hash = olaf_fp_extractor_hash(fingerprints->fingerprints[i]);
 		uint64_t fp_time = (uint16_t) fingerprints->fingerprints[i].timeIndex1;
-		db_writer->hashes[db_writer->index]= (fp_hash << 16) + fp_time ;
-		db_writer->index++;
+		if(db_writer->index < db_writer->hashes_size){
+			uint64_t hash_with_time = (fp_hash << 16) + fp_time;
+			db_writer->hashes[db_writer->index]= hash_with_time;
+			db_writer->index++;
+		}else{
+			fprintf(stderr,"WARNING: Ignoring hashes consider increasing db_writer->hashes_size");
+		}
 	}
 	fingerprints->fingerprintIndex = 0;
 }
@@ -75,9 +80,9 @@ void olaf_fp_db_writer_destroy(Olaf_FP_DB_Writer * db_writer, bool store){
 	(void)(store);
 
 	if(db_writer->index > 0){
-		qsort(db_writer->hashes, db_writer->hashes_size, sizeof(uint64_t), fp_hash_compare);
+		qsort(db_writer->hashes, db_writer->index, sizeof(uint64_t), fp_hash_compare);
 
-		printf("#include <stdint.h>\n\nsize_t fp_ref_mem_length = %zu;\nconst uint64_t fp_ref_mem[] = {\n",db_writer->index);
+		printf("#include <stdint.h>\n\nconst uint64_t olaf_db_mem_fps[] = {\n");
 		for(size_t i = 0 ; i < db_writer->index;i++){
 			printf("%llu,\n",db_writer->hashes[i]);
 		}

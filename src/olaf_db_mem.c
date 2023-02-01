@@ -46,8 +46,8 @@ Olaf_DB * olaf_db_new(const char * db_file_folder,bool readonly){
 	Olaf_DB *olaf_db = malloc(sizeof(Olaf_DB));
 
 	//Point to the const data in the header
-	olaf_db->ref_fp = fp_ref_mem;
-	olaf_db->ref_fp_length = fp_ref_mem_length;
+	olaf_db->ref_fp = olaf_db_mem_fps;
+	olaf_db->ref_fp_length = olaf_db_mem_fp_length;
 
 	return olaf_db;
 }
@@ -94,7 +94,7 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 		match = (uint64_t*) bsearch(&packed_key, olaf_db->ref_fp, olaf_db->ref_fp_length, sizeof (uint64_t), olaf_dp_packed_hash_compare);
 		//stop the search if a match if found.
 		if(match !=NULL){
-			fprintf(stderr, "Bsearch for %llu matches \n",current_key);
+			//fprintf(stderr, "Bsearch for %llu matches \n",current_key);
 		}
 		if(match!=NULL) break;
 	}
@@ -171,8 +171,6 @@ bool olaf_db_find_single(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key)
 
 		fprintf(stderr, "Found %llu is between %llu and %llu \n",ref_hash, start_key,stop_key);
 
-
-
 		//hash between start and stop: found!
 		return true;
 	}
@@ -202,17 +200,25 @@ uint32_t olaf_db_string_hash(const char *key, size_t len){
 
 
 void olaf_db_store_meta_data(Olaf_DB * olaf_db, uint32_t * key, Olaf_Resource_Meta_data * value){
-	puts("Ingore meta-data");
+
+	//adds additional fields to the 'database' header file
+	printf("const size_t olaf_db_mem_fp_length      = %zu;\n",value->fingerprints);
+	printf("const uint32_t olaf_db_mem_audio_id     = %u;\n",*key);
+	printf("const char* olaf_db_mem_audio_path      = \"%s\";\n",value->path);
+	printf("const double olaf_db_mem_audio_duration = %f;\n",value->duration);
+
 	(void)(olaf_db);
-	(void)(key);
-	(void)(value);
+
 }
 
 //search for meta data
 void olaf_db_find_meta_data(Olaf_DB * olaf_db, uint32_t * key, Olaf_Resource_Meta_data * value){
 	(void)(olaf_db);
-	(void)(key);
-	(void)(value);
+	if(*key == olaf_db_mem_audio_id){
+		value->duration = (float) olaf_db_mem_audio_duration;
+		value->fingerprints = olaf_db_mem_fp_length;
+		strcpy(value->path,olaf_db_mem_audio_path);
+	}
 }
 
 //Delete meta data 

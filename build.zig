@@ -13,27 +13,33 @@ pub fn build(b: *std.build.Builder) void {
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.
     const mode = b.standardReleaseOptions();
 
-    const exe = b.addExecutable("olaf_c", null);
+    if (target.getCpuArch() == .wasm32) {
+        const cflagslib = [_][]const u8{ "-Wall", "-Wextra", "-Werror=return-type", "-std=gnu11", "-O2", "-fPIC" };
+        const lib = b.addExecutable("olaf_c", null);
+        lib.addCSourceFile("src/hash-table.c", &cflagslib);
+        lib.addCSourceFile("src/pffft.c", &cflagslib);
+        lib.addCSourceFile("src/queue.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_deque.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_max_filter.c", &cflagslib);
+        lib.addCSourceFile("src/olaf.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_config.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_db_mem.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_ep_extractor.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_fp_db_writer.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_fp_db_writer_cache.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_fp_extractor.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_fp_matcher.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_reader_stream.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_runner.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_stream_processor.c", &cflagslib);
+        lib.linkLibC();
 
-    if (target.getCpuArch() == .wasm32 and target.getOsTag() == .wasi) {
-        exe.addCSourceFile("src/hash-table.c", &cflags);
-        exe.addCSourceFile("src/pffft.c", &cflags);
-        exe.addCSourceFile("src/queue.c", &cflags);
-        exe.addCSourceFile("src/olaf_deque.c", &cflags);
-        exe.addCSourceFile("src/olaf_max_filter.c", &cflags);
-        exe.addCSourceFile("src/olaf.c", &cflags);
-        exe.addCSourceFile("src/olaf_config.c", &cflags);
-        exe.addCSourceFile("src/olaf_db_mem.c", &cflags);
-        exe.addCSourceFile("src/olaf_ep_extractor.c", &cflags);
-        exe.addCSourceFile("src/olaf_fp_db_writer.c", &cflags);
-        exe.addCSourceFile("src/olaf_fp_db_writer_cache.c", &cflags);
-        exe.addCSourceFile("src/olaf_fp_extractor.c", &cflags);
-        exe.addCSourceFile("src/olaf_fp_matcher.c", &cflags);
-        exe.addCSourceFile("src/olaf_reader_stream.c", &cflags);
-        exe.addCSourceFile("src/olaf_runner.c", &cflags);
-        exe.addCSourceFile("src/olaf_stream_processor.c", &cflags);
-        exe.linkLibC();
+        lib.setTarget(target);
+        lib.setBuildMode(mode);
+        lib.install();
     } else {
+        const exe = b.addExecutable("olaf_c", null);
+
         exe.addCSourceFile("src/hash-table.c", &cflags);
         exe.addCSourceFile("src/mdb.c", &cflags);
         exe.addCSourceFile("src/midl.c", &cflags);
@@ -53,9 +59,9 @@ pub fn build(b: *std.build.Builder) void {
         exe.addCSourceFile("src/olaf_runner.c", &cflags);
         exe.addCSourceFile("src/olaf_stream_processor.c", &cflags);
         exe.linkLibC();
-    }
 
-    exe.setTarget(target);
-    exe.setBuildMode(mode);
-    exe.install();
+        exe.setTarget(target);
+        exe.setBuildMode(mode);
+        exe.install();
+    }
 }

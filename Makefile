@@ -73,6 +73,9 @@ web:
 		src/olaf_wasm.c \
 		src/pffft.c \
 		src/hash-table.c \
+		src/queue.c \
+		src/olaf_deque.c \
+		src/olaf_max_filter.c \
 		src/olaf_ep_extractor.c \
 		src/olaf_fp_extractor.c \
 		src/olaf_db_mem.c \
@@ -135,4 +138,7 @@ test:
 
 zig_win:
 	zig build -Dtarget=x86_64-windows-gnu -Drelease-small
+
+zig_web:
+	zig build -Dtarget=wasm32-freestanding-musl -Drelease-small
 	
