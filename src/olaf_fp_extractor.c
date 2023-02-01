@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <assert.h>
 #include <math.h>
 
@@ -27,12 +28,15 @@ struct Olaf_FP_Extractor{
 	struct extracted_fingerprints fingerprints;
 	Olaf_Config * config;
 	size_t total_fp_extracted;
+	bool warning_given;
 };
 
 Olaf_FP_Extractor * olaf_fp_extractor_new(Olaf_Config * config){
 
 	Olaf_FP_Extractor *fp_extractor = malloc(sizeof(Olaf_FP_Extractor));
 
+	fp_extractor->warning_given = false;
+	
 	fp_extractor->config = config;
 
 	fp_extractor->fingerprints.fingerprints = calloc(config->maxFingerprints , sizeof(struct fingerprint));
@@ -218,8 +222,15 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 
 						if(fp_extractor->fingerprints.fingerprintIndex >=  fp_extractor->config->maxFingerprints){
 							// We have reached the max amount of fingerprints we can store in this batch
-							fprintf(stderr,"Fingerprint maximum index %zu, fingerprints are ignored, consider increasing config->maxFingerprints if you see this often. \n",fp_extractor->fingerprints.fingerprintIndex);
+							// This can mean a lot of fingerprints at the same time: 
+							//so not much is lost when this happens
+							if(!fp_extractor->warning_given){
+								fprintf(stderr,"Warning: Fingerprint maximum index %zu reached, fingerprints are ignored, consider increasing config->maxFingerprints if you see this often. \n",fp_extractor->fingerprints.fingerprintIndex);
+								fp_extractor->warning_given = true;
+							}
 						}else{
+
+
 							//temporarily store (do not increment fingerprint index, unless it is not yet discovered)
 							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex1 = t1;
 							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex2 = t2;
