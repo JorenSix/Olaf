@@ -12,5 +12,4 @@ src/zig-cache/*
 wasm/*
 eval/dataset/*
 dataset/
-ESP32
 
