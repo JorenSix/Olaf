@@ -30,9 +30,10 @@ SKIP_DUPLICATES = true
 MONITOR_LENGTH_IN_SECONDS = 7
 AVAILABLE_THREADS = 7 #change to e.g. your number of CPU cores -1
 
-ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
+ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,raw,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
 AUDIO_DURATION_COMMAND = "ffprobe -i \"__input__\" -show_entries format=duration -v quiet -of csv=\"p=0\""
 AUDIO_CONVERT_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -i \"__input__\" -ac 1 -ar 16000 -f f32le -acodec pcm_f32le \"__output__\""
+AUDIO_CONVERT_FROM_RAW_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -ac 1 -ar 16000 -f f32le -acodec pcm_f32le -i \"__input__\"  \"__output__\""
 AUDIO_CONVERT_COMMAND_WITH_START_DURATION = "ffmpeg -hide_banner -y -loglevel panic -ss __start__ -i \"__input__\" -t __duration__ -ac 1 -ar 16000 -f f32le -acodec pcm_f32le \"__output__\""
 MIC_INPUT = "ffmpeg -hide_banner -loglevel panic  -f avfoundation -i 'none:default' -ac 1 -ar 16000 -f f32le -acodec pcm_f32le pipe:1"
 
@@ -224,6 +225,19 @@ def to_raw(index,length,audio_filename)
 	end
 end
 
+def to_wav(index,length,raw_audio_filename)
+	output_filename = File.basename(raw_audio_filename,File.extname(raw_audio_filename)) + ".wav"
+	convert_command = AUDIO_CONVERT_FROM_RAW_COMMAND
+	convert_command = convert_command.gsub("__input__",raw_audio_filename)
+	convert_command = convert_command.gsub("__output__",output_filename)
+
+	unless File.exist?(output_filename) 
+		system(convert_command)
+	end
+	puts "#{index}/#{length},#{File.basename raw_audio_filename},#{output_filename}\n"
+end
+
+
 def escape_audio_filename(audio_filename)
 	begin
 		audio_filename.gsub(/(["])/, '\\\\\1')
@@ -414,6 +428,10 @@ if command.eql? "store"
 elsif command.eql? "to_raw"
 	audio_files.each_with_index do |audio_file, index|
 		to_raw(index+1,audio_files.length,audio_file)
+	end
+elsif command.eql? "to_wav"
+	audio_files.each_with_index do |audio_file, index|
+		to_wav(index+1,audio_files.length,audio_file)
 	end
 elsif command.eql? "mic"
 	microphone

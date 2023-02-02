@@ -112,7 +112,7 @@ void olaf_ep_extractor_print_ep(struct eventpoint e){
 
 void olaf_ep_extractor_max_filter_frequency(float* data, float * max, int length,int half_filter_size ){
 	size_t filterSize = half_filter_size + half_filter_size + 1;
-	olaf_max_filter_naive(data,length,filterSize , max);
+	olaf_max_filter(data,length,filterSize , max);
 
 	/*
 	//compare naive and other max filter

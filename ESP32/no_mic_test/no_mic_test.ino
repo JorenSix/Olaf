@@ -7,7 +7,7 @@
 #include "olaf_ep_extractor.h"
 #include "olaf_fp_extractor.h"
 #include "olaf_fp_matcher.h"
-#include "olaf_audio_ota_852601_500ms.h"
+#include "olaf_audio_ota_852601_2s.h"
 
 size_t audio_block_index;
 float * audio_block;
@@ -56,12 +56,10 @@ void setup() {
   stderr = stdout;
   setup_olaf();
   Serial.println("[OLAF] Free after init: " + String(esp_get_free_heap_size()) + " bytes");
-  
- 
 
   audio_block_index = 0;
-  all_audio = (float *) olaf_audio_ota_852601_500ms_raw;
-  all_audio_length = olaf_audio_ota_852601_500ms_raw_len / 4;
+  all_audio = (float *) olaf_audio_ota_852601_2s_raw;
+  all_audio_length = olaf_audio_ota_852601_2s_raw_len / 4;
 
   Serial.printf("[OLAF] Initialized with %zu audio samples. Sample sample: %f\n",all_audio_length,all_audio[all_audio_length/2]);
 }
