@@ -13,3 +13,7 @@ wasm/*
 eval/dataset/*
 dataset/
 
+*.theia*
+*debug.cfg
+*debug_custom.json
+*esp32.svd

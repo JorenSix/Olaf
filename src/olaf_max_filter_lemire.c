@@ -18,7 +18,6 @@
 #include "olaf_max_filter.h"
 #include "olaf_deque.h"
 
-
 //see https://github.com/lemire/runningmaxmin/blob/master/runningmaxmin.h
 // Daniel Lemire, Streaming Maximum-Minimum Filter Using No More than Three Comparisons per Element. Nordic Journal of Computing, 13 (4), pages 328-339, 2006.
 void olaf_lemire_max_filter(float* array, size_t array_size , size_t filter_width , float* maxvalues ) {

@@ -54,10 +54,14 @@ Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){
 
 	int halfAudioBlockSize = config->audioBlockSize / 2;
 
+  fprintf(stdout,"TEST MESSAGE from ep extr");
+
 	ep_extractor->horizontalMaxes = (float *) calloc(halfAudioBlockSize ,sizeof(float));
+  if(ep_extractor->horizontalMaxes == NULL) fprintf(stdout,"Failed to allocate memory: horizontalMaxes");
 
 	ep_extractor->eventPoints.eventPoints = (struct eventpoint *) calloc(config->maxEventPoints , sizeof(struct eventpoint));
 	ep_extractor->eventPoints.eventPointIndex = 0;
+  if(ep_extractor->horizontalMaxes == NULL) fprintf(stdout,"Failed to allocate memory: eventPoints");
 
 	//initialize t with a high number
 	for(int i = 0 ; i < config->maxEventPoints; i++){
@@ -65,11 +69,15 @@ Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){
 	}
 	
 	ep_extractor->mags  =(float **) calloc(config->filterSizeTime , sizeof(float *));
+  if(ep_extractor->mags == NULL) fprintf(stdout,"Failed to allocate memory: mags");
 	ep_extractor->maxes = (float **) calloc(config->filterSizeTime , sizeof(float *));
+  if(ep_extractor->maxes == NULL) fprintf(stdout,"Failed to allocate memory: maxes");
 
 	for(int i = 0; i < config->filterSizeTime ;i++){
 		ep_extractor->maxes[i]= (float *) calloc(halfAudioBlockSize , sizeof(float));
+    if(ep_extractor->maxes[i] == NULL) fprintf(stdout,"Failed to allocate memory: maxes[i]");
 		ep_extractor->mags[i] = (float *) calloc(halfAudioBlockSize , sizeof(float));
+    if(ep_extractor->mags[i] == NULL) fprintf(stderr,"Failed to allocate memory: mags[i]");
 	}
 
   	ep_extractor->filterIndex = 0;
@@ -106,7 +114,7 @@ void olaf_ep_extractor_print_ep(struct eventpoint e){
 
 void olaf_ep_extractor_max_filter_frequency(float* data, float * max, int length,int half_filter_size ){
 	size_t filterSize = half_filter_size + half_filter_size + 1;
-	olaf_max_filter(data,length,filterSize , max);
+	olaf_max_filter_naive(data,length,filterSize , max);
 
 	/*
 	//compare naive and other max filter

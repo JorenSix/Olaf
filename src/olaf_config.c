@@ -24,16 +24,19 @@ Olaf_Config* olaf_config_default(){
 
 	//construct the directory to write db info to: /home/user/.olaf/db/
 	const char * homeDir = getenv("HOME");
-
-	//This assume a UNIX file separator
-	const char* dbDir = "/.olaf/db/";
-	size_t length = strlen(homeDir) +  strlen(dbDir) + 1;
-	char * fullDbFolderName = (char *) malloc(length);
-	strcpy(fullDbFolderName,homeDir);
-	strcat(fullDbFolderName,dbDir);
-	fullDbFolderName[length-1] = '\0';
-
-	config->dbFolder = fullDbFolderName;
+	if (homeDir == NULL){
+		fprintf(stderr,"No home directory found, will use './db' as db folder");
+		config->dbFolder = "db";
+	}else{
+		//This assume a UNIX file separator
+		const char* dbDir = "/.olaf/db/";
+		size_t length = strlen(homeDir) +  strlen(dbDir) + 1;
+		char * fullDbFolderName = (char *) malloc(length);
+		strcpy(fullDbFolderName,homeDir);
+		strcat(fullDbFolderName,dbDir);
+		fullDbFolderName[length-1] = '\0';
+		config->dbFolder = fullDbFolderName;
+	}	
 
 	//audio info
 	config->audioBlockSize = 1024;
@@ -57,7 +60,7 @@ Olaf_Config* olaf_config_default(){
 	config->minEventPointMagnitude = 0.001;
 
 	//debug statements
-	config->verbose = false;
+	config->verbose = true;
 	
 	//For over the air queries it is best to ignore magnitude info
 	config->useMagnitudeInfo=false;

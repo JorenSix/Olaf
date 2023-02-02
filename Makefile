@@ -6,7 +6,7 @@ compile:
 	gcc -c src/hash-table.c     		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/queue.c  		   		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_deque.c  	   		-W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_max_filter.c  	   	-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_max_filter_lemire.c	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_file_writer.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_db.c 				-W -Wall -std=c11 -pedantic -O2
@@ -29,7 +29,7 @@ compile_gprof:
 	gcc -c src/hash-table.c     		-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/queue.c  		   		-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_deque.c  	   		-pg -W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_max_filter.c  	   	-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_max_filter_lemire.c	-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf.c 					-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_file_writer.c 	-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_db.c 				-pg -W -Wall -std=c11 -pedantic -O2
@@ -51,7 +51,7 @@ mem:
 	gcc -c src/hash-table.c     	 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/queue.c  		   		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_deque.c  	   		-W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_max_filter.c  	   	-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_max_filter_lemire.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf.c 					-W -Wall -std=gnu11 -pedantic -O2
 	gcc -c src/olaf_db_mem.c 			-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer_mem.c 	-W -Wall -std=c11 -pedantic -O2
@@ -75,7 +75,7 @@ web:
 		src/hash-table.c \
 		src/queue.c \
 		src/olaf_deque.c \
-		src/olaf_max_filter.c \
+		src/olaf_max_filter_lemire.c \
 		src/olaf_ep_extractor.c \
 		src/olaf_fp_extractor.c \
 		src/olaf_db_mem.c \
@@ -126,7 +126,7 @@ test:
 	gcc -c src/olaf_reader_stream.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/queue.c  		   		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_deque.c  	   		-W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_max_filter.c  	   	-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_max_filter_lemire.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c tests/olaf_tests.c	-Isrc	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/midl.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/mdb.c 					-W -Wall -std=c11 -pedantic -O2
@@ -137,7 +137,7 @@ test:
 	- rm tests/olaf_test_db/*
 
 zig_win:
-	zig build -Dtarget=x86_64-windows-gnu -Drelease-small
+	zig build -Dtarget=x86_64-windows-gnu
 
 zig_web:
 	zig build -Dtarget=wasm32-freestanding-musl -Drelease-small

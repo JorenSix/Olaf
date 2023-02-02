@@ -17,8 +17,7 @@
 #define OLAF_MAX_FILTER
 
 #include <stdio.h>
-#include <math.h>   
-#include "olaf_deque.h"
+#include <math.h>
 
 void olaf_max_filter_naive(float* array, size_t array_size , size_t filter_width , float* maxvalues );
 

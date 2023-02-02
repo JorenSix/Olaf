@@ -17,11 +17,11 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "olaf_db.h"
 
 #include "olaf_fp_ref_mem.h"
-#include "olaf_fp_file_writer.h"
 
 // The 'database' is a serialized sorted array of uint64_t elements
 // Of the 64 bits:
@@ -208,7 +208,6 @@ void olaf_db_store_meta_data(Olaf_DB * olaf_db, uint32_t * key, Olaf_Resource_Me
 	printf("const double olaf_db_mem_audio_duration = %f;\n",value->duration);
 
 	(void)(olaf_db);
-
 }
 
 //search for meta data
