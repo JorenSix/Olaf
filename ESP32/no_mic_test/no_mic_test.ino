@@ -29,7 +29,7 @@ struct extracted_event_points * eventPoints;
 struct extracted_fingerprints * fingerprints;
 
 void setup_olaf(){
-  config = olaf_config_default();
+  config = olaf_config_esp_32();
 
   fftSetup = pffft_new_setup(config->audioBlockSize,PFFFT_REAL);
 	fft_in = (float*) pffft_aligned_malloc(config->audioBlockSize*4);//fft input
