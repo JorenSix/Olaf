@@ -60,7 +60,7 @@ Olaf_Config* olaf_config_default(){
 	config->minEventPointMagnitude = 0.001;
 
 	//debug statements
-	config->verbose = true;
+	config->verbose = false;
 	
 	//For over the air queries it is best to ignore magnitude info
 	config->useMagnitudeInfo=false;
