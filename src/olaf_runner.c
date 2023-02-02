@@ -9,8 +9,13 @@ Olaf_Runner * olaf_runner_new(int mode){
 
 	runner->mode = mode;
 	//Get the default configuration
-	runner->config = olaf_config_default();
-
+	#ifdef mem
+		fprintf(stderr,"Loaded the mem configuration");
+		runner->config = olaf_config_mem();
+	#else
+		runner->config = olaf_config_default();
+	#endif
+	
 	//The raw format and size of float should be 32 bits
 	assert(runner->config->bytesPerAudioSample == sizeof(float));
 

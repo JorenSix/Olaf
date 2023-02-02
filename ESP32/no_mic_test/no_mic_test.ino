@@ -123,5 +123,5 @@ void loop(){
   printf("[OLAF] processed audio block index: %zu\n",audio_block_index);
   audio_block_index++;
   
-  delay(100);
+  delay(200);
 }

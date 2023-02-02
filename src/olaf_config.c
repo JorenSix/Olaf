@@ -136,7 +136,9 @@ Olaf_Config* olaf_config_esp_32(){
 }
 
 Olaf_Config* olaf_config_mem(){
-	return olaf_config_esp_32();
+	Olaf_Config* config =  olaf_config_esp_32();
+	config->verbose = false;
+	return config;
 }
 
 void olaf_config_destroy(Olaf_Config * config){

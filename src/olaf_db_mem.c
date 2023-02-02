@@ -20,7 +20,6 @@
 #include <string.h>
 
 #include "olaf_db.h"
-
 #include "olaf_fp_ref_mem.h"
 
 // The 'database' is a serialized sorted array of uint64_t elements
