@@ -98,7 +98,6 @@ Olaf_Config* olaf_config_default(){
 
 Olaf_Config* olaf_config_test(){
 	Olaf_Config* config =  olaf_config_default();
-	free(config->dbFolder);
 
 	const char* dbDir = "tests/olaf_test_db";
 	char * folderName = (char *) malloc(strlen(dbDir)+1);
@@ -111,8 +110,9 @@ Olaf_Config* olaf_config_test(){
 
 Olaf_Config* olaf_config_esp_32(){
 	Olaf_Config* config =  olaf_config_default();
-	//not needed
-  free(config->dbFolder);
+
+  //debug statements
+	config->verbose = true;
 
   config->maxEventPoints=30;
 	config->eventPointThreshold = 15;
