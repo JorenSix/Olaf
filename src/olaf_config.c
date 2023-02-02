@@ -135,10 +135,9 @@ Olaf_Config* olaf_config_esp_32(){
 	return config;
 }
 
-Olaf_Config* olaf_config_esp_32(){
-	return  olaf_config_default();
+Olaf_Config* olaf_config_mem(){
+	return olaf_config_esp_32();
 }
-
 
 void olaf_config_destroy(Olaf_Config * config){
 	free(config->dbFolder);

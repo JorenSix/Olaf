@@ -121,7 +121,9 @@
 
 	Olaf_Config* olaf_config_test();
 
-  Olaf_Config* olaf_config_esp_32();
+	Olaf_Config* olaf_config_esp_32();
+
+	Olaf_Config* olaf_config_mem();
 
 	void olaf_config_destroy(Olaf_Config *);
 
