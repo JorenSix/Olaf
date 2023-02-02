@@ -14,7 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
+#ifndef OLAF_WINDOW_H
+#define OLAF_WINDOW_H
 
 const float hamming_window_1024[] = {
 0.08000000000000007,
@@ -1151,13 +1152,14 @@ const float hamming_window_512[] = {
        0.08125127, 0.08086906, 0.08055626, 0.08031292, 0.08013909,
        0.08003477, 0.08 };
 
-const float * olaf_fft_window(int audioBlockSize){
+const static inline float * olaf_fft_window(int audioBlockSize){
    if(audioBlockSize==512){
       return hamming_window_512;
    }else if(audioBlockSize==1024){
       return hamming_window_1024;
    }
-   fprintf(stderr, "Gaussian window of size %d not supported.\n",audioBlockSize);
+   fprintf(stderr, "Window of size %d not supported.\n",audioBlockSize);
    return NULL;
 }
 
+#endif // OLAF_WINDOW_H
