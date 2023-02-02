@@ -54,8 +54,6 @@ Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){
 
 	int halfAudioBlockSize = config->audioBlockSize / 2;
 
-  fprintf(stdout,"TEST MESSAGE from ep extr");
-
 	ep_extractor->horizontalMaxes = (float *) calloc(halfAudioBlockSize ,sizeof(float));
   if(ep_extractor->horizontalMaxes == NULL) fprintf(stdout,"Failed to allocate memory: horizontalMaxes");
 
