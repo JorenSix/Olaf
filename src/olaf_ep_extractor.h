@@ -24,6 +24,7 @@
 		int frequencyBin;
 		int timeIndex;
 		float magnitude;
+		int usages;
 	};
 
 	//this is shared with the interface to the outside

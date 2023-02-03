@@ -36,7 +36,7 @@ Olaf_Runner * olaf_runner_new(int mode){
 	}
 
 	//no db needed in print mode!
-	if(OLAF_RUNNER_MODE_PRINT){
+	if(mode == OLAF_RUNNER_MODE_PRINT){
 		runner->db = NULL;
 	} else {
 		runner->db = olaf_db_new(runner->config->dbFolder,readonly_db);

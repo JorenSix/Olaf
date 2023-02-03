@@ -165,10 +165,16 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 		int t1 = eventPoints->eventPoints[i].timeIndex;
 		int f1 = eventPoints->eventPoints[i].frequencyBin;
 		float m1 =  eventPoints->eventPoints[i].magnitude;
+		int u1 =  eventPoints->eventPoints[i].usages;
 
 		//do not evaluate empty points
 		if(f1==0 && t1==0)
 			break;
+
+		//do not reuse each event point to much
+		if(u1 > fp_extractor->config->maxEventPointUsages){
+			break;
+		}
 
 		//do not evaluate event points that are too recent
 		int diffToCurrentTime = audioBlockIndex-fp_extractor->config->maxTimeDistance;
@@ -180,12 +186,18 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 			int t2 =  eventPoints->eventPoints[j].timeIndex;
 			int f2 =  eventPoints->eventPoints[j].frequencyBin;
 			float m2 =  eventPoints->eventPoints[j].magnitude;
+			int u2 =  eventPoints->eventPoints[j].usages;
 
 			int fDiff = abs(f1 - f2);
 			int tDiff = t2-t1;
 
 			assert(t2>=t1);
 			assert(tDiff>=0);
+
+			//do not reuse each event point to much
+			if(u2 > fp_extractor->config->maxEventPointUsages){
+				break;
+			}
 
 			//do not evaluate points to far in the future
 			if(tDiff > fp_extractor->config->maxTimeDistance)
@@ -203,6 +215,12 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 					int t3 =  eventPoints->eventPoints[k].timeIndex;
 					int f3 =  eventPoints->eventPoints[k].frequencyBin;
 					float m3 =  eventPoints->eventPoints[k].magnitude;
+					int u3 =  eventPoints->eventPoints[k].usages;
+
+					//do not reuse each event point to much
+					if(u3 > fp_extractor->config->maxEventPointUsages){
+						break;
+					}
 
 					//do not evaluate points to far in the future
 					if(tDiff > fp_extractor->config->maxTimeDistance)
@@ -243,6 +261,12 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].magnitude1 = m1;				
 							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].magnitude2 = m2;
 							fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].magnitude3 = m3;
+
+							//count event point usages:
+							eventPoints->eventPoints[i].usages++;
+							eventPoints->eventPoints[j].usages++;
+							eventPoints->eventPoints[k].usages++;
+
 
 							if(fp_extractor->config->verbose){
 								fprintf(stderr,"Fingerprint at index %zu\n",fp_extractor->fingerprints.fingerprintIndex);

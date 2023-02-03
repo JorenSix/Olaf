@@ -183,6 +183,6 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_DELETE){
 		verb = "Deleted";
 	}
-
-    fprintf(stderr,"%s %lu fp's from %.1fs in %.3fs (%.0f times realtime) \n",verb,olaf_fp_extractor_total(processor->fp_extractor), audioDuration,cpu_time_used,ratio);
+	double fingerprintspersecond = olaf_fp_extractor_total(processor->fp_extractor) / audioDuration;
+    fprintf(stderr,"%s %lu fp's from %.1fs (%.0f fp/s) in %.3fs (%.0f times realtime)\n",verb,olaf_fp_extractor_total(processor->fp_extractor), audioDuration,fingerprintspersecond,cpu_time_used,ratio);
 }

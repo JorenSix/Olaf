@@ -266,9 +266,14 @@ def store_cached
 	length = cached_files.size
 	cached_files.each_with_index  do |cache_file,index|
 		audio_filename = nil
-		File.open(cache_file, "r") do |f|
-  			first_line =  f.gets
-  			audio_filename = first_line.split(",")[1].strip
+		begin 
+			File.open(cache_file, "r") do |f|
+				first_line =  f.gets
+				audio_filename = first_line.split(",")[1].strip
+			end
+		rescue
+			#could not get the filename: incorrect cache file
+			puts "#{index}/#{length} WARNING: #{cache_file} could not be parsed."
 		end
 
 		audio_filename_escaped = escape_audio_filename(audio_filename)
@@ -307,7 +312,7 @@ def cache(index,length,audio_filename)
 				cache_file.puts "#{index}/#{length},#{File.expand_path audio_filename},#{line}\n"
 			end
 		end
-		puts "#{index}/#{length},#{File.basename audio_filename},#{cache_file_name},#{data.size}"
+		puts "#{index}/#{length} , #{File.basename audio_filename} , #{cache_file_name} , #{data.size} , #{stderr.strip}"
 	end
 end
 

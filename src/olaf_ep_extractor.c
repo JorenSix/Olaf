@@ -158,6 +158,7 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 			eventPoints[eventPointIndex].timeIndex = timeIndex;
 			eventPoints[eventPointIndex].frequencyBin = frequencyBin;
 			eventPoints[eventPointIndex].magnitude = magnitude;
+			eventPoints[eventPointIndex].usages = 0;
 
 			//fprintf(stderr,"New EP found ");
 			//olaf_ep_extractor_print_ep(eventPoints[eventPointIndex]);

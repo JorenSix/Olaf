@@ -58,6 +58,7 @@ Olaf_Config* olaf_config_default(){
 
 	//prevent silence to register as event points
 	config->minEventPointMagnitude = 0.001;
+	config->maxEventPointUsages = 10;
 
 	//debug statements
 	config->verbose = false;

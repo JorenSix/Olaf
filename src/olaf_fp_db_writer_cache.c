@@ -58,12 +58,13 @@ int olaf_fp_db_writer_cache_parse_csv_line(Olaf_FP_DB_Writer_Cache * db_writer_c
     	if(column_counter == 1 && db_writer_cache->audio_file_identifier == 0){
     		db_writer_cache->audio_filename = token;
     		db_writer_cache->audio_file_identifier = (uint64_t) olaf_db_string_hash(token,strlen(token));
-    		printf("%llu %s \n",db_writer_cache->audio_file_identifier ,token);
+    		//printf("%llu %s \n",db_writer_cache->audio_file_identifier ,token);
     	}
 
     	//fp_hash
     	if(column_counter == 2){
-    		db_writer_cache->fp_hashes[db_writer_cache->fp_index] = strtoull(token, NULL, 10);
+    		uint64_t hash = strtoull(token, NULL, 10);
+    		db_writer_cache->fp_hashes[db_writer_cache->fp_index] = hash;
     	}
 
     	//fp t1
@@ -74,13 +75,14 @@ int olaf_fp_db_writer_cache_parse_csv_line(Olaf_FP_DB_Writer_Cache * db_writer_c
     		db_writer_cache->fp_values[db_writer_cache->fp_index] = (fingerprint_t1<<32) + fingerprint_id; 
     	}
 
-    	db_writer_cache->fp_index++;
-    	db_writer_cache->fp_counter++;
-
         token = strtok(NULL, ",");
 
         column_counter ++;
     }
+
+    db_writer_cache->fp_index++;
+    db_writer_cache->fp_counter++;
+    
     return column_counter;
 }
 
@@ -103,7 +105,6 @@ void olaf_fp_db_writer_cache_read_csv_file(Olaf_FP_DB_Writer_Cache * db_writer_c
     }
 
     fclose(fp);
-
 
     //store all remaining fp's
     olaf_db_store(db_writer_cache->db,db_writer_cache->fp_hashes,db_writer_cache->fp_values,db_writer_cache->fp_index);

@@ -62,6 +62,9 @@
 		//the ep magnitude should be at least this value
 		float minEventPointMagnitude;
 
+		//the amount each event point is reused
+		int maxEventPointUsages;
+
 
 		//Max number of event points before they are 
 		//combined into fingerprints 
