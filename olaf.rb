@@ -305,14 +305,17 @@ def cache(index,length,audio_filename)
 	end
 	
 	with_converted_audio(audio_filename_escaped) do |tempfile|
-		stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} print \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")
-		data = stdout.split("\n")
-		File.open(cache_file_name,"w") do |cache_file|
-			data.each do |line|
-				cache_file.puts "#{index}/#{length},#{File.expand_path audio_filename},#{line}\n"
+		Open3.popen3("#{EXECUTABLE_LOCATION} print \"#{tempfile.path}\" \"#{audio_filename_escaped}\"") do |stdin, stdout, stderr, status , thread |
+			File.open(cache_file_name,"w") do |cache_file|
+				fp_counter = 0
+				while line = stdout.gets do 
+	    			cache_file.puts "#{index}/#{length},#{File.expand_path audio_filename},#{line}"
+	    			fp_counter = fp_counter + 1
+	  			end
+	  			puts "#{index}/#{length} , #{File.basename audio_filename} , #{cache_file_name} , #{fp_counter} , #{stderr.gets}"
 			end
+			
 		end
-		puts "#{index}/#{length} , #{File.basename audio_filename} , #{cache_file_name} , #{data.size} , #{stderr.strip}"
 	end
 end
 
