@@ -82,7 +82,7 @@ int olaf_fp_db_writer_cache_parse_csv_line(Olaf_FP_DB_Writer_Cache * db_writer_c
 
     db_writer_cache->fp_index++;
     db_writer_cache->fp_counter++;
-    
+
     return column_counter;
 }
 
