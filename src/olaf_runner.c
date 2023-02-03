@@ -34,7 +34,13 @@ Olaf_Runner * olaf_runner_new(int mode){
 	if(runner->config->verbose){
 		fprintf(stderr, "Open DB at folder '%s'\n", runner->config->dbFolder);
 	}
-	runner->db = olaf_db_new(runner->config->dbFolder,readonly_db);
+
+	//no db needed in print mode!
+	if(OLAF_RUNNER_MODE_PRINT){
+		runner->db = NULL;
+	} else {
+		runner->db = olaf_db_new(runner->config->dbFolder,readonly_db);
+	}
 	
 	return runner;
 }

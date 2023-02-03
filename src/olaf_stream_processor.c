@@ -65,14 +65,13 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 	Olaf_FP_DB_Writer *fp_db_writer = NULL;
 	Olaf_FP_Matcher *fp_matcher = NULL;
 
-	fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,100);
 
 	if(processor->runner->mode == OLAF_RUNNER_MODE_QUERY ){
 		fp_matcher = olaf_fp_matcher_new(processor->config,processor->runner->db);
 	} else if(processor->runner->mode == OLAF_RUNNER_MODE_STORE || processor->runner->mode == OLAF_RUNNER_MODE_DELETE){
 		fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,processor->audio_identifier);
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT ){
-		fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,processor->audio_identifier);
+		fp_db_writer = NULL;
 	}
 
 	struct extracted_event_points * eventPoints = NULL;
@@ -167,6 +166,8 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
 		olaf_fp_db_writer_destroy(fp_db_writer,false);
 		olaf_db_delete_meta_data(processor->runner->db,&processor->audio_identifier);
+	} else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT){
+		
 	}
 
 	//for timing statistics

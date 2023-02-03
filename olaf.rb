@@ -80,6 +80,9 @@ end
 
 
 def has(audio_file)
+	#return false if no db exits
+	return false if (Dir.glob(File.join(DB_FOLDER,"*")).size == 0)
+	
 	result = `#{EXECUTABLE_LOCATION} has '#{audio_file}'`
 	unless(result.empty?)
 		result_line = result.split("\n")[1]
@@ -383,7 +386,7 @@ def clear(arguments)
 
 	if(delete_cache)
 		puts "Clear the cache folder"
-		FileUtils.rm Dir.glob("#{DB_FOLDER}/*") if File.exist? DB_FOLDER
+		FileUtils.rm Dir.glob("#{CACHE_FOLDER}/*") if File.exist? CACHE_FOLDER
 	end
 end
 

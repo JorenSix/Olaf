@@ -30,6 +30,7 @@ int olaf_stats(){
 int olaf_has(int argc, const char* argv[]){
 	Olaf_Config* config = olaf_config_default();
 	Olaf_DB* db = olaf_db_new(config->dbFolder,true);
+
 	printf("audio file path; internal identifier; duration (s); fingerprints (#)\n");
 	for(int arg_index = 2 ; arg_index < argc ; arg_index++){
 		const char* orig_path = argv[arg_index];
