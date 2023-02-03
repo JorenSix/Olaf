@@ -262,7 +262,7 @@ def print(index,length,audio_filename)
 end
 
 def store_cached
-	cached_files = Dir.glob(File.join(CACHE_FOLDER,"*tdb"))
+	cached_files = Dir.glob(File.join(CACHE_FOLDER,"*tdb")).sort
 	length = cached_files.size
 	cached_files.each_with_index  do |cache_file,index|
 		audio_filename = nil
