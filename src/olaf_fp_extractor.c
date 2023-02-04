@@ -18,6 +18,7 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <math.h>
+#include <inttypes.h>
 
 #include "olaf_fp_extractor.h"
 #include "olaf_config.h"
@@ -144,7 +145,7 @@ uint64_t olaf_fp_extractor_hash(struct fingerprint f){
 }
 
 void olaf_fp_extractor_print(struct fingerprint f){
-	fprintf(stderr,"FP hash: %llu \n", olaf_fp_extractor_hash(f));
+	fprintf(stderr,"FP hash: %" PRIu64 " \n", olaf_fp_extractor_hash(f));
 	fprintf(stderr,"\tt1: %d, f1: %d, m1: %.3f\n", f.timeIndex1,f.frequencyBin1,f.magnitude1);
 	fprintf(stderr,"\tt2: %d, f2: %d, m2: %.3f\n", f.timeIndex2,f.frequencyBin2,f.magnitude2);
 	fprintf(stderr,"\tt3: %d, f3: %d, m3: %.3f\n", f.timeIndex3,f.frequencyBin3,f.magnitude3);

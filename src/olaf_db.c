@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "lmdb.h"
 #include "olaf_db.h"
@@ -396,14 +397,14 @@ void olaf_db_stats_verbose(Olaf_DB * olaf_db){
 		uint32_t ref_id = (uint32_t) val;
 
 		number_of_fps++;
-		printf("%12llu\t%12llu: [%8d,%8d]\n",number_of_fps,hash,ref_id,ref_t1);
+		printf("%12"PRIu64"\t%12"PRIu64": [%8d,%8d]\n",number_of_fps,hash,ref_id,ref_t1);
 		
 		rc = mdb_cursor_get(cursor, &mdb_key, &mdb_value, MDB_NEXT_DUP );
 		if(rc == MDB_NOTFOUND ){
 			rc = mdb_cursor_get(cursor, &mdb_key, &mdb_value, MDB_NEXT);
 		}
 	} while (rc == 0);
-	printf("Total fingerprints:\t%llu\n",number_of_fps);
+	printf("Total fingerprints:\t%"PRIu64"\n",number_of_fps);
 }
 
 void olaf_db_stats(Olaf_DB * olaf_db,bool verbose){

@@ -16,7 +16,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 
 #include "olaf_db.h"
@@ -168,7 +168,7 @@ bool olaf_db_find_single(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key)
 			break;
 		}
 
-		fprintf(stderr, "Found %llu is between %llu and %llu \n",ref_hash, start_key,stop_key);
+		//fprintf(stderr, "Found %llu is between %llu and %llu \n",ref_hash, start_key,stop_key);
 
 		//hash between start and stop: found!
 		return true;

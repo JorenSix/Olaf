@@ -1,5 +1,6 @@
 #include <time.h>
 #include <libgen.h>
+#include <inttypes.h>
 
 #include "pffft.h"
 
@@ -121,7 +122,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 			} else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT){
 				for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
 					struct fingerprint f = fingerprints->fingerprints[i];
-					printf("%llu, ", olaf_fp_extractor_hash(f));
+					printf("%" PRIu64 ", ", olaf_fp_extractor_hash(f));
 					printf("%d, %d, %.6f, ", f.timeIndex1,f.frequencyBin1,f.magnitude1);
 					printf("%d, %d, %.6f, ", f.timeIndex2,f.frequencyBin2,f.magnitude2);
 					printf("%d, %d, %.6f\n", f.timeIndex3,f.frequencyBin3,f.magnitude3);
@@ -173,7 +174,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 	} else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT){
 		for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
 			struct fingerprint f = fingerprints->fingerprints[i];
-			printf("%llu, ", olaf_fp_extractor_hash(f));
+			printf("%"PRIu64 ", ", olaf_fp_extractor_hash(f));
 			printf("%d, %d, %.6f, ", f.timeIndex1,f.frequencyBin1,f.magnitude1);
 			printf("%d, %d, %.6f, ", f.timeIndex2,f.frequencyBin2,f.magnitude2);
 			printf("%d, %d, %.6f\n", f.timeIndex3,f.frequencyBin3,f.magnitude3);
