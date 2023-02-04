@@ -97,7 +97,26 @@ def audio_file_duration(audio_file)
 	`#{duration_command}`.to_f
 end
 
-def monitor(index,length,audio_filename,ignore_self_match, skip_size)
+def batch_monitor(index,length,audio_filename,ignore_self_match, skip_size)
+	audio_filename = File.expand_path(audio_filename)
+	audio_filename_escaped = escape_audio_filename(audio_filename)
+	audio_identifier = `olaf_c name_to_id '#{audio_filename_escaped}'`.strip
+
+	monitor_out_file = "mon_out_#{audio_identifier}.csv"
+	if File.exist? monitor_out_file
+		puts "#{index}/#{length}, Skipped #{audio_filename}"
+		return
+	end
+
+	File.open(monitor_out_file, "w") do |f|
+		monitor(index,length,audio_filename,ignore_self_match, skip_size,f)	
+	end
+
+	puts "#{index}/#{length}, processed #{audio_filename}"
+end
+
+
+def monitor(index,length,audio_filename,ignore_self_match, skip_size,stream)
 	audio_filename = File.expand_path(audio_filename)
 	audio_filename_escaped =  escape_audio_filename(audio_filename) 
 
@@ -118,10 +137,10 @@ def monitor(index,length,audio_filename,ignore_self_match, skip_size)
 
 					#ignore self matches if requested (for deduplication)
 					unless(ignore_self_match and query_audio_identifer.eql? matching_audio_id)
-						puts "#{index}, #{length}_#{start}s, #{File.basename audio_filename}, #{line}\n"
+						stream.puts "#{index}, #{length}_#{start}s, #{File.basename audio_filename}, #{line}\n"
 					end
 				else 
-					puts "#{index}, #{length}_#{start}s, #{File.basename audio_filename}, #{line}"
+					stream.puts "#{index}, #{length}_#{start}s, #{File.basename audio_filename}, #{line}"
 				end
 			end
 		end
@@ -424,7 +443,7 @@ end
 ARGV.shift
 
 audio_files = Array.new
-unless %w(mic clear store_cached ).include? command
+unless %w(mic clear store_cached).include? command
 	ARGV.each do |audio_argument|
 		audio_files = audio_file_list(audio_argument,audio_files)
 	end
@@ -481,12 +500,17 @@ elsif command.eql? "dedupm"
 	end
 
 	audio_files.each_with_index do |audio_file, index|
-		monitor(index+1,audio_files.length,audio_file,true,MONITOR_LENGTH_IN_SECONDS)
+		monitor(index+1,audio_files.length,audio_file,true,MONITOR_LENGTH_IN_SECONDS,STDOUT)
 	end
 elsif command.eql? "monitor"
 	puts "query index,total queries, query name, match name, match id, match count (#), q to ref time delta (s), ref start (s), ref stop (s), query time (s)\n"
 	audio_files.each_with_index do |audio_file, index|
-		monitor(index + 1,audio_files.length,audio_file,false, MONITOR_LENGTH_IN_SECONDS)
+		monitor(index + 1,audio_files.length,audio_file,false, MONITOR_LENGTH_IN_SECONDS,STDOUT)
+	end
+elsif command.eql? "batch_monitor"
+	require 'threach'
+	audio_files.threach(AVAILABLE_THREADS, :each_with_index) do |audio_file, index|
+		batch_monitor(index + 1,audio_files.length,audio_file,false, MONITOR_LENGTH_IN_SECONDS)
 	end
 elsif command.eql? "clear"
 	clear(ARGV)
