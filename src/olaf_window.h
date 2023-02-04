@@ -1152,7 +1152,7 @@ const float hamming_window_512[] = {
        0.08125127, 0.08086906, 0.08055626, 0.08031292, 0.08013909,
        0.08003477, 0.08 };
 
-static const inline float * olaf_fft_window(int audioBlockSize){
+inline static const float * olaf_fft_window(int audioBlockSize){
    if(audioBlockSize==512){
       return hamming_window_512;
    }else if(audioBlockSize==1024){
