@@ -75,7 +75,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 	}
 
 	struct extracted_event_points * eventPoints = NULL;
-	struct extracted_fingerprints * fingerprints;
+	struct extracted_fingerprints * fingerprints = NULL;
 
 	size_t samples_read = olaf_reader_read(processor->reader,processor->audio_data);
 	size_t samples_expected = processor->config->audioStepSize;
@@ -121,17 +121,21 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 			} else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT){
 				for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
 					struct fingerprint f = fingerprints->fingerprints[i];
-					fprintf(stdout,"%llu, ", olaf_fp_extractor_hash(f));
-					fprintf(stdout,"%d, %d, %.6f, ", f.timeIndex1,f.frequencyBin1,f.magnitude1);
-					fprintf(stdout,"%d, %d, %.6f, ", f.timeIndex2,f.frequencyBin2,f.magnitude2);
-					fprintf(stdout,"%d, %d, %.6f\n", f.timeIndex3,f.frequencyBin3,f.magnitude3);
+					printf("%llu, ", olaf_fp_extractor_hash(f));
+					printf("%d, %d, %.6f, ", f.timeIndex1,f.frequencyBin1,f.magnitude1);
+					printf("%d, %d, %.6f, ", f.timeIndex2,f.frequencyBin2,f.magnitude2);
+					printf("%d, %d, %.6f\n", f.timeIndex3,f.frequencyBin3,f.magnitude3);
 				}
 			}
+
+			//handled all fingerprints set index back to zero
+
 			fingerprints->fingerprintIndex = 0;
 		}
 		//increase the audio buffer counter
 		audioBlockIndex++;
 
+		//report some info for the streaming case
 		if(audioBlockIndex % 100 == 0 && strcmp(processor->orig_path , "stdin") == 0){
 			double audioDuration = (double) olaf_reader_total_samples_read(processor->reader) / (double) processor->config->audioSampleRate;
 			fprintf(stderr,"Time: %.3fs  fps: %zu \n",audioDuration,olaf_fp_extractor_total(processor->fp_extractor));
@@ -167,7 +171,13 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		olaf_fp_db_writer_destroy(fp_db_writer,false);
 		olaf_db_delete_meta_data(processor->runner->db,&processor->audio_identifier);
 	} else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT){
-		
+		for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
+			struct fingerprint f = fingerprints->fingerprints[i];
+			printf("%llu, ", olaf_fp_extractor_hash(f));
+			printf("%d, %d, %.6f, ", f.timeIndex1,f.frequencyBin1,f.magnitude1);
+			printf("%d, %d, %.6f, ", f.timeIndex2,f.frequencyBin2,f.magnitude2);
+			printf("%d, %d, %.6f\n", f.timeIndex3,f.frequencyBin3,f.magnitude3);
+		}
 	}
 
 	//for timing statistics

@@ -29,8 +29,7 @@ Olaf_Runner * olaf_runner_new(int mode){
 	runner->fft_in = (float *) pffft_aligned_malloc(bytesPerAudioBlock);//fft input
 	runner->fft_out= (float *) pffft_aligned_malloc(bytesPerAudioBlock);//fft output
 
-	bool readonly_db = (mode == OLAF_RUNNER_MODE_QUERY || mode == OLAF_RUNNER_MODE_PRINT);
-
+	
 	if(runner->config->verbose){
 		fprintf(stderr, "Open DB at folder '%s'\n", runner->config->dbFolder);
 	}
@@ -39,6 +38,7 @@ Olaf_Runner * olaf_runner_new(int mode){
 	if(mode == OLAF_RUNNER_MODE_PRINT){
 		runner->db = NULL;
 	} else {
+		bool readonly_db = (mode == OLAF_RUNNER_MODE_QUERY);
 		runner->db = olaf_db_new(runner->config->dbFolder,readonly_db);
 	}
 	

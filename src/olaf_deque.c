@@ -38,6 +38,13 @@ Olaf_Deque * olaf_deque_new(size_t max_size){
 	return olaf_deque;
 }
 
+//free memory resources and 
+void olaf_deque_destroy(Olaf_Deque * olaf_deque){
+	queue_free(olaf_deque->queue);
+	//free(olaf_deque->values);
+	free(olaf_deque);
+}
+
 void olaf_deque_push_back(Olaf_Deque * olaf_deque,size_t value){
 	olaf_deque->values[olaf_deque->value_index]=value;
 	queue_push_tail(olaf_deque->queue, &olaf_deque->values[olaf_deque->value_index]);
@@ -70,8 +77,3 @@ void olaf_deque_pop_front(Olaf_Deque * olaf_deque){
 	queue_pop_head(olaf_deque->queue);
 }
 
-//free memory resources and 
-void olaf_deque_destroy(Olaf_Deque * olaf_deque){
-	queue_free(olaf_deque->queue);
-	free(olaf_deque);
-}
