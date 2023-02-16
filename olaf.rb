@@ -29,13 +29,14 @@ CHECK_INCOMING_AUDIO = true
 SKIP_DUPLICATES = true
 MONITOR_LENGTH_IN_SECONDS = 7
 AVAILABLE_THREADS = 7 #change to e.g. your number of CPU cores -1
+TARGET_SAMPLE_RATE = 16000
 
 ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,raw,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
 AUDIO_DURATION_COMMAND = "ffprobe -i \"__input__\" -show_entries format=duration -v quiet -of csv=\"p=0\""
-AUDIO_CONVERT_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -i \"__input__\" -ac 1 -ar 16000 -f f32le -acodec pcm_f32le \"__output__\""
-AUDIO_CONVERT_FROM_RAW_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -ac 1 -ar 16000 -f f32le -acodec pcm_f32le -i \"__input__\"  \"__output__\""
-AUDIO_CONVERT_COMMAND_WITH_START_DURATION = "ffmpeg -hide_banner -y -loglevel panic -ss __start__ -i \"__input__\" -t __duration__ -ac 1 -ar 16000 -f f32le -acodec pcm_f32le \"__output__\""
-MIC_INPUT = "ffmpeg -hide_banner -loglevel panic  -f avfoundation -i 'none:default' -ac 1 -ar 16000 -f f32le -acodec pcm_f32le pipe:1"
+AUDIO_CONVERT_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -i \"__input__\" -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le \"__output__\""
+AUDIO_CONVERT_FROM_RAW_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le -i \"__input__\"  \"__output__\""
+AUDIO_CONVERT_COMMAND_WITH_START_DURATION = "ffmpeg -hide_banner -y -loglevel panic -ss __start__ -i \"__input__\" -t __duration__ -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le \"__output__\""
+MIC_INPUT = "ffmpeg -hide_banner -loglevel panic  -f avfoundation -i 'none:default' -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le pipe:1"
 
 #expand the argument to a list of files to process.
 # a file is simply added to the list

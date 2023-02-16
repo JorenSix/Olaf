@@ -152,6 +152,8 @@ The monitor command splits the query file into steps of x seconds. When working 
 	olaf monitor audio_item.mp3...
 </pre>
 
+There is also a multithreaded 'batch' version of the monitor command which writes a text file for each analysed audio file. This makes it easy to continue where the process stopped @olaf batch_monitor audio_list.txt@
+
 h3. Deduplicate a collection
 
 This command finds duplicate audio content in a folder. First each audio file is stored in the reference database. Next each file is used as a query and matched with the reference database. The file should, evidently, match itself but self-matches are ignored, leaving only duplicates.
@@ -193,6 +195,16 @@ olaf store_cached
 
 By default the script uses 7 cores and needs the @threach@ ruby gem. Install this with @gem install threach@. Also a default is the storage place for cached items: @~/.olaf/cache@. These default can be changed in the @/usr/local/bin/olaf@ ruby file. The configuratiion can be found at the top.
 
+h3. ESP32 version
+
+The ESP32 version does not use a key value store but a list of hashes stored in a @.h@ header file. To make this header file do the following:
+
+<pre>
+make olaf_mem
+olaf to_raw your_audio_file.mp3
+bin/olaf_mem store olaf_audio_your_audio_file.raw "arandomidentifier" > your_header_file.h
+</pre>
+
 h2. Limitations
 
 * <del>Currently a complete audio file is read in memory in order to process it. While the algorithm allows streaming, the current implementation does not allow to store incoming streams.</del> Now you can choose whether to compile in the single or stream reader: choose either @olaf_reader_single.c@ or @olaf_reader_stream.c@, which is a bit slower. 
@@ -218,10 +230,7 @@ Some relevant reading material about (landmark based) acoustic fingerprinting. T
 # Sonnleitner, Reinhard  and Widmer, Gerhard "__
 Robust Quad-Based Audio Fingerprinting__":http://dx.doi.org/10.1109/TASLP.2015.2509248 (2015)
 
-
-The programming style of Olaf attempts to use an OOP inspired way to organize code and divide responsibilities and interfaces. 
-For more information see on this style consult this document about "OOP in C":https://www.state-machine.com/doc/AN_OOP_in_C.pdf. Also 
-of interest is the "Modern C book by Jens Gustedt":https://modernc.gforge.inria.fr/.
+The programming style of Olaf attempts to use an OOP inspired way to organize code and divide responsibilities and interfaces.  For more information see on this style consult this document about "OOP in C":https://www.state-machine.com/doc/AN_OOP_in_C.pdf. Also of interest is the "Modern C book by Jens Gustedt":https://modernc.gforge.inria.fr/.
 
 h2. Credits
 

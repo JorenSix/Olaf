@@ -120,13 +120,13 @@ Olaf_Config* olaf_config_esp_32(){
 	config->maxEventPoints = 30;
 	config->eventPointThreshold = 15;
 
-	config->maxFingerprints = 200;
+	config->maxFingerprints = 15;
 	config->maxDBCollisions = 100;//for larger data sets use around 2000
 
-	config->filterSizeFrequency=103;//frequency bins 
+	config->filterSizeFrequency=79;//frequency bins 
 	config->halfFilterSizeFrequency=config->filterSizeFrequency/2;
 
-	config->filterSizeTime=25;
+	config->filterSizeTime=15;
 	config->halfFilterSizeTime=config->filterSizeTime/2;
 
 	config->keepMatchesFor = 0;//seconds
@@ -139,7 +139,7 @@ Olaf_Config* olaf_config_esp_32(){
 Olaf_Config* olaf_config_mem(){
 	Olaf_Config* config =  olaf_config_esp_32();
 	
-	config->maxEventPointUsages = 6;
+	config->maxEventPointUsages = 7;
 
 	config->verbose = false;
 	return config;

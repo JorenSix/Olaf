@@ -1,24 +1,23 @@
 <!DOCTYPE HTML>
 <html>
 <head>
-	<title>Olaf basic</title>
+	<title>Olaf audio fingerprinting WASM demo</title>
 	<style>
 		body {
-			padding-left: 5%;
-			padding-right: 5%;
+			padding-left: 0;
+			margin:0;
+			padding-right: 0;
 			font-family: sans-serif;
 		}
-
 	</style>
 </head>
 <body>
-	<h1>Basic WASM Olaf audio fingerprinting</h1>
 
 	<button onclick="startOrStopAudio()">Start or stop audio</button>
 
-	<label style="margin-top:2em;display: block;">Match found: <input disabled type="checkbox"></input></label>
+	<label style="margin-top:1em;display: block;">Match found: <input disabled type="checkbox"></input></label>
 	
-	<textarea id="console_out" readonly style="margin-top:2em;display: block;width:100%;padding:0;height:60vh;font-family: monospace;">Press the start button to begin audio fingerprinting.</textarea>
+	<textarea id="console_out" readonly style="margin-top:1em;display: block;width:98%;padding:0;height:10em;font-family: monospace;">Press the start button to begin audio fingerprinting.</textarea>
 
 	<script>
 		var audioContext = null;
