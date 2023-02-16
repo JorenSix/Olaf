@@ -144,9 +144,10 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 	int halfAudioBlockSize = ep_extractor->config->audioBlockSize/2;
 	struct eventpoint * eventPoints = ep_extractor->eventPoints.eventPoints;
 	int eventPointIndex = ep_extractor->eventPoints.eventPointIndex;
+	int minFreqencyBin = ep_extractor->config->minFrequencyBin;
 
 	//do not start at zero 
-	for(int j = 2 ; j < halfAudioBlockSize - 1 ; j++){
+	for(int j = minFreqencyBin ; j < halfAudioBlockSize - 1 ; j++){
 		float maxVal = ep_extractor->horizontalMaxes[j];
 		float currentVal = ep_extractor->mags[halfFilterSizeTime][j];
 
@@ -203,8 +204,9 @@ struct extracted_event_points * olaf_ep_extractor_extract(Olaf_EP_Extractor * ep
 		magnitudeIndex++;
 	}
 
-	//process the fft frame in time (vertically)
+	//process the fft frame in frequency (vertically)
 	olaf_ep_extractor_max_filter_frequency(ep_extractor->mags[filterIndex],ep_extractor->maxes[filterIndex],ep_extractor->config->audioBlockSize/2,ep_extractor->config->halfFilterSizeFrequency);
+	
 	if(filterIndex==ep_extractor->config->filterSizeTime-1){
 		//enough history to extract event points
 		extract_internal(ep_extractor);

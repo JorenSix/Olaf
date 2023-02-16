@@ -62,6 +62,9 @@
 		//the ep magnitude should be at least this value
 		float minEventPointMagnitude;
 
+		//Frequency bins below this value are not used in ep extraction.
+		int minFrequencyBin;
+
 		//the amount each event point is reused
 		int maxEventPointUsages;
 
@@ -79,6 +82,12 @@
 		//For over the air queries it is best to 
 		//not include magnitude info in fingerprint
 		bool useMagnitudeInfo;
+
+		//The number of event points per fingerprint
+		//should be either three (for clean queries)
+		//or 2 for noisy queries. 
+		int numberOfEPsPerFP;
+
 		//the minimum and maximum time distance of event points in 
 		//
 		int minTimeDistance;

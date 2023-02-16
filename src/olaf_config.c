@@ -50,6 +50,7 @@ Olaf_Config* olaf_config_default(){
 
 	//the filter used in both frequency as time direction 
 	//to find maxima
+
 	config->filterSizeFrequency=103;//frequency bins 
 	config->halfFilterSizeFrequency=config->filterSizeFrequency/2;
 
@@ -59,11 +60,14 @@ Olaf_Config* olaf_config_default(){
 	//prevent silence to register as event points
 	config->minEventPointMagnitude = 0.001;
 	config->maxEventPointUsages = 10;
-
+	//only start at freqency bin 9, 9 * 16000/1024 = 140Hz 
+	config->minFrequencyBin = 9; 
 	//debug statements
 	config->verbose = false;
 	
-	//For over the air queries it is best to ignore magnitude info
+	//The number of event points (peaks) per fingerprint
+	config->numberOfEPsPerFP=3;
+
 	config->useMagnitudeInfo=false;
 	//min time distance between two event points for fingerprint
 	config->minTimeDistance = 2; // 8ms x 2 for fingerprint construction
@@ -116,6 +120,8 @@ Olaf_Config* olaf_config_esp_32(){
 	config->verbose = true;
 
 	config->minMatchCount = 2;
+
+	config->numberOfEPsPerFP = 2;
 
 	config->maxEventPoints = 30;
 	config->eventPointThreshold = 15;

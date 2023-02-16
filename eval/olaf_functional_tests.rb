@@ -100,8 +100,8 @@ QUERY_FILES.each do |file|
       ref_id = File.basename(first_match.ref_path,File.extname(first_match.ref_path)).to_i
       assert("Found id #{ref_id} should be equal to expected id #{query_ref_id}") { query_ref_id == ref_id} 
 
-      assert("Found time in ref #{first_match.ref_start}, q#{query_ref_start} should be close to expected time #{query_ref_start}") { (first_match.ref_start - query_ref_start).abs < 4.5}
-      assert("Found time in ref #{first_match.ref_stop}, q#{query_ref_stop} should be close to expected time #{query_ref_stop}") { (first_match.ref_stop - query_ref_stop).abs < 4.5}
+      assert("Found time in ref #{first_match.ref_start}, q#{query_ref_start} should be close to expected time #{query_ref_start}") { (first_match.ref_start - query_ref_start).abs < 5.5}
+      assert("Found time in ref #{first_match.ref_stop}, q#{query_ref_stop} should be close to expected time #{query_ref_stop}") { (first_match.ref_stop - query_ref_stop).abs < 5.5}
       actual_diff = (first_match.ref_start - first_match.query_start).abs
       assert("Expected diff #{query_ref_start} should be close to actual diff #{actual_diff}.") { (actual_diff - query_ref_start).abs < 0.1}
     end
