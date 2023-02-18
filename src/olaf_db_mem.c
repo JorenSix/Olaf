@@ -48,6 +48,8 @@ Olaf_DB * olaf_db_new(const char * db_file_folder,bool readonly){
 	olaf_db->ref_fp = olaf_db_mem_fps;
 	olaf_db->ref_fp_length = olaf_db_mem_fp_length;
 
+	fprintf(stderr,"Mem DB for '%s', %.3fs duration, %zu fingerprints, %d identifier\n",olaf_db_mem_audio_path,olaf_db_mem_audio_duration,olaf_db_mem_fp_length,olaf_db_mem_audio_id);
+
 	return olaf_db;
 }
 
@@ -93,9 +95,10 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 		match = (uint64_t*) bsearch(&packed_key, olaf_db->ref_fp, olaf_db->ref_fp_length, sizeof (uint64_t), olaf_dp_packed_hash_compare);
 		//stop the search if a match if found.
 		if(match !=NULL){
-			//fprintf(stderr, "Found match for %llu (packed: %llu) matches (between start %llu and stop %llu) \n",current_key,packed_key,start_key,stop_key);
+			//fprintf(stderr, "Found match for %llu (packed: %llu) matches (between start %llu and stop %llu) , match %llu \n",current_key,packed_key,start_key,stop_key, match);
+			break;
 		}
-		if(match!=NULL) break;
+		 
 	}
 	 
 	if(match !=NULL){
@@ -104,18 +107,19 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 		//To find all matches the matches before and after are checked whether they also match (or not)
 
 		size_t index = match - olaf_db->ref_fp;
-		int result_index = 0;
+
 		//on and before the match
-		for(size_t i = index ; i < olaf_db->ref_fp_length  ;i--){
+		for(size_t i = index ; i >= 0  ;i--){
 			uint64_t ref_hash;
 			uint32_t ref_t;
 			olaf_db_mem_unpack(olaf_db->ref_fp[i],&ref_hash,&ref_t);
 
 			if(ref_hash >= start_key && ref_hash <= stop_key){
-				if(results_index<results_size){
+				if(results_index < results_size){
 					uint64_t t = ref_t;
-					results[result_index]=(t << 32) + result_match_id;
-					result_index++;
+
+					results[results_index]=(t << 32) + result_match_id;
+					results_index++;
 				}else{
 					fprintf(stderr, "Ignored result, max number of results %zu reached\n",results_size);
 				}
@@ -133,9 +137,8 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 			if(ref_hash >= start_key && ref_hash <= stop_key){
 				if(results_index<results_size){
 					uint64_t t = ref_t;
-					
-					results[result_index]= (t << 32) + result_match_id;
-					result_index++;
+					results[results_index]= (t << 32) + result_match_id;
+					results_index++;
 				}else{
 					fprintf(stderr, "Ignored result, max number of results %zu reached\n",results_size);
 				}			
@@ -144,7 +147,7 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 			}
 
 		}
-		number_of_results = result_index;
+		number_of_results = results_index;
 	}else{
 		//printf("Not, start %llu, stop %llu \n",start_key,stop_key);
 		number_of_results = 0;

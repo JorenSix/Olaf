@@ -107,7 +107,7 @@ void olaf_ep_extractor_max_filter_time(float* data[],float * max,int length,int 
 }
 
 void olaf_ep_extractor_print_ep(struct eventpoint e){
-	fprintf(stderr,"t:%d, f:%d, mag:%.4f\n",e.timeIndex,e.frequencyBin,e.magnitude);
+	fprintf(stderr,"t:%d, f:%d, u:%d, mag:%.4f\n",e.timeIndex,e.frequencyBin,e.usages,e.magnitude);
 }
 
 void olaf_ep_extractor_max_filter_frequency(float* data, float * max, int length,int half_filter_size ){
@@ -155,16 +155,22 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 			int timeIndex = ep_extractor->audioBlockIndex - halfFilterSizeTime;
 			int frequencyBin = j;
 			float magnitude = ep_extractor->mags[halfFilterSizeTime][frequencyBin];
-			
-			eventPoints[eventPointIndex].timeIndex = timeIndex;
-			eventPoints[eventPointIndex].frequencyBin = frequencyBin;
-			eventPoints[eventPointIndex].magnitude = magnitude;
-			eventPoints[eventPointIndex].usages = 0;
 
-			//fprintf(stderr,"New EP found ");
-			//olaf_ep_extractor_print_ep(eventPoints[eventPointIndex]);
+			if(eventPointIndex == ep_extractor->config->maxEventPoints ){
+				fprintf(stderr,"Warning: Eventpoint maximum index %d reached, event points are ignored, consider increasing config->maxEventPoints if you see this often. \n",ep_extractor->config->maxEventPoints);
+			}else{
+				eventPoints[eventPointIndex].timeIndex = timeIndex;
+				eventPoints[eventPointIndex].frequencyBin = frequencyBin;
+				eventPoints[eventPointIndex].magnitude = magnitude;
+				eventPoints[eventPointIndex].usages = 0;
+
+				//fprintf(stderr,"New EP found ");
+				//olaf_ep_extractor_print_ep(eventPoints[eventPointIndex]);
+				
+				eventPointIndex++;
+			}
+			assert(eventPointIndex <= ep_extractor->config->maxEventPoints);
 			
-			eventPointIndex++;
 		}
 	}
 	

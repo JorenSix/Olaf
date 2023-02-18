@@ -129,9 +129,49 @@ Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db ){
 	return fp_matcher;
 }
 
-void olaf_fp_matcher_clear(Olaf_FP_Matcher * fp_matcher){
-	fp_matcher->m_results_index = 0;
+//for use with qsort: a comparator that sorts result structs by age
+//newest first!
+int olaf_fp_sort_results_by_age(const void * a, const void * b) {
+	struct match_result * aResult = (struct match_result*)a;
+	struct match_result * bResult = (struct match_result*)b;
+
+	//first sort by match count from newest to oldest
+	int diff = (bResult->queryFingerprintT1 - aResult->queryFingerprintT1);
+
+	return diff;
 }
+
+//This removes old matches for streaming purposes.
+//It does a couple of things:
+// 1 sort all matches from new to old
+// 2 reset all matches which are too old
+void olaf_fp_matcher_mark_old_matches(Olaf_FP_Matcher * fp_matcher, int current_query_time ){
+	
+	//sort matches by age
+	if(fp_matcher->m_results_index > 0)
+		qsort(fp_matcher->m_results, fp_matcher->m_results_size, sizeof(struct match_result), olaf_fp_sort_results_by_age);
+	
+	//the number of blocks 
+	int max_age = (int) ((fp_matcher->config->keepMatchesFor  * fp_matcher->config->audioSampleRate) /  fp_matcher->config->audioStepSize);
+
+	//print the result from high to low
+	for(size_t i = 0 ; i < fp_matcher->m_results_size ; i++){
+		struct match_result * match = &fp_matcher->m_results[i];
+		if(match->matchCount == 0) continue;
+		
+		int age = current_query_time - match->queryFingerprintT1;
+
+		//printf("Current %d, match %d, age %d, max %d\n",current_query_time,match->queryFingerprintT1,age,max_age);
+
+		bool too_old = age > max_age;
+		if(too_old){
+			match->matchCount = 0;
+			//printf("Match %d too old and marked \n",match->queryFingerprintT1);
+		}
+	}
+}
+
+
 
 // The grow method is called when m_results is full.
 // It does a number of things:
@@ -147,6 +187,8 @@ void olaf_fp_matcher_clear(Olaf_FP_Matcher * fp_matcher){
 // 
 // When the m_results is full, grow is called again.
 void olaf_fp_matcher_m_results_grow(Olaf_FP_Matcher * fp_matcher,int queryFingerprintT1){
+
+	(void)(queryFingerprintT1);
 
 	//store a pointer to the previous table
 	struct match_result * prev_m_results = fp_matcher->m_results;
@@ -164,6 +206,9 @@ void olaf_fp_matcher_m_results_grow(Olaf_FP_Matcher * fp_matcher,int queryFinger
 		exit(-5145);
 	}
 
+	fprintf(stderr,"Grow all results array to %zu elements ",fp_matcher->m_results_size);
+		
+
 	//printf("Hash table size before grow %d \n",hash_table_num_entries(fp_matcher->result_hash_table));
 	//free the hash table and recreate it with only relevant matches
 	hash_table_free(fp_matcher->result_hash_table);
@@ -180,9 +225,7 @@ void olaf_fp_matcher_m_results_grow(Olaf_FP_Matcher * fp_matcher,int queryFinger
 		//only ignore old matches in streaming situations (from microphone e.g.)
 		bool too_old = false;
 		if (fp_matcher->config->keepMatchesFor != 0){
-			int age = queryFingerprintT1 - prev_m_results[prev_index].queryFingerprintT1;
-			int max_age = (int) ((fp_matcher->config->keepMatchesFor  * fp_matcher->config->audioSampleRate) /  fp_matcher->config->audioStepSize);
-			too_old = age > max_age;
+			
 		}
 		
 		//int match_count = prev_m_results[prev_index].matchCount;
@@ -264,11 +307,15 @@ void olaf_fp_matcher_match_single_fingerprint(Olaf_FP_Matcher * fp_matcher,uint3
 	size_t number_of_results = olaf_db_find(fp_matcher->db,queryFingerprintHash-range,queryFingerprintHash+range,fp_matcher->db_results,fp_matcher->config->maxDBCollisions);
 
 	if(fp_matcher->config->verbose){
-		fprintf(stderr,"Matched fp hash %" PRIu64 " with database at q t1 %u, search range %d.\n\tNumber of results: %zu \n",queryFingerprintHash,queryFingerprintT1,range,number_of_results);
+		fprintf(stderr,"Matched fp hash %" PRIu64 " with database at q t1 %u, search range %d.\n\tNumber of results: %zu \n\n\tMax num results: %zu \n",queryFingerprintHash,queryFingerprintT1,range,number_of_results,fp_matcher->config->maxDBCollisions);
 	}
 	
+	if(number_of_results >= fp_matcher->config->maxDBCollisions){
+		fprintf(stderr,"Expected less results for fp hash %" PRIu64 ", Number of results: %zu, search range %d, max: %zu \n",queryFingerprintHash,number_of_results,range,fp_matcher->config->maxDBCollisions);
+	}
 
-	for(size_t i = 0 ; i < number_of_results ; i++){
+	for(size_t i = 0 ; i < number_of_results && i < fp_matcher->config->maxDBCollisions  ; i++){
+		
 		//The 32 most significant bits represent ref t1
 		uint32_t referenceFingerprintT1 =  (uint32_t) (fp_matcher->db_results[i] >> 32);
 		//The last 32 bits represent the match identifier
@@ -333,7 +380,6 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 		if(match->matchCount >= fp_matcher->config->minMatchCount){
 			float secondsPerBlock = ((float) fp_matcher->config->audioStepSize) / ((float) fp_matcher->config->audioSampleRate);
 			float timeDelta = secondsPerBlock * (match->queryFingerprintT1 - match->referenceFingerprintT1);
-			//float queryTime =   secondsPerBlock * match->queryFingerprintT1;
 
 			float referenceStart =  match->firstReferenceFingerprintT1 * secondsPerBlock;
 			float referenceStop =  match->lastReferenceFingerprintT1 * secondsPerBlock;

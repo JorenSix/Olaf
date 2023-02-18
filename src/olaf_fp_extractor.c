@@ -328,7 +328,7 @@ struct extracted_fingerprints * olaf_fp_extractor_extract_two(Olaf_FP_Extractor 
 
 				assert(t2>t1);
 
-				if(fp_extractor->fingerprints.fingerprintIndex >=  fp_extractor->config->maxFingerprints){
+				if(fp_extractor->fingerprints.fingerprintIndex ==  fp_extractor->config->maxFingerprints){
 					// We have reached the max amount of fingerprints we can store in this batch
 					// This can mean a lot of fingerprints at the same time: 
 					//so not much is lost when this happens
@@ -337,7 +337,7 @@ struct extracted_fingerprints * olaf_fp_extractor_extract_two(Olaf_FP_Extractor 
 						fp_extractor->warning_given = true;
 					}
 				}else{
-
+					
 					//temporarily store (do not increment fingerprint index, unless it is not yet discovered)
 					fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex1 = t1;
 					fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex].timeIndex2 = t2;
@@ -356,12 +356,13 @@ struct extracted_fingerprints * olaf_fp_extractor_extract_two(Olaf_FP_Extractor 
 					eventPoints->eventPoints[j].usages++;
 
 					if(fp_extractor->config->verbose){
-						fprintf(stderr,"Fingerprint at index %zu\n",fp_extractor->fingerprints.fingerprintIndex);
 						olaf_fp_extractor_print(fp_extractor->fingerprints.fingerprints[fp_extractor->fingerprints.fingerprintIndex]);
 					}
 					
 					fp_extractor->fingerprints.fingerprintIndex++;
 				}
+				
+				assert(fp_extractor->fingerprints.fingerprintIndex <= fp_extractor->config->maxFingerprints);
 			}
 		}
 	}
@@ -373,7 +374,7 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 	if(fp_extractor->config->verbose){
 		fprintf(stderr,"Combining event points into fingerprints: \n");
 		for(int i = 0 ; i < eventPoints->eventPointIndex ; i++){
-			fprintf(stderr,"\t idx: %d ",i);
+			fprintf(stderr,"\t idx: %d, ",i);
 			olaf_ep_extractor_print_ep(eventPoints->eventPoints[i]);
 		}
 	}
@@ -389,12 +390,12 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 
 
 	int cutoffTime = eventPoints->eventPoints[eventPoints->eventPointIndex-1].timeIndex - fp_extractor->config->maxTimeDistance;
-
+	int maxEventPointUsages = fp_extractor->config->maxEventPointUsages;
 	//prepare the array for the next event loops
 	for(int i = 0 ; i < eventPoints->eventPointIndex ; i++){
 
-		//mark the event points that are too old
-		if(eventPoints->eventPoints[i].timeIndex <= cutoffTime){
+		//mark the event points that are too old, or used too many times
+		if(eventPoints->eventPoints[i].timeIndex <= cutoffTime || eventPoints->eventPoints[i].usages == maxEventPointUsages){
 			eventPoints->eventPoints[i].timeIndex = 1<<23;
 			eventPoints->eventPoints[i].frequencyBin = 0;
 			eventPoints->eventPoints[i].magnitude = 0;
@@ -418,13 +419,15 @@ struct extracted_fingerprints * olaf_fp_extractor_extract(Olaf_FP_Extractor * fp
 
 	fp_extractor->total_fp_extracted+=fp_extractor->fingerprints.fingerprintIndex;
 	//eventPoints->eventPointIndex  = 0;
-	/*
-	fprintf(stderr,"New EP index %d \n",eventPoints->eventPointIndex);
-	for(int i = 0 ; i < eventPoints->eventPointIndex ; i++){
-		fprintf(stderr,"idx:%d ",i);
-		olaf_ep_extractor_print_ep(eventPoints->eventPoints[i]);
+	
+	if(fp_extractor->config->verbose){
+		fprintf(stderr,"New EP index %d, cutoffTime %d \n",eventPoints->eventPointIndex,cutoffTime);
+		for(int i = 0 ; i < eventPoints->eventPointIndex ; i++){
+			fprintf(stderr,"idx:%d, ",i);
+			olaf_ep_extractor_print_ep(eventPoints->eventPoints[i]);
+		}
 	}
-	*/
+	
 
 	return &fp_extractor->fingerprints;
 }

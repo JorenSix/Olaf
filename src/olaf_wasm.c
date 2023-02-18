@@ -47,19 +47,18 @@ struct Olaf_State{
 };
  
 
-inline int max ( int a, int b ) { return a > b ? a : b; }
-inline int min ( int a, int b ) { return a < b ? a : b; }
-
 //the static keyword ensures that
 //state is maintained between subsequent
 //calls
 static struct Olaf_State state;
 
 int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t * fingerprints ){
-	
+
+	(void)(fingerprints);
+
 	if(state.fftSetup == NULL){
 		//Get the default configuration
-		state.config = olaf_config_default();
+		state.config = olaf_config_mem();
 
 		state.fftSetup = pffft_new_setup(state.config->audioBlockSize,PFFFT_REAL);
 		state.fft_in = (float*) pffft_aligned_malloc(state.config->audioBlockSize*4);//fft input
@@ -70,7 +69,10 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 		state.ep_extractor = olaf_ep_extractor_new(state.config);
 		state.fp_extractor = olaf_fp_extractor_new(state.config);
 		state.fp_matcher = olaf_fp_matcher_new(state.config,state.db);
+
+		state.audioBlockIndex = 0;
 	}
+
 
 	size_t step_size = state.config->audioStepSize;
 	size_t block_size = state.config->audioBlockSize;
@@ -80,16 +82,16 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 	size_t read_index = 0;
 
 	const float* window = olaf_fft_window(state.config->audioBlockSize);
-
+	
 	for(size_t j = 0; j < steps_per_block ; j++){
-		//make room for the new samples: 
-		// shift the samples to the beginning
+		// make room for the new samples: shift the samples to the beginning
 		for(size_t i = 0 ; i < overlap_size;i++){
-			state.audio[i]=state.audio[i+step_size];
+			state.audio[i] = state.audio[i+step_size];
 		}
 
+		//add the new samples
 		for(size_t i = 0 ; i < step_size;i++){
-			state.audio[overlap_size+i]=audio_buffer[read_index];
+			state.audio[overlap_size+i] = audio_buffer[read_index];
 			read_index++;
 		}
 
@@ -97,7 +99,7 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 		for(int i = 0 ; i <  state.config->audioBlockSize ; i++){
 			state.fft_in[i] = state.audio[i] * window[i];
 		}
-
+	
 		//do the transform
 		pffft_transform_ordered(state.fftSetup, state.fft_in, state.fft_out, 0, PFFFT_FORWARD);
 
@@ -108,50 +110,39 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 
 		//if there are enough event points
 		if(state.eventPoints->eventPointIndex > state.config->eventPointThreshold){
+			
 			//combine the event points into fingerprints
 			state.fingerprints = olaf_fp_extractor_extract(state.fp_extractor,state.eventPoints,state.audioBlockIndex);
+
 
 			size_t fingerprintIndex = state.fingerprints->fingerprintIndex;
 			//printf("FP index: %zu \n",fingerprintIndex);
 
 			if(fingerprintIndex > 0){
-				for(size_t i = 0; i < 256 && i < fingerprintIndex; i++){
-					size_t index = i * 6;
-					fingerprints[index] = state.fingerprints->fingerprints[i].timeIndex1;
-					fingerprints[index+1] = state.fingerprints->fingerprints[i].frequencyBin1;
-					fingerprints[index+2] = state.fingerprints->fingerprints[i].timeIndex2;
-					fingerprints[index+3] = state.fingerprints->fingerprints[i].frequencyBin2;
-					fingerprints[index+4] = olaf_fp_extractor_hash(state.fingerprints->fingerprints[i]);
-					fingerprints[index+5] = olaf_db_find_single(state.db,fingerprints[index+4],0) ? 1 : 0;
-
-					//printf("t1: %d, f1: %d t2: %d f2:%d \n",fingerprints[index],fingerprints[index+1],fingerprints[index+2],fingerprints[index+3]);
-				}
 
 				int maxMatchScore = 0;
 				
 				olaf_fp_matcher_match(state.fp_matcher,state.fingerprints);
+				olaf_fp_matcher_print_header();
+				olaf_fp_matcher_print_results(state.fp_matcher);
+				olaf_fp_matcher_mark_old_matches(state.fp_matcher,state.audioBlockIndex);
 
 				printf("Max Match score: %d \n",maxMatchScore);
-
-				for(size_t i = 0; i < 256 && i < fingerprintIndex; i++){
-					size_t index = i * 6;
-					fingerprints[index+5] = maxMatchScore >= state.config->minMatchCount ? maxMatchScore : 0;
-				}
+				state.fingerprints->fingerprintIndex = 0;
 			}
 		}
+		state.audioBlockIndex++;
 	}
-
-	assert(read_index == block_size);
+	//printf("Audio block index: %d \n",state.audioBlockIndex );
+	//assert(read_index == block_size);
 
 	//store the magnitudes in place of the audio buffer
-	float * mags = audio_buffer;
+	/*float * mags = audio_buffer;
 	int magnitudeIndex = 0;
 	for(size_t i = 0 ; i < block_size ; i+=2){
-		mags[magnitudeIndex] = state.fft_out[i] * state.fft_out[i] + state.fft_out[i+1] * state.fft_out[i+1];
-		magnitudeIndex++;
-	}
-
-	state.audioBlockIndex++;
+		//mags[magnitudeIndex] = state.fft_out[i] * state.fft_out[i] + state.fft_out[i+1] * state.fft_out[i+1];
+		//magnitudeIndex++;
+	}*/
 
 	return state.audioBlockIndex;
 }
@@ -164,12 +155,5 @@ void cleanup(){
 	free(state.audio);
 	
 }
-/*
-int main(int argc, const char* argv[]){
-	(void)(argc);
-	(void)(argv);
-	printf("Hello world!\n");
-	return 0;
-}
-*/
+
 

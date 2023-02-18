@@ -21,14 +21,17 @@ function processAudioWithOlaf(audioProcessingEvent) {
 
     // Get data byte size, allocate memory on Emscripten heap, and get pointer
     if(inputAudioPtr==null){
-      var inputAudioBytes = audioInputBuffer.length * audioInputBuffer.BYTES_PER_ELEMENT;
+      inputAudioBytes = audioInputBuffer.length * audioInputBuffer.BYTES_PER_ELEMENT;
       inputAudioPtr = Module._malloc(inputAudioBytes);
+      console.log("Audio ptr", inputAudioPtr)
     }
 
     if(fingerprintPtr==null){
       //256 fingrprints, 8 bytes per long, 5 longs per print
       var fingerprintsBytes = 256 * 8 * 5;
-      var fingerprintPtr = Module._malloc(fingerprintsBytes);
+      fingerprintPtr = Module._malloc(fingerprintsBytes);
+
+      console.log("fp ptr",fingerprintPtr)
     }
     var fingerprintBuffer = new Uint8Array(fingerprintsBytes);
     
@@ -43,7 +46,7 @@ function processAudioWithOlaf(audioProcessingEvent) {
     audioBlockIndex = js_wrapped_olaf_fingerprint_match(dataHeap.byteOffset,fingerprintHeap.byteOffset);
 
     //Retrieve the frequency domain data
-    var frequencyData = new Float32Array(Module.HEAPF32.buffer, inputAudioPtr, audioInputBuffer.length);
+    //var frequencyData = new Float32Array(Module.HEAPF32.buffer, inputAudioPtr, audioInputBuffer.length);
 
     /*
     frequencyDataArray.push([frequencyData,audioBlockIndex,false]);
@@ -51,7 +54,7 @@ function processAudioWithOlaf(audioProcessingEvent) {
       frequencyDataArray.shift()
     }
     */
-
+    /*
     //Retrieve the fingerprint data
     fingerprintData = new Uint32Array(Module.HEAPU32.buffer, fingerprintPtr, 256*6);
 
@@ -66,7 +69,7 @@ function processAudioWithOlaf(audioProcessingEvent) {
       fingerprintsToPlot.push([t1,f1,t2,f2,fhash,inDb]);
 
       t1 = fingerprintData[i+6];
-    }
+    }*/
     
     //Module._free(dataHeap.byteOffset);
     //Module._free(fingerprintHeap.byteOffset);

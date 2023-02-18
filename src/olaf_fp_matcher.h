@@ -32,8 +32,8 @@
 	//Matches fingerprints to the database and updates internal state
  	void olaf_fp_matcher_match(Olaf_FP_Matcher *, struct extracted_fingerprints *);
 
-	//Clear current matches
-	void olaf_fp_matcher_clear(Olaf_FP_Matcher *);
+	//Remove old matches
+	void olaf_fp_matcher_mark_old_matches(Olaf_FP_Matcher *, int current_query_time);
 
 	//Print the header to interpret the csv results
 	void olaf_fp_matcher_print_header();

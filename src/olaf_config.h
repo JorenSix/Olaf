@@ -126,7 +126,7 @@
 		//maximum number of results returned from the database
 		//It can be considered as the number of times a fingerprint hash
 		//is allowed to collide
-		int maxDBCollisions;
+		size_t maxDBCollisions;
 	};
 
 	Olaf_Config* olaf_config_default();
