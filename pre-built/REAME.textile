@@ -8,7 +8,7 @@ Both Ruby and ffmpeg need to be installed on your system and both need to be ava
 
 For ffmpeg you need to copy @ffmpeg.exe@ to e.g. @c:\windows\system32@ or another location on your @$PATH@. You can find "recent ffmpeg builds for Windows here":https://github.com/BtbN/FFmpeg-Builds/releases or "here":https://www.gyan.dev/ffmpeg/builds/. Download, unzip and copy the exe. Only @ffmpeg.exe@ is needed.
 
-The easy way to install Ruby on Windows is to use the "Ruby Installer":"https://rubyinstaller.org/. Simply install a Ruby environment. Olaf does not need a specific Ruby version: anything Ruby environment above 2.5 will work.  
+The easy way to install Ruby on Windows is to use the "Ruby Installer":https://rubyinstaller.org/. Simply install a Ruby environment. Olaf does not need a specific Ruby version: anything Ruby environment above 2.5 will work.  
 
 Now you should be able to call @ruby -v@ and @ffmpeg -v@ on the @CMD@ command line.
 
