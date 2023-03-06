@@ -14,11 +14,11 @@ Now you should be able to call @ruby -v@ and @ffmpeg -v@ on the @CMD@ command li
 
 h2. Installing Olaf
 
-Download "@olaf_c.exe@ here":https://github.com/JorenSix/Olaf/tree/master/pre-built and copy it to a fixed location.
+Download "@olaf_c.exe@ here":https://github.com/JorenSix/Olaf/tree/master/pre-built and copy it to a fixed location. For example @'C:/Program Files/olaf_c.exe'@
 
-Download "olaf.rb":https://github.com/JorenSix/Olaf/blob/master/olaf.rb, open it in a text editor and modify the "EXECUTABLE_LOCATION".
+Download "olaf.rb":https://github.com/JorenSix/Olaf/blob/master/olaf.rb, open it in a text editor and modify the "EXECUTABLE_LOCATION" to e.g. @'C:/Program Files/olaf_c.exe'@.
 
-Now you can call olaf as follows:
+Now you can call Olaf as follows, in the directory where olaf.rb is also found:
 
 @ruby olaf.rb store test.mp3@
 @ruby olaf.rb query test.mp3@
