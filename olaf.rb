@@ -480,9 +480,23 @@ elsif command.eql? "query"
 	end
 elsif command.eql? "cache"
 	require 'threach'
-	audio_files.threach(AVAILABLE_THREADS, :each_with_index) do |audio_file, index|
+
+	threads = AVAILABLE_THREADS
+	n_index = ARGV.find_index("-n")
+	if n_index
+		nr = ARGV[n_index+1].strip
+		if nr && nr =~ /(\d+)/
+			threads = nr.to_i
+		else
+			STDERR.puts "Expected a numeric argument like: 'olaf cache files -n 8'"
+			exit(-9)
+		end
+	end	
+
+	audio_files.threach(threads, :each_with_index) do |audio_file, index|
 		cache(index+1,audio_files.length,audio_file)
 	end
+	
 elsif command.eql? "store_cached"
 	store_cached
 elsif command.eql? "dedup"
