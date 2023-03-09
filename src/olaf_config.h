@@ -18,63 +18,87 @@
 #include <stdlib.h> //bool 
 #include <stdio.h>
 
+/**
+ * @file olaf_config.h
+ *
+ * @brief Olaf configuration pramameters.
+ *
+ * Holds the compile time configuration parameters.
+ *
+ * To create a new queue, use @ref olaf_config_default.  To destroy a queue, use
+ * @ref olaf_config_destroy.
+ *
+ *
+ */
+
+
 #ifndef OLAF_CONFIG_H
 #define OLAF_CONFIG_H
-
+	
 	typedef struct Olaf_Config Olaf_Config;
 
+	/**
+	 * @struct Olaf_Config
+	 * @brief Configuration parameters defining the behaviour of Olaf.
+	 * 
+	 * Olaf_Config configuration parameters define the behaviour of Olaf.
+	 * The configuration determines how Olaf behaves. The configuration settings are
+	 * set at compile time and should not change in between runs: if they do it is
+	 * possible that e.g. indexed fingerprints do not match extracted prints any more.
+	 */
 	struct Olaf_Config{
 
 		char * dbFolder;
 
 		//------ General Configuration
 
-		//The size of a single audio block,
+		/** The size of a single audio block: e.g. 1024 samples*/
 		int audioBlockSize;
 		
-		//The sample rate of the incoming audio
+		/**The sample rate of the incoming audio: e.g. 16000Hz.*/
 		int audioSampleRate;
 
-		//The size of a step from one block of samples to the next
+		/**The size of a step from one block of samples to the next: e.g. 128 samples.*/
 		int audioStepSize;
 
-		//The size of a single audio sample
-		//	32 bit float samples => 4 bytes
+		/**The size of a single audio sample. For example a 32 bit float sample consists of 4 bytes */
 		int bytesPerAudioSample;
 
-		//print debug info
+		/** Print debug info. If true a lot of messages are printed to the console. */ 
 		bool verbose;
 
 		//------ EVENT POINT Configuration
 
-		//Max number of event points per audio block
-		//
+		/** Max number of event points per audio block */
 		int maxEventPointsPerBlock;
 
-		//The filter size of the max filter in time (horizontal direction)
+		/**The filter size of the max filter in time (horizontal direction), expressed in blocks*/
 		int filterSizeTime;
+
+		/** Half of the filter size in time */
 		int halfFilterSizeTime;
 		
+		/**The filter size of the max filter in frequency (vertical direction), either expressed in fft bins or in MIDI notes (12 midi notes is an octave).*/
 		int filterSizeFrequency;
 		int halfFilterSizeFrequency;
 
-		//To avoid extracting event points of silence,
-		//the ep magnitude should be at least this value
+		/**To avoid extracting event points of silence,
+		/*the ep magnitude should be at least this value*/
 		float minEventPointMagnitude;
 
-		//Frequency bins below this value are not used in ep extraction.
+		/**Frequency bins below this value are not used in ep extraction.*/
 		int minFrequencyBin;
 
-		//the amount each event point is reused
+		/**the amount each event point is reused*/
 		int maxEventPointUsages;
 
 
-		//Max number of event points before they are 
-		//combined into fingerprints 
-		//(parameter should not have any effect,except for memory use)
+		/**Max number of event points before they are 
+		/*combined into fingerprints 
+		/*(parameter should not have any effect,except for memory use)*/
 		int maxEventPoints;
-		// Once this number of event points is listed, start combining
-		//them into fingerprints: should be less than maxEventPoints
+		/** Once this number of event points is listed, start combining 
+		/* them into fingerprints: should be less than maxEventPoints */
 		int eventPointThreshold;
 
 		
@@ -83,61 +107,80 @@
 		//not include magnitude info in fingerprint
 		bool useMagnitudeInfo;
 
-		//The number of event points per fingerprint
-		//should be either three (for clean queries)
-		//or 2 for noisy queries. 
+		/**Number of event points per fingerprint. Should be either three (for clean queries) or two for noisy queries.*/
 		int numberOfEPsPerFP;
 
-		//the minimum and maximum time distance of event points in 
-		//
+		/** The minimum time distance of event points in time steps. */
 		int minTimeDistance;
+		/** The maximum time distance of event points in time steps. */
 		int maxTimeDistance;
-		// The minimum and maximum frequency bin distance in fft bins
+
+		/** The minimum frequency bin distance in fft bins. */
 		int minFreqDistance;
+		/** The maximum frequency bin distance in fft bins. */
 		int maxFreqDistance;
 
-		// 
+		/** The maximum number of fingerprints to keep in memory during fingerprint extraction. */
 		size_t maxFingerprints;
 
-		// number of recent fingerprints to compare a 
-		// new fingerprint with to see if it is actually new or
-		// already discovered
-		int recentFingerprintSize;
 
 		//------------ Matcher configuration
 
+		/** The maximum number of result in the matching step. */
 		size_t maxResults;
 
+		/** The search range which allows small deviations from the fingerprint hashes. */
 		int searchRange;
 
-		//minimum 5 aligned matches before reporting match
+		/** The minimum number of aligned matches before reporting match */
 		int minMatchCount;
 
-		//To prevent that noise matches 
+		/** The minimum duration of a match before it is reported: 5 matches over 2 seconds indicates a more reliable 
+		 * match than 5 matches in 0.1s. */
 		int minMatchTimeDiff;
 
-		//After this time in seconds a match is forgotten
-		//this especially relevant for streams
+		/** After this time, in seconds, a match is forgotten. This especially relevant for streams. Set to 0 to keep all matches. */
 		float keepMatchesFor;
 
-		//Print result every x seconds
+		/** Print result every x seconds */
 		float printResultEvery;
 
-		//maximum number of results returned from the database
-		//It can be considered as the number of times a fingerprint hash
-		//is allowed to collide
+		/** maximum number of results returned from the database
+		 * It can be considered as the number of times a fingerprint hash
+		 * is allowed to collide */
 		size_t maxDBCollisions;
 	};
 
+	/**
+	 * The default configuration to use on traditional computers.
+	 *  @return   A new configuration struct, or NULL if it was not possible to allocate the memory.
+	 */
 	Olaf_Config* olaf_config_default();
 
+
+	/**
+	 * The configuration to use for (unit) tests.
+	 * @return   A new configuration struct, or NULL if it was not possible to allocate the memory.
+	 */
 	Olaf_Config* olaf_config_test();
 
+	/**
+	 * The configuration to use on ESP32 microcontrollers.
+	 * @return   A new configuration struct, or NULL if it was not possible to allocate the memory.
+	 */
 	Olaf_Config* olaf_config_esp_32();
 
+	/**
+	 * The configuration to use for an in memory database. This is mainly to test the ESP32 code.
+	 * @return   A new configuration struct, or NULL if it was not possible to allocate the memory.
+	 */
 	Olaf_Config* olaf_config_mem();
 
-	void olaf_config_destroy(Olaf_Config *);
+	/**
+	 * Free the memory used by the configuration struct
+	 * @param config      The configuration struct to destroy.
+	 */
+	void olaf_config_destroy(Olaf_Config *config);
 
 #endif // OLAF_CONFIG_H
 

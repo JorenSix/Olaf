@@ -33,6 +33,13 @@
 		int eventPointIndex;
 	};
 	
+	/**
+	 * @struct Olaf_EP_Extractor
+	 *
+	 * @brief Contains state information for event point (EP) extraction.
+	 * 
+	 * The memory used by the ep extractor should be freed in the  @_destroy@ method. 
+	 */
 	typedef struct Olaf_EP_Extractor Olaf_EP_Extractor;
 
 	Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config);

@@ -1,3 +1,49 @@
+/** @file olaf.c
+ * @brief OLAF
+ *
+ * @mainpage	Overly Lightweight Acoustic Fingerprinting (Olaf)
+ *
+ * @section intro_sec Introduction
+ * Olaf is a C application / library for landmark based acoustic fingerprinting. 
+ * Olaf is able to extract fingerprints from an audio stream, and either store those 
+ * fingerprints in a database, or find a match between extracted fingerprints and 
+ * stored fingerprints. Olaf does this efficiently in order to be used on embedded platforms, 
+ * traditional computers or in web browsers via WASM.
+ *
+ * Please be aware of the patents US7627477 B2 and US6990453 and perhaps others. They describe 
+ * techniques used in algorithms implemented within Olaf. These patents limit the use of Olaf 
+ * under various conditions and for several regions. Please make sure to consult your intellectual 
+ * property rights specialist if you are in doubt about these restrictions. If these restrictions apply, 
+ * please respect the patent holders rights. The main aim of Olaf is to serve as a learning platform 
+ * on efficient (embedded) acoustic fingerprinting algorithms.
+ * 
+ * 
+ * @section why_sec Why Olaf?
+ * 
+ * Olaf stands out for three reasons. 
+ * 1. Olaf runs on embedded devices. 
+ * 2. Olaf is fast on traditional computers. 
+ * 3. Olaf runs in the browsers.
+ * 
+ * There seem to be no lightweight acoustic fingerprinting libraries that are straightforward 
+ * to run on embedded platforms. On embedded platforms memory and computational resources are severely limited. 
+ * Olaf is written in portable C with these restrictions in mind. Olaf mainly targets 32-bit ARM devices such as 
+ * some Teensy’s, some Arduino’s and the ESP32. Other modern embedded platforms with similar specifications and 
+ * might work as well.
+ * 
+ * Olaf, being written in portable C, operates also on traditional computers. There, the efficiency of Olaf makes 
+ * it run fast. On embedded devices reference fingerprints are stored in memory. On traditional computers 
+ * fingerprints are stored in a high-performance key-value-store: LMDB. LMDB offers an a B+-tree based persistent 
+ * storage ideal for small keys and values with low storage overhead.
+ * 
+ * Olaf works in the browser. Via Emscripten Olaf can be compiled to WASM. This makes it relatively 
+ * straightforward to combine the capabilities of the Web Audio API and Olaf to create browser based audio 
+ * fingerprinting applications.
+ * 
+ *
+ *
+ **/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
