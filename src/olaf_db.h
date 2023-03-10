@@ -19,14 +19,17 @@
  *
  * @brief Olaf fingerprint database.
  *
- * The 'database' is either an array in memory or a LMDB key value store.
- * It is essentialy a sorted list of uint64_t elements
- * Of the 64 bits:
- * - The 32 most significant bits are a hash
- * - The next 32 bits a time stamp 
+ * The interface to a data store with fingerprints. 
+ * There are two implementations included in Olaf. 
+ * A persistent key value store backed by a B-tree (LMDB) or an 
+ * in memory store. 
  * 
- * This hash points to a 32 bits identifier of a song 
- *
+ * The data store is a list of fingerprint hashes (uint64_t) 
+ * pointing to a value (also uint64_t) The value consists of: * 
+ * - The 32 least significant bits (uint32_t) are an audio identifier
+ * - The next 32 bits (uint32_t) a time stamp
+ * 
+ * Hash collisions are possible so duplicates should be allowed.
  *
  */
 
@@ -35,7 +38,15 @@
 	#include <stdbool.h>
 	#include <stdint.h>
 	
-
+	/**
+	 * @struct Olaf_DB
+	 * @brief A struct with state information on the data store.
+	 * 
+	 * The state information depends on the implementation.
+	 * This state can contain open files if it is a Key-Value store or 
+	 * arrays in memory if it is memory backed.
+	 * 
+	 */
 	typedef struct Olaf_DB Olaf_DB;
 
 	/** 
@@ -54,7 +65,7 @@
 
 	/**
 	 * @struct Olaf_Resource_Meta_data
-	 * @brief A struct containging meta data on indexed audio files
+	 * @brief A struct containing meta data on indexed audio files
 	 * 
 	 */
 	typedef struct Olaf_Resource_Meta_data Olaf_Resource_Meta_data;
@@ -128,12 +139,25 @@
 	 */
 	void olaf_db_delete(Olaf_DB * db, uint64_t * keys, uint64_t * values, size_t size);
 
-	//Find a list of elements in the memory store
-	//only take into account the x most significant bits
-
+	/**
+	 * Find a list of elements in the database store
+	 * @param db The database.
+	 * @param start_key The begin key to start returning results from.
+	 * @param stop_key The end key, should be greater than start_key.
+	 * @param results An array to store the results in.
+	 * @param results_size the maximum size of the results array.
+	 * @return The number of found results
+	 */
 	size_t olaf_db_find(Olaf_DB * db,uint64_t start_key,uint64_t stop_key,uint64_t * results, size_t results_size);
 
 
+	/**
+	 * Checks if a hash is present in the database.
+	 * @param db The database.
+	 * @param start_key The begin key to start returning results from.
+	 * @param stop_key The end key, should be greater than start_key.
+	 * @return The true if a hash in the range is present.
+	 */
 	bool olaf_db_find_single(Olaf_DB * db,uint64_t start_key,uint64_t stop_key);
 
 	/**

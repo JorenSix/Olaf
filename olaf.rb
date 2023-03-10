@@ -290,10 +290,16 @@ def store_cached
 			File.open(cache_file, "r") do |f|
 				first_line =  f.gets
 				audio_filename = first_line.split(",")[1].strip
+
 			end
 		rescue
 			#could not get the filename: incorrect cache file
 			puts "#{index}/#{length} WARNING: #{cache_file} could not be parsed."
+		end
+
+		unless audio_filename
+			STDERR.puts "#{index}/#{length} No audio filename found in #{cache_file}. Format incorrect?"
+			next
 		end
 
 		audio_filename_escaped = escape_audio_filename(audio_filename)

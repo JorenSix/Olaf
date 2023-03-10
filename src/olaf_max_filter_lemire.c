@@ -13,13 +13,24 @@
 
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * @file olaf_max_lemire.c
+ *
+ * @brief Lemire Max filter implementation. 
+ * 
+ * See https://github.com/lemire/runningmaxmin/blob/master/runningmaxmin.h, Available under LGPL.
+ * 
+ * Daniel Lemire, Streaming Maximum-Minimum Filter Using No More than Three Comparisons per Element. Nordic Journal of Computing, 13 (4), pages 328-339, 2006.
+ * 
+ */
+
 #include <stdbool.h>
 
 #include "olaf_max_filter.h"
 #include "olaf_deque.h"
 
-//see https://github.com/lemire/runningmaxmin/blob/master/runningmaxmin.h
-// Daniel Lemire, Streaming Maximum-Minimum Filter Using No More than Three Comparisons per Element. Nordic Journal of Computing, 13 (4), pages 328-339, 2006.
+
 void olaf_lemire_max_filter(float* array, size_t array_size , size_t filter_width , float* maxvalues ) {
 
     Olaf_Deque * maxfifo = olaf_deque_new(array_size * 5);

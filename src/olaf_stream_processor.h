@@ -21,11 +21,11 @@
 
     typedef struct Olaf_Stream_Processor Olaf_Stream_Processor;
 
-    Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner *,const char* raw_path,const char* orig_path);
+    Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner * runner,const char* raw_path,const char* orig_path);
 
-    void olaf_stream_processor_process(Olaf_Stream_Processor *);
+    void olaf_stream_processor_process(Olaf_Stream_Processor * olaf_stream_processor);
 
     // free up memory and release resources
-    void olaf_stream_processor_destroy(Olaf_Stream_Processor *);
+    void olaf_stream_processor_destroy(Olaf_Stream_Processor * olaf_stream_processor);
 
 #endif // OLAF_STREAM_PROCESSOR_H

@@ -137,6 +137,10 @@ test:
 	mkdir -p tests/olaf_test_db
 	- rm tests/olaf_test_db/*
 
+#Generate doxygen API documentation
+docs:
+	doxygen
+
 zig_win:
 	zig build -Dtarget=x86_64-windows-gnu
 

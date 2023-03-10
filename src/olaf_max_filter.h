@@ -13,14 +13,38 @@
 
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * @file olaf_max_filter.h
+ *
+ * @brief Max filter interface to experiment with differen max filter implementations.
+ *
+ */
+
 #ifndef OLAF_MAX_FILTER
 #define OLAF_MAX_FILTER
 
 #include <stdio.h>
 #include <math.h>
 
+/**
+ * @brief      A naive max filter implementation for reference.
+ *
+ * @param      array         The array.
+ * @param[in]  array_size    The array size.
+ * @param[in]  filter_width  The max filter width.
+ * @param      maxvalues     The array of values to filter.
+ */
 void olaf_max_filter_naive(float* array, size_t array_size , size_t filter_width , float* maxvalues );
 
+/**
+ * @brief      An other, preferably faster, implementation.
+ *
+ * @param      array         The array.
+ * @param[in]  array_size    The array size.
+ * @param[in]  filter_width  The filter width.
+ * @param      maxvalues     The array of values to filter.
+ */
 void olaf_max_filter(float* array, size_t array_size , size_t filter_width , float* maxvalues );
 
 #endif // OLAF_MAX_FILTER

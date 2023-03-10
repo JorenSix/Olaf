@@ -13,27 +13,38 @@
 
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * @file olaf_deque.h
+ *
+ * @brief Olaf double ended queue interface.
+ *
+ * This hides the underlying deque implementation used and gives a stable
+ * and simple interface for use in olaf. It just adds a level of indirection
+ * which might come in handy.
+ */
 #ifndef OLAF_DEQUE
 #define OLAF_DEQUE
 	
+
 	typedef struct Olaf_Deque Olaf_Deque;
 
 	Olaf_Deque * olaf_deque_new(size_t size);
 
-	void olaf_deque_push_back(Olaf_Deque *,size_t value);
+	void olaf_deque_push_back(Olaf_Deque * olaf_deque,size_t value);
 
-	size_t olaf_deque_back(Olaf_Deque *);
+	size_t olaf_deque_back(Olaf_Deque * olaf_deque);
 
-	bool olaf_deque_empty(Olaf_Deque *);
+	bool olaf_deque_empty(Olaf_Deque * olaf_deque);
 
-	size_t olaf_deque_front(Olaf_Deque *);
+	size_t olaf_deque_front(Olaf_Deque * olaf_deque);
 
-	void olaf_deque_pop_back(Olaf_Deque *);
+	void olaf_deque_pop_back(Olaf_Deque * olaf_deque);
 
-	void olaf_deque_pop_front(Olaf_Deque *);
+	void olaf_deque_pop_front(Olaf_Deque * olaf_deque);
 
 	//free memory resources and 
-	void olaf_deque_destroy(Olaf_Deque *);
+	void olaf_deque_destroy(Olaf_Deque * olaf_deque);
 
 
 #endif // OLAF_DEQUE

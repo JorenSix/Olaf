@@ -13,13 +13,25 @@
 
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * @file olaf_ep_extractor.h
+ *
+ * @brief Olaf event point extractor.
+ *
+ * This defines the interface on how event points (EPs or eps) are extracted
+ * from audio blocks.
+ */
+
 #ifndef OLAF_EP_EXTRACTOR_H
 #define OLAF_EP_EXTRACTOR_H
 
 	#include "olaf_config.h"
 	
-	//an event point is a combination of a frequency bin and time bin
-	//the magnitude 
+	/**
+	 * @struct eventpoint
+	 * @brief An event point is a combination of a frequency bin, time bin and magnitude
+	 */  
 	struct eventpoint {
 		int frequencyBin;
 		int timeIndex;
@@ -27,7 +39,11 @@
 		int usages;
 	};
 
-	//this is shared with the interface to the outside
+	
+	/**
+	 * @struct extracted_event_points
+	 * @brief The result of event point extraction is a list of event points.
+	 */
 	struct extracted_event_points{
 		struct eventpoint * eventPoints;
 		int eventPointIndex;
@@ -42,14 +58,32 @@
 	 */
 	typedef struct Olaf_EP_Extractor Olaf_EP_Extractor;
 
+	/**
+	 * Initialize a new @ref Olaf_EP_Extractor struct according to the given configuration.
+	 * @param config The configuration currenlty in use.
+	 * @return An initialized @ref Olaf_EP_Extractor struct or undefined if memory could not be allocated.
+	 */
 	Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config);
 
+	/**
+	 * A helper (debug) method to print a single event point.
+	 * @param eventpoint The event point to print.
+	 */
 	void olaf_ep_extractor_print_ep(struct eventpoint);
 
-	struct extracted_event_points * olaf_ep_extractor_extract(Olaf_EP_Extractor *, float* fft_magnitudes, int audioBlockIndex);
+	/**
+	 * The actual extract method which extracts event points from the current fft magnitudes.
+	 * @param olaf_ep_extractor The EP extractor to destroy.
+	 * @param fft_magnitudes The fft magnitudes for the current audio block.
+	 * @param audioBlockIndex The audio block time index.
+	 */
+	struct extracted_event_points * olaf_ep_extractor_extract(Olaf_EP_Extractor * olaf_ep_extractor, float* fft_magnitudes, int audioBlockIndex);
 
-	//free memory resources and 
-	void olaf_ep_extractor_destroy(Olaf_EP_Extractor * );
+	/**
+	 * Free memory or other resources.
+	 * @param  olaf_ep_extractor The EP extractor to destroy.
+	 */ 
+	void olaf_ep_extractor_destroy(Olaf_EP_Extractor * olaf_ep_extractor );
 
 
 #endif // OLAF_EP_EXTRACTOR_H

@@ -28,7 +28,6 @@
  * To create a new queue, use @ref olaf_config_default.  To destroy a queue, use
  * @ref olaf_config_destroy.
  *
- *
  */
 
 
