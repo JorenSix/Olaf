@@ -1,5 +1,5 @@
 // Olaf: Overly Lightweight Acoustic Fingerprinting
-// Copyright (C) 2019-2020  Joren Six
+// Copyright (C) 2019-2023  Joren Six
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -22,6 +22,7 @@
  * The fingerprint extractor is responsible for combining event points into
  * fingerprints and also defines the fingerprint struct.
  */
+
 #ifndef OLAF_FP_EXTRACTOR_H
 #define OLAF_FP_EXTRACTOR_H
 
@@ -29,8 +30,6 @@
 	#include "olaf_ep_extractor.h"
 	#include <stdint.h>
 	
-	// A fingerprint consists of two event points
-	// So it has two frequency bins and two time indexes
     /**
 	 * @struct fingerprint
 	 * 

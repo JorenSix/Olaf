@@ -1,5 +1,5 @@
 // Olaf: Overly Lightweight Acoustic Fingerprinting
-// Copyright (C) 2019-2020  Joren Six
+// Copyright (C) 2019-2023  Joren Six
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -13,6 +13,14 @@
 
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * @file olaf_runner.h
+ *
+ * @brief Helps to run query, store, delete or print commands. These share a lot of functionality but differ in crucial parts.
+ * To keep this organized the runner keeps some shared state.
+ */
+
 #ifndef OLAF_RUNNER_H
 #define OLAF_RUNNER_H
 
@@ -20,12 +28,17 @@
 	#include "olaf_db.h"
 	#include "pffft.h"
 	
-	
 	#define OLAF_RUNNER_MODE_QUERY  233
 	#define OLAF_RUNNER_MODE_STORE  434
 	#define OLAF_RUNNER_MODE_DELETE 653
 	#define OLAF_RUNNER_MODE_PRINT  9043
-
+	
+	/**
+	 * @struct Olaf_Runner
+	 * 
+	 * @brief Helps to run query, store, delete or print commands. These share a lot of functionality but differ in crucial parts.
+	 * To keep this organized the runner keeps some shared state.
+	 */
 	typedef struct Olaf_Runner Olaf_Runner;
 
 	struct Olaf_Runner{
@@ -45,8 +58,20 @@
 		float *fft_out;
 	};
 
+	/**
+	 * @brief      Create a new runner
+	 *
+	 * @param[in]  mode  The mode
+	 *
+	 * @return     The state of the runner
+	 */
 	Olaf_Runner * olaf_runner_new(int mode);
 
+	/**
+	 * @brief      Delete the resources related to the runner.
+	 *
+	 * @param      runner  The runner state to clear.
+	 */
 	void olaf_runner_destroy(Olaf_Runner * runner);
 
 #endif //OLAF_RUNNER_H

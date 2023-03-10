@@ -1,5 +1,5 @@
 // Olaf: Overly Lightweight Acoustic Fingerprinting
-// Copyright (C) 2019-2020  Joren Six
+// Copyright (C) 2019-2023  Joren Six
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Affero General Public License as published by
@@ -116,9 +116,10 @@ void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * file_writer){
 			printf("Error! opening file");
 		}
 
-		//sort results by match count, lowest match count first
+		//sort file entries
 		qsort(file_writer->entries, file_writer->entries_size, sizeof(struct Olaf_FP_File_Entry), olaf_fp_file_writer_compare_entries);
 
+		//print to file
 		for(size_t i = 0 ; i < file_writer->entry_index;i++){
 			fprintf(temp_db_file,"%" PRIu64 ",%" PRIu64 "\n",file_writer->entries[i].hash,file_writer->entries[i].value);
 		}
