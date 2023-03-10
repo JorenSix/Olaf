@@ -17,6 +17,21 @@
 #ifndef OLAF_WINDOW_H
 #define OLAF_WINDOW_H
 
+/**
+ * @file olaf_window.h
+ * @brief Precomputed windows to apply to audio blocks.
+ *
+ * This file contains a couple pre computed 
+ * 
+ */
+
+/**
+ * @brief A pre calculated hamming window for an audio block of 1024 samples.
+ * Meant to be applied before the FFT.
+ * 
+ * Construct e.g. with Numpy's signal.windows.hamming(1024). See https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.windows.hamming.html
+ * 
+ */
 const float hamming_window_1024[] = {
 0.08000000000000007,
 0.08000867630758934,
@@ -1046,7 +1061,14 @@ const float hamming_window_1024[] = {
 
 
 //
-//signal.windows.hamming(512)
+//
+
+
+/**
+ * A hamming window of size 512
+ * Construct e.g. with Numpy's signal.windows.hamming(512). See https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.windows.hamming.html
+ * 
+ */
 const float hamming_window_512[] = {
        0.08      , 0.08003477, 0.08013909, 0.08031292, 0.08055626,
        0.08086906, 0.08125127, 0.08170284, 0.0822237 , 0.08281376,
@@ -1152,6 +1174,15 @@ const float hamming_window_512[] = {
        0.08125127, 0.08086906, 0.08055626, 0.08031292, 0.08013909,
        0.08003477, 0.08 };
 
+/**
+ * @brief      Return a window to apply to an audio block, depending on the size.
+ * 
+ * Only block sizes of 512 and 1024 audio samples are supported. 
+ *
+ * @param[in]  audioBlockSize  The audio block size
+ *
+ * @return     A pointer to a window of the requested size.
+ */
 inline static const float * olaf_fft_window(int audioBlockSize){
    if(audioBlockSize==512){
       return hamming_window_512;
@@ -1159,6 +1190,7 @@ inline static const float * olaf_fft_window(int audioBlockSize){
       return hamming_window_1024;
    }
    fprintf(stderr, "Window of size %d not supported.\n",audioBlockSize);
+   assert(false);
    return NULL;
 }
 
