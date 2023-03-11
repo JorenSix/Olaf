@@ -1,6 +1,7 @@
 #include <time.h>
 #include <libgen.h>
 #include <inttypes.h>
+#include <assert.h>
 
 #include "pffft.h"
 

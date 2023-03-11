@@ -40,8 +40,43 @@
  * straightforward to combine the capabilities of the Web Audio API and Olaf to create browser based audio 
  * fingerprinting applications.
  * 
+ * @section design Olaf's design
+ * 
+ * The core of Olaf is kept as small as possible and is shared between the ESP32, WebAssembly and 
+ * traditional version. The only difference is how audio enters the system. The default 
+ * configuration expects monophonic, 32bit float audio sampled at 16kHz. Transcoding and resampling is different
+ * for each environment.  
+ * 
+ * For traditional computers file handling and transcoding is governed by a Ruby script. 
+ * This script expands lists of incoming audio files, transcodes audio files, checks incoming audio,
+ * checks for duplicate material, validates arguments and input,... The Ruby script, essentially, 
+ * makes Olaf an easy to use CLI application and keeps the C parts of Olaf simple. The C core it is 
+ * not concerned with e.g. transcoding. Crucially, the C core trusts input and does not do much input
+ * validation and does not provide much guardrails. Since the interface is the Ruby script this 
+ * seems warranted.
  *
- *
+ * For the ESP32 version, only a small part of the core is used. To create a new ESP32 Arduino project, there is a 
+ * small script which links to the core. The default Arduino setup uses C++ extensions so olaf_config.h 
+ * remains olaf_config.h 
+ * but `olaf_config.c` becomes `olaf_config.cpp`. Perhaps other environments ([PlatformIO](https://platformio.org/ "PlatformIO")) do not need this name change.
+ * 
+ * The WebAssembly version also uses a similarly small part of the core.
+ * 
+ * To verify both the ESP32 and WebAssembly versions, the Olaf C core can be compiled with the
+ * 'memory' database to mimic the ESP32/WebAssembly versions. In the compilation step the implementation for
+ * the `olaf_db.h` header is done by `olaf_db_mem.c` in stead of the standard `olaf_db.c` implementation. This
+ * paradigm of several implementations for a single header file is done a few times in Olaf. Olaf ships with several
+ * max-filter implementations.
+ * 
+ * @section configuration Olaf's configuration
+ * 
+ * The configuration of Olaf is set at compile time, since it is expected to not change
+ * in between runs. The default configuration is defined in the function olaf_config_default() in 
+ * olaf_config.h. A different set of default configuration parameters is available for the 
+ * memory version, ESP32 version (e.g.  olaf_config_esp_32()) and the WebAssembly version.   
+ * 
+ * @secreflist
+ * 
  **/
 
 #include <stdio.h>
