@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.9.6"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Olaf: Overly Lightweight Acoustic Fingerprinting</title>
+<title>Olaf: Overly Lightweight Acoustic Fingerprinting (Olaf)</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -93,7 +93,7 @@ Olaf's design</h1>
 </p>
 <p>For traditional computers file handling and transcoding is governed by a Ruby script. This script expands lists of incoming audio files, transcodes audio files, checks incoming audio, checks for duplicate material, validates arguments and input,... The Ruby script, essentially, makes Olaf an easy to use CLI application and keeps the C parts of Olaf simple. The C core it is not concerned with e.g. transcoding. Crucially, the C core trusts input and does not do much input validation and does not provide much guardrails. Since the interface is the Ruby script this seems warranted.</p>
 <p>For the ESP32 version, only a small part of the core is used. To create a new ESP32 Arduino project, there is a small script which links to the core. The default Arduino setup uses C++ extensions so <a class="el" href="olaf__config_8h.html" title="Olaf configuration pramameters.">olaf_config.h</a> remains <a class="el" href="olaf__config_8h.html" title="Olaf configuration pramameters.">olaf_config.h</a> but <code>olaf_config.c</code> becomes <code>olaf_config.cpp</code>. Perhaps other environments (<a href="https://platformio.org/" title="PlatformIO">PlatformIO</a>) do not need this name change.</p>
-<p>The WebAssembly version also uses a similarly small part of the core.</p>
+<p>The WebAssembly version also uses a similarly small part of the core and some bridge code is available.</p>
 <p>To verify both the ESP32 and WebAssembly versions, the Olaf C core can be compiled with the 'memory' database to mimic the ESP32/WebAssembly versions. In the compilation step the implementation for the <code><a class="el" href="olaf__db_8h.html" title="Olaf fingerprint database.">olaf_db.h</a></code> header is done by <code>olaf_db_mem.c</code> in stead of the standard <code>olaf_db.c</code> implementation. This paradigm of several implementations for a single header file is done a few times in Olaf. Olaf ships with several max-filter implementations.</p>
 <h1><a class="anchor" id="configuration"></a>
 Olaf's configuration</h1>
