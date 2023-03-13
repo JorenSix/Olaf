@@ -76,7 +76,7 @@ zig build
 file zig-out/bin/olaf_c # Mach-O 64-bit executable arm64
 </pre>
 
-The power of Zig is, however, more obvious when an other target is provided. For a list of platforms, please consult the output of @zig targets@. To build a windows executable run the following commands. Afterwards, pre-built windows executable can be found in @pre-built@
+The power of Zig is, however, more obvious when an other target is provided. For a list of platforms, please consult the output of @zig targets@. To build a windows executable run the following commands. Afterwards, pre-built windows executable can be found in @pre-built@. There is further "documentation for running Olaf on Windows":pre-built/README.textile.
 
 <pre>
 zig build -Dtarget=x86_64-windows-gnu -Drelease-small
