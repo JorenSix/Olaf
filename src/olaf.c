@@ -60,7 +60,7 @@
  * remains olaf_config.h 
  * but `olaf_config.c` becomes `olaf_config.cpp`. Perhaps other environments ([PlatformIO](https://platformio.org/ "PlatformIO")) do not need this name change.
  * 
- * The WebAssembly version also uses a similarly small part of the core.
+ * The WebAssembly version also uses a similarly small part of the core and some bridge code is available.
  * 
  * To verify both the ESP32 and WebAssembly versions, the Olaf C core can be compiled with the
  * 'memory' database to mimic the ESP32/WebAssembly versions. In the compilation step the implementation for

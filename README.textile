@@ -225,6 +225,10 @@ Another way to contribute is to dive into the code, fork and improve Olaf yourse
 
 My time to spend on Olaf is limited and goes in activity bursts. If an issue is raised it might take a couple of months before I am able to spend time on it during the next burst of activity. A period of relative silence does not mean your feedback / pull request is not greatly valued!
 
+h3. Olaf documentation
+
+The "documentation of Olaf":https://jorensix.github.io/Olaf is generated with "doxygen":http://doxygen.nl and can be consulted on github via the gh-pages branch. 
+
 h2. Limitations of Olaf
 
 * <del>Currently a complete audio file is read in memory in order to process it. While the algorithm allows streaming, the current implementation does not allow to store incoming streams.</del> Now you can choose whether to compile in the single or stream reader: choose either @olaf_reader_single.c@ or @olaf_reader_stream.c@, which is a bit slower. 
