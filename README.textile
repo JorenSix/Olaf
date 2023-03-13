@@ -205,7 +205,27 @@ olaf to_raw your_audio_file.mp3
 bin/olaf_mem store olaf_audio_your_audio_file.raw "arandomidentifier" > your_header_file.h
 </pre>
 
-h2. Limitations
+h2. Benchmark & evaluation of Olaf
+
+Every time the source code of Olaf is updated a number of functional checks are done. The first thing this checks is whether Olaf compiles correctly. If it does a small dataset is indexed and some queries are fired. The result of the queries is evaluated for correctness. Also the memory version of Olaf is checked.
+
+In the @eval@ folder there is an evaluation script which takes a folder as input and stores and evaluates queries with several modifications. SoX needs to be available on the system for this to work.
+
+Also present is a benchmark script which checks the performance of Olaf with larger datasets. With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the "FMA full":https://github.com/mdeff/fma dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times realtime with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the "query performance":./eval/olaf_benchmark/olaf_benchmark_query.svg is also checked.
+
+
+!./eval/olaf_benchmark/olaf_benchmark.svg(Olaf indexing)!
+
+
+h2. Contribute to Olaf
+
+There are several ways to contribute to Olaf. The first is to use Olaf and report issues or feature requests using the Github Issue tracker. Bug reports are greatly appreciated, but keep in mind the note below on responsiveness.
+
+Another way to contribute is to dive into the code, fork and improve Olaf yourself. Merge requests with additional documentation, bug fixes or new features will be handled and end up in the main branch if correctness, maintainability and simplicity are kept in check. However, keep in mind the note below:
+
+My time to spend on Olaf is limited and goes in activity bursts. If an issue is raised it might take a couple of months before I am able to spend time on it during the next burst of activity. A period of relative silence does not mean your feedback / pull request is not greatly valued!
+
+h2. Limitations of Olaf
 
 * <del>Currently a complete audio file is read in memory in order to process it. While the algorithm allows streaming, the current implementation does not allow to store incoming streams.</del> Now you can choose whether to compile in the single or stream reader: choose either @olaf_reader_single.c@ or @olaf_reader_stream.c@, which is a bit slower. 
 * Only one write process: LMDB limits the number of processes that can write to the key-value store to a single process. Attempting to write to the key-value store while an other write-process is busy should put the process automatically in a wait state untile the write lock is released (by the other process). Reading can be done frome multiple processes at the same time. 
@@ -236,7 +256,7 @@ h2. Credits
 
 * "PFFFT":https://bitbucket.org/jpommier/pffft/src/default/  a pretty fast FFT library. BSD license
 * "LMDB":https://symas.com/lmdb/ "Lightning Memory-Mapped Database":https://en.wikipedia.org/wiki/Lightning_Memory-Mapped_Database, a fast key value store with a permissive software license (the OpenLDAP Public License) by Howard Chu.
-* "Hash table":https://github.com/fragglet/c-algorithms by Simon Howard, ISC lisence
+* "Hash table":https://github.com/fragglet/c-algorithms and dequeue by Simon Howard, ISC lisence
 
 Olaf by Joren Six at IPEM, Ghent University.
 

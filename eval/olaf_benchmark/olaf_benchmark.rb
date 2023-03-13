@@ -28,9 +28,11 @@ START_SIZE = 64
 
 folder = ARGV[0]
 
-unless File.exist?(folder)
+if (folder.nil? or ! File.exist?(folder) or ! File.directory? folder)
 	STDERR.puts "Folder '#{folder}' should exist."
+  exit
 end
+
 
 audio_files = Dir.glob(File.join(folder,AUDIO_FILE_GLOB_PATTERN))
 #puts audio_files.size
