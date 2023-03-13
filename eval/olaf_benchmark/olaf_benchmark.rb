@@ -19,8 +19,8 @@
 require 'benchmark'
 
 PROC_THREADS = 92
-QUERY_FILE_SIZE_IN = 7
-QUERY_FILE_SIZE_OUT = 3
+QUERY_FILE_SIZE_IN = 35
+QUERY_FILE_SIZE_OUT = 15
 
 AUDIO_FILE_GLOB_PATTERN = "**/*mp3"
 RND = Random.new(0)
@@ -39,6 +39,9 @@ times_two = (Math.log(audio_files.size)/Math.log(2)).to_i
 
 audio_files = audio_files.shuffle(random: RND)
 
+query_selection_in = audio_files[0..(QUERY_FILE_SIZE_IN - 1)]
+query_selection_out = audio_files[(audio_files.size-QUERY_FILE_SIZE_OUT)..(audio_files.size-1)]
+
 start_index=0
 stop_index=START_SIZE
 
@@ -51,8 +54,7 @@ puts "songs, seconds, store_user_cpu, store_sys_cpu, store_sys_us_cpu, store_rea
 while(stop_index <= (1<<times_two) ) do
   selection = audio_files[start_index..(stop_index-1)]
   #puts "Processing  #{selection.size} files  #{start_index}-#{stop_index-1}"
-  query_selection_in = selection.shuffle(random: RND)[0..(QUERY_FILE_SIZE_IN - 1)]
-  query_selection_out = audio_files[stop_index..(stop_index + QUERY_FILE_SIZE_OUT - 1)]
+  
 
   progress_filename = "#{start_index}-#{stop_index-1}_cache_progress.txt" 
   list_filename = "#{start_index}-#{stop_index-1}_store_list.txt"
