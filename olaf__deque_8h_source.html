@@ -93,32 +93,38 @@ $(function() {
 <div class="line"><a id="l00014" name="l00014"></a><span class="lineno">   14</span><span class="comment">// You should have received a copy of the GNU Affero General Public License</span></div>
 <div class="line"><a id="l00015" name="l00015"></a><span class="lineno">   15</span><span class="comment">// along with this program.  If not, see &lt;https://www.gnu.org/licenses/&gt;.</span></div>
 <div class="line"><a id="l00016" name="l00016"></a><span class="lineno">   16</span> </div>
-<div class="line"><a id="l00026" name="l00026"></a><span class="lineno">   26</span><span class="preprocessor">#ifndef OLAF_DEQUE</span></div>
-<div class="line"><a id="l00027" name="l00027"></a><span class="lineno">   27</span><span class="preprocessor">#define OLAF_DEQUE</span></div>
-<div class="line"><a id="l00028" name="l00028"></a><span class="lineno">   28</span>    </div>
-<div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span> </div>
-<div class="line"><a id="l00030" name="l00030"></a><span class="lineno">   30</span>    <span class="keyword">typedef</span> <span class="keyword">struct </span><a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> <a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a>;</div>
-<div class="line"><a id="l00031" name="l00031"></a><span class="lineno">   31</span> </div>
-<div class="line"><a id="l00032" name="l00032"></a><span class="lineno">   32</span>    <a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque_new(<span class="keywordtype">size_t</span> size);</div>
-<div class="line"><a id="l00033" name="l00033"></a><span class="lineno">   33</span> </div>
-<div class="line"><a id="l00034" name="l00034"></a><span class="lineno">   34</span>    <span class="keywordtype">void</span> olaf_deque_push_back(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque,<span class="keywordtype">size_t</span> value);</div>
-<div class="line"><a id="l00035" name="l00035"></a><span class="lineno">   35</span> </div>
-<div class="line"><a id="l00036" name="l00036"></a><span class="lineno">   36</span>    <span class="keywordtype">size_t</span> olaf_deque_back(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque);</div>
-<div class="line"><a id="l00037" name="l00037"></a><span class="lineno">   37</span> </div>
-<div class="line"><a id="l00038" name="l00038"></a><span class="lineno">   38</span>    <span class="keywordtype">bool</span> olaf_deque_empty(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque);</div>
-<div class="line"><a id="l00039" name="l00039"></a><span class="lineno">   39</span> </div>
-<div class="line"><a id="l00040" name="l00040"></a><span class="lineno">   40</span>    <span class="keywordtype">size_t</span> olaf_deque_front(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque);</div>
-<div class="line"><a id="l00041" name="l00041"></a><span class="lineno">   41</span> </div>
-<div class="line"><a id="l00042" name="l00042"></a><span class="lineno">   42</span>    <span class="keywordtype">void</span> olaf_deque_pop_back(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque);</div>
-<div class="line"><a id="l00043" name="l00043"></a><span class="lineno">   43</span> </div>
-<div class="line"><a id="l00044" name="l00044"></a><span class="lineno">   44</span>    <span class="keywordtype">void</span> olaf_deque_pop_front(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque);</div>
-<div class="line"><a id="l00045" name="l00045"></a><span class="lineno">   45</span> </div>
-<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span>    <span class="comment">//free memory resources and </span></div>
-<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span>    <span class="keywordtype">void</span> olaf_deque_destroy(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque);</div>
-<div class="line"><a id="l00048" name="l00048"></a><span class="lineno">   48</span> </div>
-<div class="line"><a id="l00049" name="l00049"></a><span class="lineno">   49</span> </div>
-<div class="line"><a id="l00050" name="l00050"></a><span class="lineno">   50</span><span class="preprocessor">#endif </span><span class="comment">// OLAF_DEQUE</span></div>
-<div class="ttc" id="astruct_olaf___deque_html"><div class="ttname"><a href="struct_olaf___deque.html">Olaf_Deque</a></div><div class="ttdef"><b>Definition:</b> olaf_deque.c:25</div></div>
+<div class="line"><a id="l00027" name="l00027"></a><span class="lineno">   27</span><span class="preprocessor">#ifndef OLAF_DEQUE</span></div>
+<div class="line"><a id="l00028" name="l00028"></a><span class="lineno">   28</span><span class="preprocessor">#define OLAF_DEQUE</span></div>
+<div class="line"><a id="l00029" name="l00029"></a><span class="lineno">   29</span>    </div>
+<div class="line"><a id="l00037" name="l00037"></a><span class="lineno">   37</span>    <span class="keyword">typedef</span> <span class="keyword">struct </span><a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> <a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a>;</div>
+<div class="line"><a id="l00038" name="l00038"></a><span class="lineno">   38</span> </div>
+<div class="line"><a id="l00046" name="l00046"></a><span class="lineno">   46</span>    <a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * <a class="code hl_function" href="olaf__deque_8h.html#ae4ff349898320781fe3905787a291511">olaf_deque_new</a>(<span class="keywordtype">size_t</span> size);</div>
+<div class="line"><a id="l00047" name="l00047"></a><span class="lineno">   47</span> </div>
+<div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="olaf__deque_8h.html#a869aa3466089c9c35a6ce1db18b3cf1e">olaf_deque_push_back</a>(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque,<span class="keywordtype">size_t</span> value);</div>
+<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span> </div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>    <span class="keywordtype">size_t</span> <a class="code hl_function" href="olaf__deque_8h.html#a6e14276a15b7e56acef30901c4aac5e2">olaf_deque_back</a>(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque);</div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span> </div>
+<div class="line"><a id="l00072" name="l00072"></a><span class="lineno">   72</span>    <span class="keywordtype">bool</span> <a class="code hl_function" href="olaf__deque_8h.html#ac2f02dcec59d8a9287260b8a1439c0b7">olaf_deque_empty</a>(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque);</div>
+<div class="line"><a id="l00073" name="l00073"></a><span class="lineno">   73</span> </div>
+<div class="line"><a id="l00081" name="l00081"></a><span class="lineno">   81</span>    <span class="keywordtype">size_t</span> <a class="code hl_function" href="olaf__deque_8h.html#ac1796cba372f11a5bba23f2aa46dfbdc">olaf_deque_front</a>(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque);</div>
+<div class="line"><a id="l00082" name="l00082"></a><span class="lineno">   82</span> </div>
+<div class="line"><a id="l00088" name="l00088"></a><span class="lineno">   88</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="olaf__deque_8h.html#a81debeae7883dae2e91003d29d072778">olaf_deque_pop_back</a>(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque);</div>
+<div class="line"><a id="l00089" name="l00089"></a><span class="lineno">   89</span> </div>
+<div class="line"><a id="l00095" name="l00095"></a><span class="lineno">   95</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="olaf__deque_8h.html#a8e2bbe89ff14fd3fe3d596a4eeff6b72">olaf_deque_pop_front</a>(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque);</div>
+<div class="line"><a id="l00096" name="l00096"></a><span class="lineno">   96</span> </div>
+<div class="line"><a id="l00102" name="l00102"></a><span class="lineno">  102</span>    <span class="keywordtype">void</span> <a class="code hl_function" href="olaf__deque_8h.html#aa1f67bb75ea33b8642927e23ec0a1061">olaf_deque_destroy</a>(<a class="code hl_struct" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque);</div>
+<div class="line"><a id="l00103" name="l00103"></a><span class="lineno">  103</span> </div>
+<div class="line"><a id="l00104" name="l00104"></a><span class="lineno">  104</span> </div>
+<div class="line"><a id="l00105" name="l00105"></a><span class="lineno">  105</span><span class="preprocessor">#endif </span><span class="comment">// OLAF_DEQUE</span></div>
+<div class="ttc" id="aolaf__deque_8h_html_a6e14276a15b7e56acef30901c4aac5e2"><div class="ttname"><a href="olaf__deque_8h.html#a6e14276a15b7e56acef30901c4aac5e2">olaf_deque_back</a></div><div class="ttdeci">size_t olaf_deque_back(Olaf_Deque *olaf_deque)</div><div class="ttdoc">Return the back of the deque.</div><div class="ttdef"><b>Definition:</b> olaf_deque.c:60</div></div>
+<div class="ttc" id="aolaf__deque_8h_html_a81debeae7883dae2e91003d29d072778"><div class="ttname"><a href="olaf__deque_8h.html#a81debeae7883dae2e91003d29d072778">olaf_deque_pop_back</a></div><div class="ttdeci">void olaf_deque_pop_back(Olaf_Deque *olaf_deque)</div><div class="ttdoc">Pop the back from the deque.</div><div class="ttdef"><b>Definition:</b> olaf_deque.c:74</div></div>
+<div class="ttc" id="aolaf__deque_8h_html_a869aa3466089c9c35a6ce1db18b3cf1e"><div class="ttname"><a href="olaf__deque_8h.html#a869aa3466089c9c35a6ce1db18b3cf1e">olaf_deque_push_back</a></div><div class="ttdeci">void olaf_deque_push_back(Olaf_Deque *olaf_deque, size_t value)</div><div class="ttdoc">Push a value to the end of the deque.</div><div class="ttdef"><b>Definition:</b> olaf_deque.c:49</div></div>
+<div class="ttc" id="aolaf__deque_8h_html_a8e2bbe89ff14fd3fe3d596a4eeff6b72"><div class="ttname"><a href="olaf__deque_8h.html#a8e2bbe89ff14fd3fe3d596a4eeff6b72">olaf_deque_pop_front</a></div><div class="ttdeci">void olaf_deque_pop_front(Olaf_Deque *olaf_deque)</div><div class="ttdoc">Remove the front of the deque.</div><div class="ttdef"><b>Definition:</b> olaf_deque.c:78</div></div>
+<div class="ttc" id="aolaf__deque_8h_html_aa1f67bb75ea33b8642927e23ec0a1061"><div class="ttname"><a href="olaf__deque_8h.html#aa1f67bb75ea33b8642927e23ec0a1061">olaf_deque_destroy</a></div><div class="ttdeci">void olaf_deque_destroy(Olaf_Deque *olaf_deque)</div><div class="ttdoc">Free resources and memory related to the deque.</div><div class="ttdef"><b>Definition:</b> olaf_deque.c:43</div></div>
+<div class="ttc" id="aolaf__deque_8h_html_ac1796cba372f11a5bba23f2aa46dfbdc"><div class="ttname"><a href="olaf__deque_8h.html#ac1796cba372f11a5bba23f2aa46dfbdc">olaf_deque_front</a></div><div class="ttdeci">size_t olaf_deque_front(Olaf_Deque *olaf_deque)</div><div class="ttdoc">The front of the deque.</div><div class="ttdef"><b>Definition:</b> olaf_deque.c:65</div></div>
+<div class="ttc" id="aolaf__deque_8h_html_ac2f02dcec59d8a9287260b8a1439c0b7"><div class="ttname"><a href="olaf__deque_8h.html#ac2f02dcec59d8a9287260b8a1439c0b7">olaf_deque_empty</a></div><div class="ttdeci">bool olaf_deque_empty(Olaf_Deque *olaf_deque)</div><div class="ttdoc">Checks if the deque is empty.</div><div class="ttdef"><b>Definition:</b> olaf_deque.c:70</div></div>
+<div class="ttc" id="aolaf__deque_8h_html_ae4ff349898320781fe3905787a291511"><div class="ttname"><a href="olaf__deque_8h.html#ae4ff349898320781fe3905787a291511">olaf_deque_new</a></div><div class="ttdeci">Olaf_Deque * olaf_deque_new(size_t size)</div><div class="ttdoc">Create an new double ended queue.</div><div class="ttdef"><b>Definition:</b> olaf_deque.c:33</div></div>
+<div class="ttc" id="astruct_olaf___deque_html"><div class="ttname"><a href="struct_olaf___deque.html">Olaf_Deque</a></div><div class="ttdoc">Contains state information related to the deque.</div><div class="ttdef"><b>Definition:</b> olaf_deque.c:26</div></div>
 </div><!-- fragment --></div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>

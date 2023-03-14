@@ -10,9 +10,10 @@ var searchData=
   ['olaf_5ffp_5fextractor_2eh_7',['olaf_fp_extractor.h',['../olaf__fp__extractor_8h.html',1,'']]],
   ['olaf_5ffp_5ffile_5fwriter_2eh_8',['olaf_fp_file_writer.h',['../olaf__fp__file__writer_8h.html',1,'']]],
   ['olaf_5ffp_5fmatcher_2eh_9',['olaf_fp_matcher.h',['../olaf__fp__matcher_8h.html',1,'']]],
-  ['olaf_5fmax_5ffilter_2eh_10',['olaf_max_filter.h',['../olaf__max__filter_8h.html',1,'']]],
-  ['olaf_5freader_2eh_11',['olaf_reader.h',['../olaf__reader_8h.html',1,'']]],
-  ['olaf_5frunner_2eh_12',['olaf_runner.h',['../olaf__runner_8h.html',1,'']]],
-  ['olaf_5fstream_5fprocessor_2eh_13',['olaf_stream_processor.h',['../olaf__stream__processor_8h.html',1,'']]],
-  ['olaf_5fwindow_2eh_14',['olaf_window.h',['../olaf__window_8h.html',1,'']]]
+  ['olaf_5ffp_5fref_5fmem_2eh_10',['olaf_fp_ref_mem.h',['../olaf__fp__ref__mem_8h.html',1,'']]],
+  ['olaf_5fmax_5ffilter_2eh_11',['olaf_max_filter.h',['../olaf__max__filter_8h.html',1,'']]],
+  ['olaf_5freader_2eh_12',['olaf_reader.h',['../olaf__reader_8h.html',1,'']]],
+  ['olaf_5frunner_2eh_13',['olaf_runner.h',['../olaf__runner_8h.html',1,'']]],
+  ['olaf_5fstream_5fprocessor_2eh_14',['olaf_stream_processor.h',['../olaf__stream__processor_8h.html',1,'']]],
+  ['olaf_5fwindow_2eh_15',['olaf_window.h',['../olaf__window_8h.html',1,'']]]
 ];

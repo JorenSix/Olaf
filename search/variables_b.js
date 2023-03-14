@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['verbose_0',['verbose',['../struct_olaf___config.html#afa53b6db98435c080ffbfff7056129d4',1,'Olaf_Config']]]
+  ['searchrange_0',['searchRange',['../struct_olaf___config.html#af06994a7fd41623b206781b4aa973548',1,'Olaf_Config']]]
 ];

@@ -117,8 +117,7 @@ int&#160;</td><td class="memItemRight" valign="bottom"><b>halfFilterSizeFrequenc
 <tr class="separator:af03cd352152e2b709023cbf1eb4a3c37"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aee0c822b98e3db30eb0b166905343c7b"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_olaf___config.html#aee0c822b98e3db30eb0b166905343c7b">eventPointThreshold</a></td></tr>
 <tr class="separator:aee0c822b98e3db30eb0b166905343c7b"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a385b4a3e4b5d26606740386af653c695"><td class="memItemLeft" align="right" valign="top"><a id="a385b4a3e4b5d26606740386af653c695" name="a385b4a3e4b5d26606740386af653c695"></a>
-bool&#160;</td><td class="memItemRight" valign="bottom"><b>useMagnitudeInfo</b></td></tr>
+<tr class="memitem:a385b4a3e4b5d26606740386af653c695"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_olaf___config.html#a385b4a3e4b5d26606740386af653c695">useMagnitudeInfo</a></td></tr>
 <tr class="separator:a385b4a3e4b5d26606740386af653c695"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad41d2504d68cfbdb70ba9fb27f1d3dd2"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="struct_olaf___config.html#ad41d2504d68cfbdb70ba9fb27f1d3dd2">numberOfEPsPerFP</a></td></tr>
 <tr class="separator:ad41d2504d68cfbdb70ba9fb27f1d3dd2"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -222,7 +221,7 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>useMagnitudeInfo</b><
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Once this number of event points is listed, start combining /* them into fingerprints: should be less than maxEventPoints </p>
+<p>Once this number of event points is listed, start combining them into fingerprints: should be less than maxEventPoints </p>
 
 </div>
 </div>
@@ -312,7 +311,7 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>useMagnitudeInfo</b><
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Max number of event points before they are /*combined into fingerprints /*(parameter should not have any effect,except for memory use) </p>
+<p>Max number of event points before they are combined into fingerprints (parameter should not have any effect,except for memory use) </p>
 
 </div>
 </div>
@@ -417,7 +416,7 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>useMagnitudeInfo</b><
         </tr>
       </table>
 </div><div class="memdoc">
-<p>To avoid extracting event points of silence, /*the ep magnitude should be at least this value </p>
+<p>To avoid extracting event points of silence, the ep magnitude should be at least this value </p>
 
 </div>
 </div>
@@ -538,6 +537,21 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>useMagnitudeInfo</b><
       </table>
 </div><div class="memdoc">
 <p>The search range which allows small deviations from the fingerprint hashes. </p>
+
+</div>
+</div>
+<a id="a385b4a3e4b5d26606740386af653c695" name="a385b4a3e4b5d26606740386af653c695"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a385b4a3e4b5d26606740386af653c695">&#9670;&#160;</a></span>useMagnitudeInfo</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool Olaf_Config::useMagnitudeInfo</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Include magnitude info in fingerprints or not. For over the air queries it is best to not include magnitude info in fingerprint </p>
 
 </div>
 </div>

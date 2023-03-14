@@ -81,7 +81,7 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 
-<p>Olaf double ended queue interface.  
+<p>A double ended queue interface.  
 <a href="#details">More...</a></p>
 
 <p><a href="olaf__deque_8h_source.html">Go to the source code of this file.</a></p>
@@ -94,35 +94,259 @@ typedef struct <a class="el" href="struct_olaf___deque.html">Olaf_Deque</a>&#160
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:ae4ff349898320781fe3905787a291511"><td class="memItemLeft" align="right" valign="top"><a id="ae4ff349898320781fe3905787a291511" name="ae4ff349898320781fe3905787a291511"></a>
-<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>olaf_deque_new</b> (size_t size)</td></tr>
+<tr class="memitem:ae4ff349898320781fe3905787a291511"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="olaf__deque_8h.html#ae4ff349898320781fe3905787a291511">olaf_deque_new</a> (size_t size)</td></tr>
+<tr class="memdesc:ae4ff349898320781fe3905787a291511"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create an new double ended queue.  <br /></td></tr>
 <tr class="separator:ae4ff349898320781fe3905787a291511"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a869aa3466089c9c35a6ce1db18b3cf1e"><td class="memItemLeft" align="right" valign="top"><a id="a869aa3466089c9c35a6ce1db18b3cf1e" name="a869aa3466089c9c35a6ce1db18b3cf1e"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>olaf_deque_push_back</b> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque, size_t value)</td></tr>
+<tr class="memitem:a869aa3466089c9c35a6ce1db18b3cf1e"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="olaf__deque_8h.html#a869aa3466089c9c35a6ce1db18b3cf1e">olaf_deque_push_back</a> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque, size_t value)</td></tr>
+<tr class="memdesc:a869aa3466089c9c35a6ce1db18b3cf1e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Push a value to the end of the deque.  <br /></td></tr>
 <tr class="separator:a869aa3466089c9c35a6ce1db18b3cf1e"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a6e14276a15b7e56acef30901c4aac5e2"><td class="memItemLeft" align="right" valign="top"><a id="a6e14276a15b7e56acef30901c4aac5e2" name="a6e14276a15b7e56acef30901c4aac5e2"></a>
-size_t&#160;</td><td class="memItemRight" valign="bottom"><b>olaf_deque_back</b> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque)</td></tr>
+<tr class="memitem:a6e14276a15b7e56acef30901c4aac5e2"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="olaf__deque_8h.html#a6e14276a15b7e56acef30901c4aac5e2">olaf_deque_back</a> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque)</td></tr>
+<tr class="memdesc:a6e14276a15b7e56acef30901c4aac5e2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Return the back of the deque.  <br /></td></tr>
 <tr class="separator:a6e14276a15b7e56acef30901c4aac5e2"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac2f02dcec59d8a9287260b8a1439c0b7"><td class="memItemLeft" align="right" valign="top"><a id="ac2f02dcec59d8a9287260b8a1439c0b7" name="ac2f02dcec59d8a9287260b8a1439c0b7"></a>
-bool&#160;</td><td class="memItemRight" valign="bottom"><b>olaf_deque_empty</b> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque)</td></tr>
+<tr class="memitem:ac2f02dcec59d8a9287260b8a1439c0b7"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="olaf__deque_8h.html#ac2f02dcec59d8a9287260b8a1439c0b7">olaf_deque_empty</a> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque)</td></tr>
+<tr class="memdesc:ac2f02dcec59d8a9287260b8a1439c0b7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Checks if the deque is empty.  <br /></td></tr>
 <tr class="separator:ac2f02dcec59d8a9287260b8a1439c0b7"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ac1796cba372f11a5bba23f2aa46dfbdc"><td class="memItemLeft" align="right" valign="top"><a id="ac1796cba372f11a5bba23f2aa46dfbdc" name="ac1796cba372f11a5bba23f2aa46dfbdc"></a>
-size_t&#160;</td><td class="memItemRight" valign="bottom"><b>olaf_deque_front</b> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque)</td></tr>
+<tr class="memitem:ac1796cba372f11a5bba23f2aa46dfbdc"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="olaf__deque_8h.html#ac1796cba372f11a5bba23f2aa46dfbdc">olaf_deque_front</a> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque)</td></tr>
+<tr class="memdesc:ac1796cba372f11a5bba23f2aa46dfbdc"><td class="mdescLeft">&#160;</td><td class="mdescRight">The front of the deque.  <br /></td></tr>
 <tr class="separator:ac1796cba372f11a5bba23f2aa46dfbdc"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a81debeae7883dae2e91003d29d072778"><td class="memItemLeft" align="right" valign="top"><a id="a81debeae7883dae2e91003d29d072778" name="a81debeae7883dae2e91003d29d072778"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>olaf_deque_pop_back</b> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque)</td></tr>
+<tr class="memitem:a81debeae7883dae2e91003d29d072778"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="olaf__deque_8h.html#a81debeae7883dae2e91003d29d072778">olaf_deque_pop_back</a> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque)</td></tr>
+<tr class="memdesc:a81debeae7883dae2e91003d29d072778"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pop the back from the deque.  <br /></td></tr>
 <tr class="separator:a81debeae7883dae2e91003d29d072778"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8e2bbe89ff14fd3fe3d596a4eeff6b72"><td class="memItemLeft" align="right" valign="top"><a id="a8e2bbe89ff14fd3fe3d596a4eeff6b72" name="a8e2bbe89ff14fd3fe3d596a4eeff6b72"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>olaf_deque_pop_front</b> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque)</td></tr>
+<tr class="memitem:a8e2bbe89ff14fd3fe3d596a4eeff6b72"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="olaf__deque_8h.html#a8e2bbe89ff14fd3fe3d596a4eeff6b72">olaf_deque_pop_front</a> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque)</td></tr>
+<tr class="memdesc:a8e2bbe89ff14fd3fe3d596a4eeff6b72"><td class="mdescLeft">&#160;</td><td class="mdescRight">Remove the front of the deque.  <br /></td></tr>
 <tr class="separator:a8e2bbe89ff14fd3fe3d596a4eeff6b72"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa1f67bb75ea33b8642927e23ec0a1061"><td class="memItemLeft" align="right" valign="top"><a id="aa1f67bb75ea33b8642927e23ec0a1061" name="aa1f67bb75ea33b8642927e23ec0a1061"></a>
-void&#160;</td><td class="memItemRight" valign="bottom"><b>olaf_deque_destroy</b> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque)</td></tr>
+<tr class="memitem:aa1f67bb75ea33b8642927e23ec0a1061"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="olaf__deque_8h.html#aa1f67bb75ea33b8642927e23ec0a1061">olaf_deque_destroy</a> (<a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *olaf_deque)</td></tr>
+<tr class="memdesc:aa1f67bb75ea33b8642927e23ec0a1061"><td class="mdescLeft">&#160;</td><td class="mdescRight">Free resources and memory related to the deque.  <br /></td></tr>
 <tr class="separator:aa1f67bb75ea33b8642927e23ec0a1061"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Olaf double ended queue interface. </p>
-<p>This hides the underlying deque implementation used and gives a stable and simple interface for use in olaf. It just adds a level of indirection which might come in handy. </p>
-</div></div><!-- contents -->
+<div class="textblock"><p>A double ended queue interface. </p>
+<p>This hides the underlying dequeue implementation used and gives a stable and simple interface for use in Olaf. It also manages memory related to the deque. Additionally, it adds a level of indirection which might come in handy to replace the underlying implementation. </p>
+</div><h2 class="groupheader">Function Documentation</h2>
+<a id="a6e14276a15b7e56acef30901c4aac5e2" name="a6e14276a15b7e56acef30901c4aac5e2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6e14276a15b7e56acef30901c4aac5e2">&#9670;&#160;</a></span>olaf_deque_back()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t olaf_deque_back </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *&#160;</td>
+          <td class="paramname"><em>olaf_deque</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Return the back of the deque. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">olaf_deque</td><td>The olaf deque</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>The back, tail of the deque </dd></dl>
+
+</div>
+</div>
+<a id="aa1f67bb75ea33b8642927e23ec0a1061" name="aa1f67bb75ea33b8642927e23ec0a1061"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa1f67bb75ea33b8642927e23ec0a1061">&#9670;&#160;</a></span>olaf_deque_destroy()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void olaf_deque_destroy </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *&#160;</td>
+          <td class="paramname"><em>olaf_deque</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Free resources and memory related to the deque. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">olaf_deque</td><td>The olaf deque </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="ac2f02dcec59d8a9287260b8a1439c0b7" name="ac2f02dcec59d8a9287260b8a1439c0b7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac2f02dcec59d8a9287260b8a1439c0b7">&#9670;&#160;</a></span>olaf_deque_empty()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">bool olaf_deque_empty </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *&#160;</td>
+          <td class="paramname"><em>olaf_deque</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Checks if the deque is empty. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">olaf_deque</td><td>The olaf deque</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>True if the deque is empty </dd></dl>
+
+</div>
+</div>
+<a id="ac1796cba372f11a5bba23f2aa46dfbdc" name="ac1796cba372f11a5bba23f2aa46dfbdc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac1796cba372f11a5bba23f2aa46dfbdc">&#9670;&#160;</a></span>olaf_deque_front()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t olaf_deque_front </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *&#160;</td>
+          <td class="paramname"><em>olaf_deque</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>The front of the deque. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">olaf_deque</td><td>The olaf deque</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>The front of the deque. </dd></dl>
+
+</div>
+</div>
+<a id="ae4ff349898320781fe3905787a291511" name="ae4ff349898320781fe3905787a291511"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ae4ff349898320781fe3905787a291511">&#9670;&#160;</a></span>olaf_deque_new()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> * olaf_deque_new </td>
+          <td>(</td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>size</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Create an new double ended queue. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir">[in]</td><td class="paramname">size</td><td>The maximum size of de deque. Memory is allocated on initialization.</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>The state of the deque. </dd></dl>
+
+</div>
+</div>
+<a id="a81debeae7883dae2e91003d29d072778" name="a81debeae7883dae2e91003d29d072778"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a81debeae7883dae2e91003d29d072778">&#9670;&#160;</a></span>olaf_deque_pop_back()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void olaf_deque_pop_back </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *&#160;</td>
+          <td class="paramname"><em>olaf_deque</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Pop the back from the deque. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">olaf_deque</td><td>The olaf deque </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a8e2bbe89ff14fd3fe3d596a4eeff6b72" name="a8e2bbe89ff14fd3fe3d596a4eeff6b72"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8e2bbe89ff14fd3fe3d596a4eeff6b72">&#9670;&#160;</a></span>olaf_deque_pop_front()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void olaf_deque_pop_front </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *&#160;</td>
+          <td class="paramname"><em>olaf_deque</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Remove the front of the deque. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">olaf_deque</td><td>The olaf deque </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a869aa3466089c9c35a6ce1db18b3cf1e" name="a869aa3466089c9c35a6ce1db18b3cf1e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a869aa3466089c9c35a6ce1db18b3cf1e">&#9670;&#160;</a></span>olaf_deque_push_back()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void olaf_deque_push_back </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_olaf___deque.html">Olaf_Deque</a> *&#160;</td>
+          <td class="paramname"><em>olaf_deque</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>value</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Push a value to the end of the deque. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir"></td><td class="paramname">olaf_deque</td><td>The olaf deque </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">value</td><td>The value </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+</div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
 Generated by&#160;<a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.9.6
