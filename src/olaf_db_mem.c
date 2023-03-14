@@ -73,10 +73,10 @@ uint64_t olaf_db_mem_pack(uint64_t hash, uint32_t t){
 }
 
 
-//For the binary search the timespans (last 16 bits) are ignored
+//For the binary search, the timespans (last 16 bits) are ignored
 int olaf_dp_packed_hash_compare(const void * a, const void * b) {
 	//the comparator ignores the last 16 bits, the timestamp
-	return ( (*(uint64_t*)a>>18) - (*(uint64_t*)b>>18) );
+	return ( (*(uint64_t*)a>>16) - (*(uint64_t*)b>>16) );
 }
 
 //find a list of elements in the memory store
@@ -117,7 +117,6 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 			if(ref_hash >= start_key && ref_hash <= stop_key){
 				if(results_index < results_size){
 					uint64_t t = ref_t;
-
 					results[results_index]=(t << 32) + result_match_id;
 					results_index++;
 				}else{

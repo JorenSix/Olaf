@@ -307,7 +307,7 @@ void olaf_fp_matcher_match_single_fingerprint(Olaf_FP_Matcher * fp_matcher,uint3
 	size_t number_of_results = olaf_db_find(fp_matcher->db,queryFingerprintHash-range,queryFingerprintHash+range,fp_matcher->db_results,fp_matcher->config->maxDBCollisions);
 
 	if(fp_matcher->config->verbose){
-		fprintf(stderr,"Matched fp hash %" PRIu64 " with database at q t1 %u, search range %d.\n\tNumber of results: %zu \n\n\tMax num results: %zu \n",queryFingerprintHash,queryFingerprintT1,range,number_of_results,fp_matcher->config->maxDBCollisions);
+		fprintf(stderr,"Matched fp hash %" PRIu64 " with database at q t1 %u, search range %d.\n\tNumber of results: %zu \n\tMax num results: %zu \n",queryFingerprintHash,queryFingerprintT1,range,number_of_results,fp_matcher->config->maxDBCollisions);
 	}
 	
 	if(number_of_results >= fp_matcher->config->maxDBCollisions){
@@ -321,7 +321,10 @@ void olaf_fp_matcher_match_single_fingerprint(Olaf_FP_Matcher * fp_matcher,uint3
 		//The last 32 bits represent the match identifier
 		uint32_t matchIdentifier = (uint32_t) fp_matcher->db_results[i]; 
 
-		//fprintf(stderr,"audio id: %u ref t1 %u \n",matchIdentifier,referenceFingerprintT1);
+		if(fp_matcher->config->verbose){
+			int delta = (int) queryFingerprintT1 - (int) referenceFingerprintT1;
+			fprintf(stderr,"\taudio id: %u\n\tref t1: %u \n\tdelta qt1-ft1: %d \n",matchIdentifier,referenceFingerprintT1,delta);
+		}
 
 		olaf_fp_matcher_tally_results(fp_matcher,queryFingerprintT1,referenceFingerprintT1,matchIdentifier);
 	}
@@ -338,7 +341,7 @@ void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_finger
 	if(fingerprints->fingerprintIndex > 0 && fp_matcher->config->printResultEvery != 0){
 		int printResultEvery = (fp_matcher->config->printResultEvery *  fp_matcher->config->audioSampleRate ) /  fp_matcher->config->audioStepSize;
 		int current_time = fingerprints->fingerprints[0].timeIndex1;
-		printf("%d %d \n", current_time,fp_matcher->last_print_at );
+		//printf("Current time: %d, Last print at: %d \n", current_time,fp_matcher->last_print_at );
 		if( current_time - fp_matcher->last_print_at > printResultEvery){
 			olaf_fp_matcher_print_header();
 			olaf_fp_matcher_print_results(fp_matcher);
@@ -373,26 +376,34 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 	if(fp_matcher->m_results_index > 0)
 		qsort(fp_matcher->m_results, fp_matcher->m_results_size, sizeof(struct match_result), olaf_fp_sort_results_by_match_count);
 
+	size_t reported_matches = 0;
+
 	//print the result from high to low
 	for(size_t i = 0 ; i < fp_matcher->m_results_index && i <  fp_matcher->config->maxResults ; i++){
 		struct match_result * match = &fp_matcher->m_results[i];
 
+
 		if(match->matchCount >= fp_matcher->config->minMatchCount){
+
 			float secondsPerBlock = ((float) fp_matcher->config->audioStepSize) / ((float) fp_matcher->config->audioSampleRate);
 			float timeDelta = secondsPerBlock * (match->queryFingerprintT1 - match->referenceFingerprintT1);
-
+			
 			float referenceStart =  match->firstReferenceFingerprintT1 * secondsPerBlock;
 			float referenceStop =  match->lastReferenceFingerprintT1 * secondsPerBlock;
 
-			float queryStart =  match->firstReferenceFingerprintT1 * secondsPerBlock + timeDelta;
-			float queryStop =  match->lastReferenceFingerprintT1 * secondsPerBlock  + timeDelta;
-			
-			uint32_t matchIdentifier = match->matchIdentifier;
+			if((referenceStop - referenceStart) >=  fp_matcher->config->minMatchTimeDiff ){
 
-			Olaf_Resource_Meta_data meta_data;
-			olaf_db_find_meta_data(fp_matcher->db,&matchIdentifier,&meta_data);
+				float queryStart =  match->firstReferenceFingerprintT1 * secondsPerBlock + timeDelta;
+				float queryStop =  match->lastReferenceFingerprintT1 * secondsPerBlock  + timeDelta;
+				
+				uint32_t matchIdentifier = match->matchIdentifier;
 
-			printf("%d, %.2f, %.2f, %s, %u, %.2f, %.2f\n",match->matchCount,queryStart,queryStop,meta_data.path,matchIdentifier,referenceStart,referenceStop);
+				Olaf_Resource_Meta_data meta_data;
+				olaf_db_find_meta_data(fp_matcher->db,&matchIdentifier,&meta_data);
+
+				printf("%d, %.2f, %.2f, %s, %u, %.2f, %.2f\n",match->matchCount,queryStart,queryStop,meta_data.path,matchIdentifier,referenceStart,referenceStop);
+				reported_matches++;
+			}
 		} else {
 			//Ignore matches with a small score
 			//for performance reasons
@@ -401,7 +412,7 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 	}
 
 	//report empty results if not results are found
-	if(fp_matcher->m_results_index == 0 || fp_matcher->m_results[0].matchCount < fp_matcher->config->minMatchCount ){
+	if(reported_matches == 0 ){
 		printf("%d, %.2f, %.2f, %s, %u, %.2f, %.2f\n",0,0.0,0.0,"",0,0.0,0.0);
 	}
 }

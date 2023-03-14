@@ -66,7 +66,7 @@ mem:
 	gcc -c src/olaf_fp_matcher.c 		 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_config.c 			 -Dmem -W -Wall -std=c11 -pedantic -O2
 	mkdir -p bin
-	gcc -o bin/olaf_mem *.o 			-lc -lm -ffast-math -pthread
+	gcc -o bin/olaf_mem *.o 			-lc -lm -ffast-math
 
 #Compiles the webassembly version: it is similar to the mem version
 web:

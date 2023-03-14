@@ -89,6 +89,10 @@ Olaf_Config* olaf_config_default(){
 	//minimum aligned matches before reporting match
 	config->minMatchCount = 6;
 
+	//duration in seconds before a match is reported.
+	//Zero means that all matches are reported.
+	config->minMatchTimeDiff = 0;
+
 	//Forget matches after x seconds
 	//or never when zero
 	config->keepMatchesFor = 0;//seconds
@@ -123,6 +127,9 @@ Olaf_Config* olaf_config_esp_32(){
 
 	config->numberOfEPsPerFP = 2;
 
+	//The range around a hash to search
+	config->searchRange = 3;
+
 	config->maxEventPoints = 50;
 	config->eventPointThreshold = 30;
 
@@ -147,6 +154,7 @@ Olaf_Config* olaf_config_mem(){
 	config->keepMatchesFor = 10;//seconds
 
 	config->minMatchCount = 4;
+	config->minMatchTimeDiff = 1.0;
 	
 	config->maxEventPointUsages = 7;
 

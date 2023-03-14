@@ -139,8 +139,10 @@
 		int minMatchCount;
 
 		/** The minimum duration of a match before it is reported: 5 matches over 2 seconds indicates a more reliable 
-		 * match than 5 matches in 0.1s. */
-		int minMatchTimeDiff;
+		 * match than 5 matches in 0.1s. It is expressed in seconds. 
+		 * Zero means that all matches are reported.
+		 */
+		float minMatchTimeDiff;
 
 		/** After this time, in seconds, a match is forgotten. This especially relevant for streams. Set to 0 to keep all matches. */
 		float keepMatchesFor;
