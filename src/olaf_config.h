@@ -81,8 +81,7 @@
 		int filterSizeFrequency;
 		int halfFilterSizeFrequency;
 
-		/**To avoid extracting event points of silence,
-		/*the ep magnitude should be at least this value*/
+		/**To avoid extracting event points of silence, the ep magnitude should be at least this value*/
 		float minEventPointMagnitude;
 
 		/**Frequency bins below this value are not used in ep extraction.*/
@@ -93,17 +92,22 @@
 
 
 		/**Max number of event points before they are 
-		/*combined into fingerprints 
-		/*(parameter should not have any effect,except for memory use)*/
+		 *combined into fingerprints 
+		 *(parameter should not have any effect,except for memory use)
+		 */
 		int maxEventPoints;
 		/** Once this number of event points is listed, start combining 
-		/* them into fingerprints: should be less than maxEventPoints */
+		 * them into fingerprints: should be less than maxEventPoints 
+		 */
 		int eventPointThreshold;
 
 		
 		//-----------Fingerprint configuration
-		//For over the air queries it is best to 
-		//not include magnitude info in fingerprint
+		
+		/** Include magnitude info in fingerprints or not.
+		 * For over the air queries it is best to 
+		 * not include magnitude info in fingerprint
+		 */
 		bool useMagnitudeInfo;
 
 		/**Number of event points per fingerprint. Should be either three (for clean queries) or two for noisy queries.*/

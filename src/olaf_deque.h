@@ -17,33 +17,88 @@
 /**
  * @file olaf_deque.h
  *
- * @brief Olaf double ended queue interface.
+ * @brief A double ended queue interface.
  *
- * This hides the underlying deque implementation used and gives a stable
- * and simple interface for use in olaf. It just adds a level of indirection
- * which might come in handy.
+ * This hides the underlying dequeue implementation used and gives a stable
+ * and simple interface for use in Olaf. It also manages memory related to the deque. 
+ * Additionally, it adds a level of indirection which might come in handy to replace the underlying
+ * implementation.
  */
 #ifndef OLAF_DEQUE
 #define OLAF_DEQUE
 	
-
+	/**
+	 * @struct Olaf_Deque
+	 *
+	 * @brief Contains state information related to the deque.
+	 * 
+	 * The memory used by the ep extractor should be freed in the  @_destroy@ method. 
+	 */
 	typedef struct Olaf_Deque Olaf_Deque;
 
+	/**
+	 * @brief      Create an new double ended queue 
+	 *
+	 * @param[in]  size  The maximum size of de deque. Memory is allocated on initialization.
+	 *
+	 * @return     The state of the deque.
+	 */
 	Olaf_Deque * olaf_deque_new(size_t size);
 
+	/**
+	 * @brief      Push a value to the end of the deque.
+	 *
+	 * @param      olaf_deque  The olaf deque
+	 * @param[in]  value       The value
+	 */
 	void olaf_deque_push_back(Olaf_Deque * olaf_deque,size_t value);
 
+	/**
+	 * @brief      Return the back of the deque.
+	 *
+	 * @param      olaf_deque  The olaf deque
+	 *
+	 * @return     The back, tail of the deque
+	 */
 	size_t olaf_deque_back(Olaf_Deque * olaf_deque);
 
+	/**
+	 * @brief      Checks if the deque is empty.
+	 *
+	 * @param      olaf_deque  The olaf deque
+	 *
+	 * @return     True if the deque is empty
+	 */
 	bool olaf_deque_empty(Olaf_Deque * olaf_deque);
 
+	/**
+	 * @brief      The front of the deque.
+	 *
+	 * @param      olaf_deque  The olaf deque
+	 *
+	 * @return     The front of the deque.
+	 */
 	size_t olaf_deque_front(Olaf_Deque * olaf_deque);
 
+	/**
+	 * @brief      Pop the back from the deque.
+	 *
+	 * @param      olaf_deque  The olaf deque
+	 */
 	void olaf_deque_pop_back(Olaf_Deque * olaf_deque);
 
+	/**
+	 * @brief      Remove the front of the deque.
+	 *
+	 * @param      olaf_deque  The olaf deque
+	 */
 	void olaf_deque_pop_front(Olaf_Deque * olaf_deque);
 
-	//free memory resources and 
+	/**
+	 * @brief      Free resources and memory related to the deque.
+	 *
+	 * @param      olaf_deque  The olaf deque
+	 */
 	void olaf_deque_destroy(Olaf_Deque * olaf_deque);
 
 

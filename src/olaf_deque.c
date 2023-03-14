@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #include "queue.h"
 #include "olaf_deque.h"
@@ -51,7 +52,8 @@ void olaf_deque_push_back(Olaf_Deque * olaf_deque,size_t value){
 	olaf_deque->value_index++;
 	//grow array here if needed
 	if (olaf_deque->value_index == olaf_deque->max_size){
-		fprintf(stderr,"Growing array to grow array !\n");
+		fprintf(stderr,"Max size reached. Growing array not implemented!\n");
+		assert(false);
 	}
 }
 

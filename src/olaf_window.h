@@ -17,11 +17,11 @@
 #ifndef OLAF_WINDOW_H
 #define OLAF_WINDOW_H
 
+#include <stdbool.h> //bool 
+
 /**
  * @file olaf_window.h
  * @brief Precomputed windows to apply to audio blocks.
- *
- * This file contains a couple pre computed 
  * 
  */
 

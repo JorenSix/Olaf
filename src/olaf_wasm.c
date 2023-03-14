@@ -74,6 +74,7 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 	}
 
 
+	//Expect a step size of 128
 	size_t step_size = state.config->audioStepSize;
 	size_t block_size = state.config->audioBlockSize;
 	
@@ -84,6 +85,7 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 	const float* window = olaf_fft_window(state.config->audioBlockSize);
 	
 	for(size_t j = 0; j < steps_per_block ; j++){
+
 		// make room for the new samples: shift the samples to the beginning
 		for(size_t i = 0 ; i < overlap_size;i++){
 			state.audio[i] = state.audio[i+step_size];
@@ -95,7 +97,7 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 			read_index++;
 		}
 
-		//windowing
+		//Store in the fft in array while applying the window 
 		for(int i = 0 ; i <  state.config->audioBlockSize ; i++){
 			state.fft_in[i] = state.audio[i] * window[i];
 		}

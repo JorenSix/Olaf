@@ -23,7 +23,7 @@ function processAudioWithOlaf(audioProcessingEvent) {
     if(inputAudioPtr==null){
       inputAudioBytes = audioInputBuffer.length * audioInputBuffer.BYTES_PER_ELEMENT;
       inputAudioPtr = Module._malloc(inputAudioBytes);
-      console.log("Audio ptr", inputAudioPtr)
+      //console.log("Audio ptr", inputAudioPtr)
     }
 
     if(fingerprintPtr==null){
@@ -31,7 +31,7 @@ function processAudioWithOlaf(audioProcessingEvent) {
       var fingerprintsBytes = 256 * 8 * 5;
       fingerprintPtr = Module._malloc(fingerprintsBytes);
 
-      console.log("fp ptr",fingerprintPtr)
+      //console.log("fp ptr",fingerprintPtr)
     }
     var fingerprintBuffer = new Uint8Array(fingerprintsBytes);
     

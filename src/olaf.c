@@ -185,7 +185,7 @@ int main(int argc, const char* argv[]){
 		//read audio samples from standard input
 		runner->config->printResultEvery = 3;//print results every three seconds
 		runner->config->keepMatchesFor = 10;//keep matches for 7 seconds
-
+		fprintf(stderr,"Start listening for incoming raw audio samples piped in over STDIN.\n");
 		Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,NULL,"stdin");
 		olaf_stream_processor_process(processor);
 		olaf_stream_processor_destroy(processor);

@@ -204,9 +204,16 @@ uint32_t olaf_db_string_hash(const char *key, size_t len){
 void olaf_db_store_meta_data(Olaf_DB * olaf_db, uint32_t * key, Olaf_Resource_Meta_data * value){
 
 	//adds additional fields to the 'database' header file
+	printf("\n/** The length of the fingerprint array */\n");
 	printf("const size_t olaf_db_mem_fp_length      = %zu;\n",value->fingerprints);
+
+	printf("\n/** The single audio identifier: only one item can be stored in the memory store. */\n");
 	printf("const uint32_t olaf_db_mem_audio_id     = %u;\n",*key);
+
+	printf("\n/** The path of the original audio file. */\n");
 	printf("const char* olaf_db_mem_audio_path      = \"%s\";\n",value->path);
+
+	printf("\n/** The duration, in seconds, of the original audio file. */\n");
 	printf("const double olaf_db_mem_audio_duration = %f;\n",value->duration);
 
 	(void)(olaf_db);

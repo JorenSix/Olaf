@@ -82,7 +82,13 @@ void olaf_fp_db_writer_destroy(Olaf_FP_DB_Writer * db_writer, bool store){
 	if(db_writer->index > 0){
 		qsort(db_writer->hashes, db_writer->index, sizeof(uint64_t), fp_hash_compare);
 
-		printf("#include <stdint.h>\n\nconst uint64_t olaf_db_mem_fps[] = {\n");
+		printf("/**@file olaf_fp_ref_mem.h \n");
+		printf(" * @brief The in-memory 'database' of fingerprints used to match queries against in the 'memory' configuration. \n");
+		printf(" */\n");
+		printf("#include <stdint.h>\n\n");
+
+		printf("/**The array with fingerprints.*/\n");
+		printf("const uint64_t olaf_db_mem_fps[] = {\n");
 		for(size_t i = 0 ; i < db_writer->index;i++){
 			printf("%llu,\n",db_writer->hashes[i]);
 		}
