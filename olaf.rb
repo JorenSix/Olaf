@@ -38,6 +38,8 @@ AUDIO_CONVERT_FROM_RAW_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -ac 1 
 AUDIO_CONVERT_COMMAND_WITH_START_DURATION = "ffmpeg -hide_banner -y -loglevel panic -ss __start__ -i \"__input__\" -t __duration__ -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le \"__output__\""
 MIC_INPUT = "ffmpeg -hide_banner -loglevel panic  -f avfoundation -i 'none:default' -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le pipe:1"
 
+#alt mic input: sox -d -t raw -b 32 -e float -c 1  -r 16000 - | ./bin/olaf_mem query
+
 #expand the argument to a list of files to process.
 # a file is simply added to the list
 # a text file is read and each line is interpreted as a path to a file

@@ -151,7 +151,7 @@ void olaf_fp_matcher_mark_old_matches(Olaf_FP_Matcher * fp_matcher, int current_
 	if(fp_matcher->m_results_index > 0)
 		qsort(fp_matcher->m_results, fp_matcher->m_results_size, sizeof(struct match_result), olaf_fp_sort_results_by_age);
 	
-	//the number of blocks 
+	//from seconds to the number of blocks 
 	int max_age = (int) ((fp_matcher->config->keepMatchesFor  * fp_matcher->config->audioSampleRate) /  fp_matcher->config->audioStepSize);
 
 	//print the result from high to low
@@ -161,12 +161,12 @@ void olaf_fp_matcher_mark_old_matches(Olaf_FP_Matcher * fp_matcher, int current_
 		
 		int age = current_query_time - match->queryFingerprintT1;
 
-		//printf("Current %d, match %d, age %d, max %d\n",current_query_time,match->queryFingerprintT1,age,max_age);
+		//printf("Current query time %d, match query time %d, age %d, max age %d\n",current_query_time,match->queryFingerprintT1,age,max_age);
 
 		bool too_old = age > max_age;
 		if(too_old){
 			match->matchCount = 0;
-			//printf("Match %d too old and marked \n",match->queryFingerprintT1);
+			//printf("Match too old and marked. Current query time %d, match time %d, age %d, max age %d\n",current_query_time,match->queryFingerprintT1,age,max_age);
 		}
 	}
 }
@@ -206,7 +206,7 @@ void olaf_fp_matcher_m_results_grow(Olaf_FP_Matcher * fp_matcher,int queryFinger
 		exit(-5145);
 	}
 
-	fprintf(stderr,"Grow all results array to %zu elements ",fp_matcher->m_results_size);
+	//fprintf(stderr,"Grow all results array to %zu elements ",fp_matcher->m_results_size);
 		
 
 	//printf("Hash table size before grow %d \n",hash_table_num_entries(fp_matcher->result_hash_table));
@@ -273,8 +273,7 @@ void olaf_fp_matcher_tally_results(Olaf_FP_Matcher * fp_matcher,int queryFingerp
 		match->matchCount = match->matchCount + 1;
 		match->firstReferenceFingerprintT1 = min(referenceFingerprintT1,match->firstReferenceFingerprintT1);
 		match->lastReferenceFingerprintT1 = max(referenceFingerprintT1,match->lastReferenceFingerprintT1);
-
-		//printf("UPDATE  %llu hash table size: %d  match_count: %d  %llu index \n",result_hash_table_key,hash_table_num_entries(fp_matcher->result_hash_table),match->matchCount,fp_matcher->m_results_index);
+		//if(match->matchCount>5) printf("UPDATE  %llu hash table size: %d  match_count: %d  %llu index, query time %d \n",result_hash_table_key,hash_table_num_entries(fp_matcher->result_hash_table),match->matchCount,fp_matcher->m_results_index,match->queryFingerprintT1);
 	}else{
 		//Create new hashtable entry if not found
 		size_t i = fp_matcher->m_results_index;
@@ -340,14 +339,21 @@ void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_finger
 	
 	if(fingerprints->fingerprintIndex > 0 && fp_matcher->config->printResultEvery != 0){
 		int printResultEvery = (fp_matcher->config->printResultEvery *  fp_matcher->config->audioSampleRate ) /  fp_matcher->config->audioStepSize;
-		int current_time = fingerprints->fingerprints[0].timeIndex1;
-		//printf("Current time: %d, Last print at: %d \n", current_time,fp_matcher->last_print_at );
-		if( current_time - fp_matcher->last_print_at > printResultEvery){
+		int current_query_time = fingerprints->fingerprints[fingerprints->fingerprintIndex-1].timeIndex3;
+		//printf("Current time: %d, Last print at: %d \n", current_query_time,fp_matcher->last_print_at );
+		if( current_query_time - fp_matcher->last_print_at > printResultEvery){
 			olaf_fp_matcher_print_header();
 			olaf_fp_matcher_print_results(fp_matcher);
-			fp_matcher->last_print_at = current_time;
+			fp_matcher->last_print_at = current_query_time;
 		}
 	}
+
+	//mark old matches.
+	if( fingerprints->fingerprintIndex > 0 && fp_matcher->config->keepMatchesFor != 0 ){
+		int current_query_time = fingerprints->fingerprints[fingerprints->fingerprintIndex-1].timeIndex3;
+		olaf_fp_matcher_mark_old_matches(fp_matcher,current_query_time);
+	}
+	
 	
 	//make room for new fingerprints in the shared struct!
 	fingerprints->fingerprintIndex=0;

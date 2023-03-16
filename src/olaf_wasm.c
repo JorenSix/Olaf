@@ -58,7 +58,7 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 
 	if(state.fftSetup == NULL){
 		//Get the default configuration
-		state.config = olaf_config_mem();
+		state.config = olaf_config_esp_32();
 
 		state.fftSetup = pffft_new_setup(state.config->audioBlockSize,PFFFT_REAL);
 		state.fft_in = (float*) pffft_aligned_malloc(state.config->audioBlockSize*4);//fft input
@@ -125,12 +125,11 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 				int maxMatchScore = 0;
 				
 				olaf_fp_matcher_match(state.fp_matcher,state.fingerprints);
-				olaf_fp_matcher_print_header();
-				olaf_fp_matcher_print_results(state.fp_matcher);
-				olaf_fp_matcher_mark_old_matches(state.fp_matcher,state.audioBlockIndex);
-
-				printf("Max Match score: %d \n",maxMatchScore);
-				state.fingerprints->fingerprintIndex = 0;
+				//olaf_fp_matcher_print_header();
+				//olaf_fp_matcher_print_results(state.fp_matcher);
+				
+				//printf("Match called, fp index: %d \n",state.fingerprints->fingerprintIndex);
+				//state.fingerprints->fingerprintIndex = 0;
 			}
 		}
 		state.audioBlockIndex++;

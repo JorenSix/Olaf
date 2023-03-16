@@ -15,21 +15,73 @@
 
 	<button onclick="startOrStopAudio()">Start or stop audio</button>
 
-	<label style="margin-top:1em;display: block;">Match found: <input disabled type="checkbox"></input></label>
+	<label  style="margin-top:1em;display: block;color:gray;font-size: 110%">Match found: <input disabled type="checkbox" id="match_found"></input>&nbsp;&nbsp;Estimated reference time (s): <span style="font-family: monospace;" id="time">0.00</span></label>
 	
 	<textarea id="console_out" readonly style="margin-top:1em;display: block;width:98%;padding:0;height:10em;font-family: monospace;">Press the start button to begin audio fingerprinting.</textarea>
 
 	<script>
 		var audioContext = null;
 		var microphoneStream = null;
+		const console_log = window.console.log;
+
+		const found_checkbox = document.getElementById("match_found");
+		const time = document.getElementById("time");
+
+		var timedelta = 0;
+
+		function isNumeric(n) {
+  			return !isNaN(parseFloat(n)) && isFinite(n);
+		}
+
+		function updateAtAudioRate(){
+			if(audioContext!=null && timedelta!=0 ){
+				console_log(audioContext.currentTime + timedelta);
+				time.innerText = (audioContext.currentTime + timedelta).toFixed(2);
+			}
+		}
+
 
   		(()=>{
-		  const console_log = window.console.log;
+		  
 		  window.console.log = function(...args){
 		    console_log(...args);
 		    var textarea = document.getElementById('console_out');
 		    if(!textarea) return;
-		    args.forEach(arg=>textarea.value += `${JSON.stringify(arg)}\n`);
+
+		    args.forEach(arg => textarea.value += `${JSON.stringify(arg)}\n`);
+
+		    textarea.scrollTop = textarea.scrollHeight;
+		    // This logic parses the result string from Olaf
+		    // if a line contains numeric values separated by ',' it is a result line.
+		    // Only the first is considered and used and interpreted
+		    // 
+		    var reported = false;
+		    args.forEach(arg => {
+		    	const data = arg.split(",");
+		    	if(!reported && data.length > 5 && isNumeric(data[0]) && parseFloat(data[0]) > 0){
+		    		//match found
+		    		const query_time = parseFloat(data[1]);
+		    		const reference_time =parseFloat(data[5]);
+		    		timedelta = reference_time - query_time;
+		    		console_log("match found",timedelta);
+		    		found_checkbox.checked = true;
+		    		reported = true;
+		    	}
+
+		    	if(data.length > 5 && isNumeric(data[0]) && parseFloat(data[0]) == 0){
+		    		//match found
+		    		const query_time = parseFloat(data[1]);
+		    		const reference_time =parseFloat(data[5]);
+
+		    		found_checkbox.checked = false;
+
+		    		time.innerText = (0.00).toFixed(2);
+
+		    		timedelta = 0;	
+		    	} 
+		    });
+
+
 		  }
 		})();
 	</script>

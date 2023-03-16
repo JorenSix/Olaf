@@ -75,6 +75,8 @@ function processAudioWithOlaf(audioProcessingEvent) {
     //Module._free(fingerprintHeap.byteOffset);
 
    //drawFrequencyData()
+
+    updateAtAudioRate();
 }
 
     

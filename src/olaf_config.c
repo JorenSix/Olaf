@@ -123,25 +123,34 @@ Olaf_Config* olaf_config_esp_32(){
 	//debug statements
 	config->verbose = false;
 
-	config->minMatchCount = 2;
-
+	//For over the air queries set fp's to two
 	config->numberOfEPsPerFP = 2;
+	config->maxEventPointUsages = 20;
 
-	//The range around a hash to search
-	config->searchRange = 3;
+	//config->filterSizeTime=13;
+	//config->halfFilterSizeTime=config->filterSizeTime/2;
 
+	//Not much results expected
+	config->maxResults = 20;
+
+	//Set lower to get faster results
 	config->maxEventPoints = 50;
 	config->eventPointThreshold = 30;
-
 	config->maxFingerprints = 30;
-	config->maxDBCollisions = 100;//for larger data sets use around 2000
 
-	config->filterSizeTime=15;
-	config->halfFilterSizeTime=config->filterSizeTime/2;
+	//The range around a hash to search
+	config->searchRange = 5;
 
-	config->keepMatchesFor = 20;//seconds
+	//We do not expect much collisions
+	config->maxDBCollisions = 50;//for larger data sets use around 2000
+	
+	//report matches quicker
+	config->minMatchCount = 2;
+	config->minMatchTimeDiff = 1.0;
+
+	config->keepMatchesFor = 8;//seconds
 	//print results after x seconds or only at the end of stream (when zero)
-	config->printResultEvery = 0;//seconds
+	config->printResultEvery = 1;//seconds
 
 	return config;
 }
@@ -149,16 +158,15 @@ Olaf_Config* olaf_config_esp_32(){
 Olaf_Config* olaf_config_mem(){
 	Olaf_Config* config =  olaf_config_esp_32();
 
-	config->maxResults = 20;
+	//Print more results
+	config->maxResults = 10;
 
-	config->keepMatchesFor = 10;//seconds
-
-	config->minMatchCount = 4;
-	config->minMatchTimeDiff = 1.0;
-	
-	config->maxEventPointUsages = 7;
+	//No streaming: print after end of file
+	config->printResultEvery = 0;//seconds
+	config->keepMatchesFor = 0;//seconds
 
 	config->verbose = false;
+
 	return config;
 }
 
