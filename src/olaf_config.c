@@ -145,7 +145,7 @@ Olaf_Config* olaf_config_esp_32(){
 	config->maxDBCollisions = 50;//for larger data sets use around 2000
 	
 	//report matches quicker
-	config->minMatchCount = 2;
+	config->minMatchCount = 4;
 	config->minMatchTimeDiff = 1.0;
 
 	config->keepMatchesFor = 8;//seconds

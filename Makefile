@@ -70,7 +70,17 @@ mem:
 
 #Compiles the webassembly version: it is similar to the mem version
 web:
-	emcc -o wasm/js/olaf.html -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s EXPORTED_FUNCTIONS="['_malloc','_free']" -s EXPORTED_RUNTIME_METHODS='["cwrap"]' \
+	emcc -o wasm/js/olaf.js \
+		-s SINGLE_FILE=1 \
+		-s ASSERTIONS=1 \
+		-s ENVIRONMENT=shell \
+		-s MODULARIZE=1  \
+		-s WASM=1 \
+		-s BINARYEN_ASYNC_COMPILATION=0 \
+		--bind \
+		-s ALLOW_MEMORY_GROWTH=1 \
+		-s EXPORTED_FUNCTIONS="['_malloc','_free']" \
+		-s EXPORTED_RUNTIME_METHODS='["cwrap"]' \
 		src/olaf_wasm.c \
 		src/pffft.c \
 		src/hash-table.c \
@@ -82,7 +92,9 @@ web:
 		src/olaf_db_mem.c \
 		src/olaf_fp_db_writer_mem.c \
 		src/olaf_fp_matcher.c \
-		src/olaf_config.c  -O3 -Wall -lm -lc -W -I.
+		src/olaf_config.c  -O3 -Wall -lm -lc -W -I. -ffast-math
+		cat wasm/js/olaf.js wasm/js/olaf_processor_edit.js > wasm/js/olaf_processor.js
+		rm  wasm/js/olaf.js
 
 #Cleans the temporary files
 clean:

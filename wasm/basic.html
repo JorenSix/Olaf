@@ -22,71 +22,52 @@
 	<script>
 		var audioContext = null;
 		var microphoneStream = null;
-		const console_log = window.console.log;
 
 		const found_checkbox = document.getElementById("match_found");
 		const time = document.getElementById("time");
+		var textarea = document.getElementById('console_out');
 
-		var timedelta = 0;
+		var reference_query_time_delta = 0;
 
-		function isNumeric(n) {
-  			return !isNaN(parseFloat(n)) && isFinite(n);
+		function updateMatch(match_info){
+			let found_match = match_info['query_time_start'];
+			let match_time = match_info['time'];
+
+			//report match or no match
+			if(found_match){
+				reference_query_time_delta = match_info['reference_time_start'] - match_info['query_time_start'];
+				let estimated_playing_time = audioContext.currentTime + reference_query_time_delta;
+				textarea.value +=  (match_time).toFixed(2)+ ": match found! Match count " + match_info['match_count'] + ", reference time: " +  (estimated_playing_time).toFixed(2) + "\n";
+				console.log(match_info);
+			}else{
+				reference_query_time_delta = 0;
+				textarea.value += (match_time).toFixed(2) + ": no match found \n";
+			}
+			textarea.scrollTop = textarea.scrollHeight;
+
+
+			//state flipped from not matching to matching state
+			if(found_match && !found_checkbox.checked){
+				found_checkbox.checked = true;
+				showEstimatedTime();
+			}
+
+			//state flipped from matching to not matching state
+			if(!found_match && found_checkbox.checked){
+				found_checkbox.checked = false;
+				time.innerText = 0.0.toFixed(2);
+			}
+
 		}
 
-		function updateAtAudioRate(){
-			if(audioContext!=null && timedelta!=0 ){
-				console_log(audioContext.currentTime + timedelta);
-				time.innerText = (audioContext.currentTime + timedelta).toFixed(2);
+		function showEstimatedTime(){
+			if(reference_query_time_delta != 0){
+				let estimated_playing_time = audioContext.currentTime + reference_query_time_delta;
+				time.innerText = (estimated_playing_time).toFixed(2);
+				requestAnimationFrame(showEstimatedTime);
 			}
 		}
-
-
-  		(()=>{
-		  
-		  window.console.log = function(...args){
-		    console_log(...args);
-		    var textarea = document.getElementById('console_out');
-		    if(!textarea) return;
-
-		    args.forEach(arg => textarea.value += `${JSON.stringify(arg)}\n`);
-
-		    textarea.scrollTop = textarea.scrollHeight;
-		    // This logic parses the result string from Olaf
-		    // if a line contains numeric values separated by ',' it is a result line.
-		    // Only the first is considered and used and interpreted
-		    // 
-		    var reported = false;
-		    args.forEach(arg => {
-		    	const data = arg.split(",");
-		    	if(!reported && data.length > 5 && isNumeric(data[0]) && parseFloat(data[0]) > 0){
-		    		//match found
-		    		const query_time = parseFloat(data[1]);
-		    		const reference_time =parseFloat(data[5]);
-		    		timedelta = reference_time - query_time;
-		    		console_log("match found",timedelta);
-		    		found_checkbox.checked = true;
-		    		reported = true;
-		    	}
-
-		    	if(data.length > 5 && isNumeric(data[0]) && parseFloat(data[0]) == 0){
-		    		//match found
-		    		const query_time = parseFloat(data[1]);
-		    		const reference_time =parseFloat(data[5]);
-
-		    		found_checkbox.checked = false;
-
-		    		time.innerText = (0.00).toFixed(2);
-
-		    		timedelta = 0;	
-		    	} 
-		    });
-
-
-		  }
-		})();
 	</script>
-
-	<script src="js/olaf.js"></script>
 	<script src="js/olaf_bridge.js"></script>
 </body>
 </html>
