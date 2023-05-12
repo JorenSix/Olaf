@@ -1,3 +1,4 @@
+
 #Compiles the default olaf version for use on traditional computers
 compile:
 	gcc -c src/pffft.c 					-W -Wall -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
@@ -22,6 +23,7 @@ compile:
 	mkdir -p bin
 	gcc -o bin/olaf_c *.o 			-lc -lm -ffast-math -pthread
 
+#A compilation with support for profiling
 compile_gprof:
 	gcc -c src/pffft.c 					-pg -W -Wall -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
 	gcc -c src/midl.c 					-pg -W -Wall -std=c11 -pedantic -O2
@@ -104,7 +106,7 @@ clean:
 	-rm -f wasm/js/olaf.html
 	-rm -f wasm/js/olaf.wasm
 
-#Deletes the database, check your configuration
+#Deletes the database, check your configuration for the database location
 destroy_db:
 	rm ~/.olaf/db/*
 
@@ -116,6 +118,7 @@ install:
 	sudo cp olaf.rb /usr/local/bin/olaf
 	sudo chmod +x /usr/local/bin/olaf
 
+#Only install the Ruby part, mainly for dev purposes
 install_r:
 	sudo cp olaf.rb /usr/local/bin/olaf
 	sudo chmod +x /usr/local/bin/olaf
@@ -133,7 +136,8 @@ uninstall:
 	rm -r ~/.olaf
 	sudo rm /usr/local/bin/olaf /usr/local/bin/olaf_c
 
-#Compile and run the tests
+#Compile unit tests and run the unit tests
+#The functional tests are run via ruby, see readme
 test:
 	gcc -c src/olaf_config.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_reader_stream.c -W -Wall -std=c11 -pedantic -O2
@@ -149,13 +153,16 @@ test:
 	mkdir -p tests/olaf_test_db
 	- rm tests/olaf_test_db/*
 
+
 #Generate doxygen API documentation
 docs:
 	doxygen
 
+#Compile a windows exe using Zig
 zig_win:
 	zig build -Dtarget=x86_64-windows-gnu
 
+#Compile a webassembly version, currently unused, via Zig
 zig_web:
 	zig build -Dtarget=wasm32-freestanding-musl -Drelease-small
 	
