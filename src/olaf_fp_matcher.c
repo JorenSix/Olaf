@@ -371,7 +371,7 @@ int olaf_fp_sort_results_by_match_count(const void * a, const void * b) {
 	return diff;
 }
 
-void olaf_fp_matcher_print_header(){
+void olaf_fp_matcher_print_header(void){
 	printf("match count (#), q start (s) , q stop (s), ref path, ref ID, ref start (s), ref stop (s)\n");
 }
 

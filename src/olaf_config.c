@@ -19,7 +19,7 @@
 
 #include "olaf_config.h"
 
-Olaf_Config* olaf_config_default(){
+Olaf_Config* olaf_config_default(void){
 	Olaf_Config *config = (Olaf_Config *) malloc(sizeof(Olaf_Config));
 
 	//construct the directory to write db info to: /home/user/.olaf/db/
@@ -105,7 +105,7 @@ Olaf_Config* olaf_config_default(){
 	return config;
 }
 
-Olaf_Config* olaf_config_test(){
+Olaf_Config* olaf_config_test(void){
 	Olaf_Config* config =  olaf_config_default();
 
 	const char* dbDir = "tests/olaf_test_db";
@@ -117,7 +117,7 @@ Olaf_Config* olaf_config_test(){
 	return config;
 }
 
-Olaf_Config* olaf_config_esp_32(){
+Olaf_Config* olaf_config_esp_32(void){
 	Olaf_Config* config =  olaf_config_default();
 
 	//debug statements
@@ -155,7 +155,7 @@ Olaf_Config* olaf_config_esp_32(){
 	return config;
 }
 
-Olaf_Config* olaf_config_mem(){
+Olaf_Config* olaf_config_mem(void){
 	Olaf_Config* config =  olaf_config_esp_32();
 
 	//Print more results

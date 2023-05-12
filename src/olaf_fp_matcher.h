@@ -66,7 +66,7 @@
 	/**
 	 * @brief      Print a header for the CSV output.
 	 */
-	void olaf_fp_matcher_print_header();
+	void olaf_fp_matcher_print_header(void);
 
 	/**
 	 * @brief      Print the current results.

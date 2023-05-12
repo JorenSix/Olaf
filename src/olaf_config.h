@@ -160,26 +160,26 @@
 	 * The default configuration to use on traditional computers.
 	 *  @return   A new configuration struct, or NULL if it was not possible to allocate the memory.
 	 */
-	Olaf_Config* olaf_config_default();
+	Olaf_Config* olaf_config_default(void);
 
 
 	/**
 	 * The configuration to use for (unit) tests.
 	 * @return   A new configuration struct, or NULL if it was not possible to allocate the memory.
 	 */
-	Olaf_Config* olaf_config_test();
+	Olaf_Config* olaf_config_test(void);
 
 	/**
 	 * The configuration to use on ESP32 microcontrollers.
 	 * @return   A new configuration struct, or NULL if it was not possible to allocate the memory.
 	 */
-	Olaf_Config* olaf_config_esp_32();
+	Olaf_Config* olaf_config_esp_32(void);
 
 	/**
 	 * The configuration to use for an in memory database. This is mainly to test the ESP32 code.
 	 * @return   A new configuration struct, or NULL if it was not possible to allocate the memory.
 	 */
-	Olaf_Config* olaf_config_mem();
+	Olaf_Config* olaf_config_mem(void);
 
 	/**
 	 * Free the memory used by the configuration struct

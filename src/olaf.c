@@ -97,7 +97,7 @@ void olaf_print_help(const char* message){
 	exit(-10);
 }
 
-int olaf_stats(){
+int olaf_stats(void){
 	//print database statistics and exit
 	Olaf_Config* config = olaf_config_default();
 	Olaf_DB* db = olaf_db_new(config->dbFolder,true);

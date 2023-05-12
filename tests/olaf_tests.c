@@ -21,7 +21,7 @@ uint64_t olaf_db_mem_pack(uint64_t hash, uint32_t t){
 }
 
 
-void olaf_reader_test(){
+void olaf_reader_test(void){
 	const char* audio_file_name = "tests/16k_samples.raw";
 
 	Olaf_Config *config = olaf_config_test();
@@ -51,7 +51,7 @@ void olaf_reader_test(){
 	olaf_config_destroy(config);
 }
 
-void olaf_deque_tests(){
+void olaf_deque_tests(void){
 	Olaf_Deque * deque = olaf_deque_new(100);
 	olaf_deque_push_back(deque,5);
 	olaf_deque_push_back(deque,6);
@@ -76,7 +76,7 @@ void olaf_deque_tests(){
 	olaf_deque_destroy(deque);
 }
 
-void olaf_max_filter_test(){
+void olaf_max_filter_test(void){
 
 	float array[10] = {1,1,1,7,6,7,9,3,2,2};
 	size_t array_size = 10;
@@ -113,7 +113,7 @@ void olaf_max_filter_test(){
 	printf("%f  \n",max_values[8]);
 }
 
-void olaf_db_tests(){
+void olaf_db_tests(void){
 	Olaf_DB* db = NULL;
 	printf("%s\n","Start DB tests.");
 	
@@ -165,7 +165,7 @@ void olaf_db_tests(){
 	olaf_config_destroy(config);
 }
 
-void olaf_pack_test(){
+void olaf_pack_test(void){
 	uint64_t hash = 1234567895647l;
 	uint32_t t = 7895;
 
