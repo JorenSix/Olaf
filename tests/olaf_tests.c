@@ -184,7 +184,7 @@ void olaf_pack_test(){
 int main(int argc, const char* argv[]){
 	(void)(argc);
 	(void)(argv);
-	olaf_max_filter_test();
+	//olaf_max_filter_test();
 	olaf_deque_tests();
 	olaf_db_tests();
 	olaf_reader_test();

@@ -54,7 +54,15 @@ def assert(message, &block)
     end
 end
 
+assert("Database should be empty, before running tests run 'olaf clear'") { OlafStats.new.number_of_songs == 0 }
+
 REF_TARGET_FOLDER = "dataset/ref"
+#check dataset, if not available, download
+ref_files = Dir.glob(File.join(REF_TARGET_FOLDER,"*mp3"))
+if ref_files.length == 0
+    STDERR.puts 'Test dataset not found. Downloading...'
+    system("ruby eval/olaf_download_dataset.rb")
+end
 REF_FILES = Dir.glob(File.join(REF_TARGET_FOLDER,"*mp3")).sort
 
 QUERY_TARGET_FOLDER = "dataset/queries"

@@ -139,7 +139,7 @@ test:
 	gcc -c src/olaf_reader_stream.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/queue.c  		   		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_deque.c  	   		-W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_max_filter_perceptual.c -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_max_filter_naive.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c tests/olaf_tests.c	-Isrc	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/midl.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/mdb.c 					-W -Wall -std=c11 -pedantic -O2
