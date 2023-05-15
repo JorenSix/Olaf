@@ -26,8 +26,8 @@ h2(#overview). Overview
 ## "Database stats":#stats
 ## "Cache fingerprints and store cached fingerprints":#cache
 #  "Testing Olaf":#test
-## "Evaluating Olaf":#eval
-## "Benchmarking Olaf":#benchmark
+# "Evaluating Olaf":#eval
+# "Benchmarking Olaf":#benchmark
 #  "Contribute to Olaf":#contrib
 #  "Olaf documentation":#docs
 #  "Limitations of Olaf":#lims
@@ -238,7 +238,6 @@ olaf store_cached
 
 By default the script uses 7 cores and needs the @threach@ ruby gem. Install this with @gem install threach@. Also a default is the storage place for cached items: @~/.olaf/cache@. These default can be changed in the @/usr/local/bin/olaf@ ruby file. The configuratiion can be found at the top.
 
-
 h2(#test). Testing Olaf
 
 The tests check __wether Olaf works__. The first thing this checks is whether Olaf compiles correctly. Afterwards, a small dataset is indexed and some queries are fired. The result of the queries is evaluated for correctness. Also the memory version of Olaf is checked. To run this yourself, with Ruby, ffmpeg and ffprobe installed:
@@ -252,7 +251,7 @@ ruby eval/olaf_functional_tests.rb
 
 Less interesting are the unit tests, these are mainly of interest for developing Olaf. The unit test can be compiled with `make test` and ran with `./bin/olaf_tests`.
 
-h3(#eval). Evaluating Olaf
+h2(#eval). Evaluating Olaf
 
 The evaluation verifies __how well__ Olaf works. In the @eval@ folder there is an evaluation script which takes a folder as input and stores and evaluates queries with several modifications. "SoX":https://sox.sourceforge.net/ needs to be available on the system for this to work.
 
@@ -260,7 +259,7 @@ The evaluation verifies __how well__ Olaf works. In the @eval@ folder there is a
 ruby eval/olaf_evaluation.rb /folder/with/music
 </pre>
 
-h3(#benchmark). Benchmarking Olaf
+h2(#benchmark). Benchmarking Olaf
 
 The benchmark checks __how fast__ Olaf works. With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the "FMA full":https://github.com/mdeff/fma dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times realtime with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the "query performance":./eval/olaf_benchmark/olaf_benchmark_query.svg is also checked. Run the benchmark yourself:
 
