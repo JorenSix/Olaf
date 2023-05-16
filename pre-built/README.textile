@@ -1,10 +1,10 @@
 h1. OLAF on Windows
 
-Getting the command line olaf application to work on Windows requires a few steps but is relatively straightforward.
+Getting the command line olaf application to work on Windows requires a few steps.
 
 h2. Installing dependencies: ffmpeg and Ruby
 
-Both Ruby and ffmpeg need to be installed on your system and both need to be available in your path.
+Both Ruby and ffmpeg need to be installed on your system and both need to be __available on your path__.
 
 For ffmpeg you need to copy @ffmpeg.exe@ to e.g. @c:\windows\system32@ or another location on your @$PATH@. You can find "recent ffmpeg builds for Windows here":https://github.com/BtbN/FFmpeg-Builds/releases or "here":https://www.gyan.dev/ffmpeg/builds/. Download, unzip and copy the exe. Only @ffmpeg.exe@ is needed.
 
@@ -22,4 +22,3 @@ Now you can call Olaf as follows, in the directory where olaf.rb is also found:
 
 @ruby olaf.rb store test.mp3@
 @ruby olaf.rb query test.mp3@
-

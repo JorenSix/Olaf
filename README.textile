@@ -2,10 +2,9 @@
 
 h1. OLAF -  Overly Lightweight Acoustic Fingerprinting
 
-Olaf is a C application / library for content-based audio search. Olaf is able to extract fingerprints from an audio stream, and either store those fingerprints in a database, or find a match between extracted fingerprints and stored fingerprints. Olaf does this efficiently in order to be used on **embedded platforms**, traditional computers or in web browsers via WASM. 
+Olaf is a C application or library for content-based audio search. Olaf is able to extract fingerprints from an audio stream, and either store those fingerprints in a database, or find a match between extracted fingerprints and stored fingerprints. Olaf does this efficiently in order to be used on **embedded platforms**, traditional computers or in web browsers via WASM. 
 
 Please be aware of the patents US7627477 B2 and US6990453 and perhaps others. They describe techniques used in algorithms implemented within Olaf. These patents limit the use of Olaf under various conditions and for several regions. Please make sure to consult your intellectual property rights specialist if you are in doubt about these restrictions. If these restrictions apply, please __respect the patent holders rights__. The main aim of Olaf is to serve as a learning platform on efficient (embedded) acoustic fingerprinting algorithms.
-
 
 h2(#overview). Overview
 
@@ -25,9 +24,11 @@ h2(#overview). Overview
 ## "Deduplicate a collection":#dedup
 ## "Database stats":#stats
 ## "Cache fingerprints and store cached fingerprints":#cache
-#  "Testing Olaf":#test
-# "Evaluating Olaf":#eval
-# "Benchmarking Olaf":#benchmark
+#  "Configuring Olaf":#config
+#  "Testing, evaluating and benchmarking Olaf":#teb
+## "Testing Olaf":#test
+## "Evaluating Olaf":#eval
+## "Benchmarking Olaf":#benchmark
 #  "Contribute to Olaf":#contrib
 #  "Olaf documentation":#docs
 #  "Limitations of Olaf":#lims
@@ -36,11 +37,11 @@ h2(#overview). Overview
 
 h2(#why). Why Olaf?
 
-Olaf stands out for three reasons. Olaf runs on embedded devices. Olaf is fast on traditional computers. Olaf runs in the browsers. 
+With respect to other audio search systems, Olaf stands out for three reasons. Olaf runs on embedded devices. Olaf is fast on traditional computers. Olaf runs in the browsers. 
 
-There seem to be no lightweight acoustic fingerprinting libraries that are straightforward to run on embedded platforms. On embedded platforms memory and computational resources are severely limited. Olaf is written in portable C with these restrictions in mind. Olaf mainly targets 32-bit ARM devices such as some Teensy's, some Arduino's and the ESP32. Other modern __embedded platforms__ with similar specifications and might work as well.
+There seem to be no lightweight acoustic fingerprinting libraries that are straightforward to run on embedded platforms. On embedded platforms memory and computational resources are severely limited. Olaf is written in portable C with these restrictions in mind. Olaf mainly targets 32-bit ARM devices such as some Teensy's, some Arduino's and the ESP32. Other modern __embedded platforms__ with similar specifications and should work as well.
 
-Olaf, being written in portable C, operates also on __traditional computers__. There, the efficiency of Olaf makes it run fast. On embedded devices reference fingerprints are stored in memory. On traditional computers fingerprints are stored in a high-performance key-value-store: LMDB. LMDB offers an a B+-tree based persistent storage ideal for small keys and values with low storage overhead.
+Olaf, being written in portable C, also targets __traditional computers__. There, the efficiency of Olaf makes it run fast. On embedded devices reference fingerprints are stored in memory. On traditional computers fingerprints are stored in a high-performance key-value-store: LMDB. LMDB offers an a B+-tree based persistent storage ideal for small keys and values with low storage overhead.
 
 Olaf works in __the browser__. Via Emscripten Olaf can be compiled to "WASM":https://en.wikipedia.org/wiki/WebAssembly. This makes it relatively straightforward to combine the capabilities of the "Web Audio API":https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API and Olaf to create browser based audio fingerprinting applications.
 
@@ -54,26 +55,19 @@ h2(#start_trad). Olaf on traditional computers
 
 To use Olaf @ffmpeg@ and @ruby@ need to be installed on your system. While the core of Olaf is in pure c, a Ruby script provides an easy to use interface to its capabilities. The Ruby script converts audio (with @ffmpeg@), parses command line arguments and reports results in a readable format.
 
-To install ffmpeg and ruby on a Debian like system:
+To install ffmpeg and ruby on a Debian like system: @apt-get install ffmpeg ruby@. On macOS ruby is available by default and @ffmpeg@ can be installed with "homebrew":https://brew.sh/ by calling @brew install ffmpeg@.
 
-<pre>
-apt-get install ffmpeg ruby
-</pre>
-
-On macOS ruby is available by default and @ffmpeg@ can be installed with "homebrew":https://brew.sh/
-
-<pre>
-brew install ffmpeg 
-</pre>
 
 h3(#compilation). Compilation and installation
 
-To compile the version with a key value store for traditional computers use the following. By default the makefile uses gcc set to the C11 standard. Other compilers compliant with the C11 standard work equally well. Make sure gcc is installed correctly or modify the Makefile for your compiler of choice. Compilation and installation:
+To compile the version with a key value store for traditional computers use the following. By default the makefile uses @gcc@ set to the C11 standard. Other compilers compliant with the C11 standard work equally well. Make sure @gcc@ is installed correctly or modify the Makefile for your compiler of choice. Compilation and installation:
 
 <pre>
 make
 make install
 </pre>
+
+By default, a directory named @.olaf@ is created in the current user home directory. The command line script is installed to @/usr/local/olaf@, which is assumed to be on the user's path.
 
 h3(#zig). Compilation with Zig
 
@@ -130,10 +124,14 @@ python3 -m http.server --directory wasm #start a web browser
 open "http://localhost:8000/spectrogram.html" #open the url in standard browser
 </pre>
 
+Note that the web version does not use a key value store but a list of hashes stored in a header-file. See below for more info.
+
 
 h2(#emb). Embedded Olaf
 
-Olaf is has been tested on the ESP32 microcontroller. Other, similar microcontroller might work as well. The main difference with the traditional version is that it does not use a key value store but a list of hashes stored in a @.h@ header file. This header file is the index. To make this header file do the following:
+Olaf is has been tested on the ESP32 microcontroller. Other, similar microcontroller might work as well. The embedded version does not use a key value store but a list of hashes stored in a @.h@ header file. This header file is the fingerprint index. 
+
+The 'index' or header file can be created on a computer to contain fingerprints extracted from audio. To create this header file do the following:
 
 <pre>
 make mem
@@ -146,7 +144,7 @@ To test and debug this header file, use the 'mem' version of Olaf on your comput
 
 h2(#usage). Olaf Usage
 
-On traditional computers, Olaf provides a command line interface it can be called using olaf subapplication [argument...]. For each task Olaf has to perform, there is a subapplication. There are subapplications to store fingerprints, to query audio fragments,... . A typical interaction with olaf could look like this:
+On traditional computers, Olaf provides a _command line interface_ it can be called using @olaf subapplication [argument...]@. For each task Olaf has to perform, there is a subapplication. There are subapplications to store fingerprints, to query audio fragments,... . A typical interaction with olaf could look like this:
 
 !./docs/olaf_interaction.svg(Olaf interaction)!
 
@@ -174,7 +172,7 @@ Internally each audio stream is given an identifier using a one time "Jenkins Ha
 
 h3(#query). Query fingerprints
 
-The query command extracts fingerprints and compares them with the database:
+The query command extracts fingerprints and matches them with the database:
 
 <pre>
 olaf query query_fragment.opus
@@ -238,9 +236,21 @@ olaf store_cached
 
 By default the script uses 7 cores and needs the @threach@ ruby gem. Install this with @gem install threach@. Also a default is the storage place for cached items: @~/.olaf/cache@. These default can be changed in the @/usr/local/bin/olaf@ ruby file. The configuratiion can be found at the top.
 
-h2(#test). Testing Olaf
+h2(#config). Configuring Olaf
 
-The tests check __wether Olaf works__. The first thing this checks is whether Olaf compiles correctly. Afterwards, a small dataset is indexed and some queries are fired. The result of the queries is evaluated for correctness. Also the memory version of Olaf is checked. To run this yourself, with Ruby, ffmpeg and ffprobe installed:
+Olaf has a number of configuration parameters. Currently these are done during compile time in the @olaf_config.c@ file. This is to avoid changing configuration at runtime which could result in an index being not compatible with fingerprints extracted from a query (with different configuration parameters).
+
+The configuration includes the amount of fingerprints extracted, the location of the data directory, configuration related to matching, ... Each configuration setting has a small description. There is a default configration for @mem@, @web@ and @default@ cases which slightly differ.
+
+The olaf.rb Ruby script also contains a few settings related to how audio is decoded, where data is expected, the number of threads which can be used,... To change these settings, edit the script itself (typically located at @/usr/local/bin/olaf@. Changes to configuration there are immediatly applied.
+
+h2(#teb). Testing, Evaluating and Benchmarking Olaf
+
+The tests check __wether Olaf works__.The evaluation verifies __how well__ Olaf works. The benchmark checks __how fast__ Olaf works and how it deals with scalability.
+
+h3(#test). Testing Olaf
+
+The first thing this checks is whether Olaf compiles correctly. Afterwards, a small dataset is indexed and some queries are fired. The result of the queries is evaluated for correctness. Also the memory version of Olaf is checked. To run this yourself, with Ruby, ffmpeg and ffprobe installed:
 
 <pre>
 git clone https://github.com/JorenSix/Olaf
@@ -251,9 +261,9 @@ ruby eval/olaf_functional_tests.rb
 
 Less interesting are the unit tests, these are mainly of interest for developing Olaf. The unit test can be compiled with `make test` and ran with `./bin/olaf_tests`.
 
-h2(#eval). Evaluating Olaf
+h3(#eval). Evaluating Olaf
 
-The evaluation verifies __how well__ Olaf works. In the @eval@ folder there is an evaluation script which takes a folder as input and stores and evaluates queries with several modifications. "SoX":https://sox.sourceforge.net/ needs to be available on the system for this to work.
+ In the @eval@ folder there is an evaluation script which takes a folder as input and stores and evaluates queries with several modifications. "SoX":https://sox.sourceforge.net/ needs to be available on the system for this to work.
 
 <pre>
 ruby eval/olaf_evaluation.rb /folder/with/music
@@ -261,7 +271,7 @@ ruby eval/olaf_evaluation.rb /folder/with/music
 
 h2(#benchmark). Benchmarking Olaf
 
-The benchmark checks __how fast__ Olaf works. With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the "FMA full":https://github.com/mdeff/fma dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times realtime with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the "query performance":./eval/olaf_benchmark/olaf_benchmark_query.svg is also checked. Run the benchmark yourself:
+With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the "FMA full":https://github.com/mdeff/fma dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times realtime with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the "query performance":./eval/olaf_benchmark/olaf_benchmark_query.svg is also checked. Run the benchmark yourself:
 
 <pre>
 ruby eval/olaf_benchmark/olaf_benchmark.rb /folder/with/music
