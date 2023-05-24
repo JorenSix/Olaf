@@ -269,7 +269,7 @@ h3(#eval). Evaluating Olaf
 ruby eval/olaf_evaluation.rb /folder/with/music
 </pre>
 
-h2(#benchmark). Benchmarking Olaf
+h3(#benchmark). Benchmarking Olaf
 
 With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the "FMA full":https://github.com/mdeff/fma dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times realtime with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the "query performance":./eval/olaf_benchmark/olaf_benchmark_query.svg is also checked. Run the benchmark yourself:
 
