@@ -15,15 +15,16 @@ class OlafStats
 end
 
 #1/1 96644_84s-104s.mp3 match count (#), q start (s) , q stop (s), ref path, ref ID, ref start (s), ref stop (s)
-#1, 1, 852601_43s-63s.mp3, 252, 86.01, 105.58, /Users/joren/Downloads/Olaf/eval/dataset/ref/852601.mp3, 4218917231, 43.08, 62.65
+#1, 1, 852601_43s-63s.mp3 , 252, 86.01, 105.58, /Users/joren/Downloads/Olaf/eval/dataset/ref/852601.mp3, 4218917231, 43.08, 62.65
 class OlafResultLine
     attr_reader :valid, :empty_match
     attr_reader :index, :total, :query,:match_count,:query_start,:query_stop,:ref_path,:ref_id,:ref_start,:ref_stop
     
     def initialize(line)
         data = line.split(",").map(&:strip)
-        @valid = data.size == 10
-        if(valid)
+
+        @valid = (data.size == 10 and data[3] =~/\d+/)
+        if(@valid)
             @index = data[0].to_i
             @total = data[1].to_i
             @query = data[2]
@@ -35,7 +36,7 @@ class OlafResultLine
             @ref_start = data[8].to_f
             @ref_stop = data[9].to_f
         end
-        @empty_match = match_count == 0 
+        @empty_match = @match_count == 0 
     end
 
     def to_s
@@ -90,6 +91,7 @@ assert("Command : #{cmd}") { system(cmd) }
 
 QUERY_FILES.each do |file|
     cmd = `olaf query '#{file}'`
+    puts cmd
     lines = cmd.split("\n").map{|l| OlafResultLine.new(l) }.delete_if{|l| !l.valid}
     
     first_match = lines.first
@@ -99,6 +101,8 @@ QUERY_FILES.each do |file|
     query_ref_id = $1.to_i
     query_ref_start = $2.to_i
     query_ref_stop = $3.to_i
+
+    puts first_match
 
     expect_match = REF_FILES.include? File.join(REF_TARGET_FOLDER,"#{query_ref_id}.mp3")
 
