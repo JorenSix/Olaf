@@ -19,7 +19,6 @@ h2(#overview). Overview
 #  "Olaf Usage":#usage
 ## "Store fingerprints":#store
 ## "Query fingerprints":#query
-## "Monitor":#monitor
 ## "Delete fingerprints":#delete
 ## "Deduplicate a collection":#dedup
 ## "Database stats":#stats
@@ -160,7 +159,7 @@ olaf store audio_item...
 The audio_item can be:
 # An audio file: @@olaf store audio.mp3@@, if the audio file contains multiple channels they are mixed to a mono.
 # A video file. The __first audio stream__ is extracted from the video container and used as input: @@olaf store video.mkv@@
-# A folder name: Olaf attempts to recursively find all audio files within the folder. It does this with a limited allowlist of known audio file name extensions. @@olaf store /home/user/Music@@
+# A folder name: Olaf attempts to __recursively__ find all audio files within the folder. It does this with a limited allowlist of known audio file name extensions. @@olaf store /home/user/Music@@
 # A text file: The text file should contain a list of file names. The following commands recursively finds all mp3 within the current directory and subsequently stores them in the reference database.
  
 <pre>
@@ -175,23 +174,22 @@ h3(#query). Query fingerprints
 The query command extracts fingerprints and matches them with the database:
 
 <pre>
-olaf query query_fragment.opus
+olaf query [–-threads n] [–-fragmented] [--no-identity-match] query.opus
 </pre>
 
-See "the ffmpeg input devices docs for your platform:" http://www.ffmpeg.org/ffmpeg-devices.html#Input-Devices
+The query command has several options.
+
+__--threads n__  tells olaf to use multiple threads to query the index. This can significantly speed up matching if multiple cores are available on your system.
+
+__--fragmented__  this splits query file into steps of x seconds. When working in steps of 5 seconds, then the first five seconds are matched with the reference database and matches are reported. Subsequently it goes on with the next 5 seconds and so forth. This is practical if an unsegmented audio file needs to be matched with the reference database. 
+
+__--no-identity-match__ If the query is present in the index it obviously matches itself. This option prevents identity matches to be reported. This is useful for deduplication.
+
+To query audio comming from the microphone there is the @olaf microphone@ command.  It uses ffmpeg to access the default microphone. See "the ffmpeg input devices docs for your platform:" http://www.ffmpeg.org/ffmpeg-devices.html#Input-Devices
 
 <pre>ffmpeg -f avfoundation -list_devices true -i ""</pre>
 <pre>ffmpeg -f avfoundation -i "none:default" -ac 1 -ar 16000 -f f32le -acodec pcm_f32le pipe:1 | olaf query </pre>
 
-h3(#monitor). Monitor
-
-The monitor command splits the query file into steps of x seconds. When working in steps of 5 seconds, then the first five seconds are matched with the reference database and matches are reported. Subsequently it goes on with the next 5 seconds and so forth. This is practical if an unsegmented audio file needs to be matched with the reference database. 
-
-<pre>
-	olaf monitor audio_item.mp3...
-</pre>
-
-There is also a multithreaded 'batch' version of the monitor command which writes a text file for each analysed audio file. This makes it easy to continue where the process stopped @olaf batch_monitor audio_list.txt@
 
 h3(#delete). Delete fingerprints
 
@@ -209,10 +207,12 @@ This command finds duplicate audio content in a folder. First each audio file is
 A duplicate means that audio from the original is found in another file. The start and stop times of the found fragment are reported. If the match reports a start of nearly zero and a duration similar to the duration of the original audio file then a 'full duplicate' is found: it is almost certainly the same exact track. If only a couple of seconds are reported it means that only a couple of seconds of the original audio are found in the duplicate.
 
 <pre>
-	olaf dedup field_recordings/archive
+	olaf dedup [–-threads n] [–-fragmented] field_recordings/archive
 </pre>
 
-There is also the @dedupm@ command which first operates similarly to the @dedup@ command but uses the monitor command in stead of the query command. This is useful if you expect partial matches.
+__--threads n__  tells olaf to use multiple threads to query the index. This can significantly speed up matching if multiple cores are available on your system.
+
+__--fragmented__  this tells olaf to split the query file into steps of x seconds during matching. When working in steps of 5 seconds, then the first five seconds are matched with the reference database and matches are reported. Subsequently it goes on with the next 5 seconds and so forth. This is practical for partial matches with the reference database.
 
 h3(#stats). Database stats
 
@@ -222,19 +222,18 @@ To get statistics on the database use @stats@. It prints information on the b-tr
 olaf stats
 </pre>
 
-
 h3(#cache). Cache fingerprints and store cached fingerprints
 
 Caching prints can be practical to speed up indexing. Olaf is single threaded mainly for use on embedded platforms. Additionally, the data storage of Olaf only allows one write thread (multiple readers are allowed). However, on more powerfull computing machinery it might be of interest to use multiple cores to extract fingerprints. This can speed up indexing significantly. 
 
-The way around this is to cache fingerprints to a file with all available cores and later store all prints in the index.
+The way around this is to cache fingerprints to a file with all available cores - or multiple machines - and later store all prints in the index.
 
 <pre>
-olaf cache *.mp3
+olaf cache [--threads n] *.mp3
 olaf store_cached
 </pre>
 
-By default the script uses 7 cores and needs the @threach@ ruby gem. Install this with @gem install threach@. Also a default is the storage place for cached items: @~/.olaf/cache@. These default can be changed in the @/usr/local/bin/olaf@ ruby file. The configuratiion can be found at the top.
+Note that for multithreading to work, the @threach@ ruby gem is required. Install this with @gem install threach@. Also a default is the storage place for cached items: @~/.olaf/cache@. These default can be changed in the @/usr/local/bin/olaf@ ruby file. The configuration can be found at the top.
 
 h2(#config). Configuring Olaf
 
