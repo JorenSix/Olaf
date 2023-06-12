@@ -425,7 +425,7 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 
 void olaf_fp_matcher_destroy(Olaf_FP_Matcher * fp_matcher){
 	free(fp_matcher->m_results);
-	free(fp_matcher->result_hash_table);
+	hash_table_free(fp_matcher->result_hash_table);
 	free(fp_matcher->db_results);
 
 	free(fp_matcher);
