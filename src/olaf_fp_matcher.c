@@ -138,7 +138,7 @@ void olaf_fp_matcher_remove_old_matches(Olaf_FP_Matcher * fp_matcher, int curren
 	hash_table_iterate(fp_matcher->result_hash_table, &iterator);
 	while (hash_table_iter_has_more(&iterator)) {
 		pair = hash_table_iter_next(&iterator);
-		struct match_result * match = pair.value;
+		struct match_result * match = (struct match_result *) pair.value;
 		int age = current_query_time - match->queryFingerprintT1;
 		bool too_old = age > max_age;
 		if(too_old){
@@ -284,7 +284,7 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 	hash_table_iterate(fp_matcher->result_hash_table, &iterator);
 	while (hash_table_iter_has_more(&iterator)) {
 		pair = hash_table_iter_next(&iterator);
-		struct match_result * match = pair.value;
+		struct match_result * match = (struct match_result *) pair.value;
 
 		if(match->matchCount >= fp_matcher->config->minMatchCount){
 
