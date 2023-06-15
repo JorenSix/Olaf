@@ -35,9 +35,9 @@ Audio search algorithms have been described for decades [@Wang2003a;@sonnleitner
 
 On a more meta-level Olaf also facilitates MIR and acoustic fingerprinting research. Audio duplicate detection can be used to clean up and evaluate machine learning datasets [@weck2023data]. Olaf can also serve as a baseline for specific acoustic fingerprinting cases such as broadcast audio monitoring [@cortes2022baf].
 
-The portability and low memory usage of Olaf allows it to run on microcontrollers such as the ESP32 or similarly specced microcontrollers. This unique feature facilitates innovative IoT music recognition and music synchronization applications. Olaf also runs in the browser. A compilation emits a WebAssembly binary which, together with the Web Audio API, enables browser based acoustic fingerprinting applications. 
+The portability and low memory[^1] usage of Olaf allows it to run on microcontrollers such as the ESP32 or similarly specced microcontrollers. This unique feature facilitates innovative IoT music recognition and music synchronization applications. Olaf also runs in the browser. A compilation emits a WebAssembly binary which, together with the Web Audio API, enables browser based acoustic fingerprinting applications. 
 
-Alternative systems with available implementations are by @neuralfp, Panako by @six2022panako, audfprint by @ellis2014labrosafp, PeakFP by @cortes2022baf. All have a different focus and none offer the portability to target browsers or the low memory usage to target microcontrollers.
+Alternative systems with available implementations are by @neuralfp, Panako by @six2022panako, audfprint by @ellis2014labrosafp, PeakFP by @cortes2022baf and ChromaPrint by @chromaprint. All have a different focus and none offer the portability to target browsers or the low memory usage to target microcontrollers.
 
 # Design
 
@@ -47,15 +47,9 @@ C has a long history which should allow Olaf to stand the test of time. Arguably
 
 For traditional computers file handling and transcoding is governed by a companion Ruby script. This script expands lists of incoming audio files, transcodes audio files, checks incoming audio, checks for duplicate material validates arguments and input. The Ruby script, essentially, makes Olaf an easy-to-use CLI application and keeps the C parts of Olaf simple. The C core it is not concerned with e.g. transcoding. Crucially, the C core trusts input and does not do much input validation and does not provide many guardrails. Since the interface is the Ruby script, this seems warranted.
 
-Olaf depends on two C libraries: a key-value store and an FFT library. LMDB[^2] serves as a high performance key-value store. PFFFT[^6] is used to speed up FFT calculations. Additionally a hash table and a dequeue data structure are included from c-algorithms[^8]. Internal documentation follows the DoxyGen[^7] standards. Two papers give the rationale behind the algorithms [@Wang2003a;@six2014panako]. Olaf can be compiled and installed using the `make` tool or with Zig[^1] cross-compiler. The code and documentation of Olaf is hosted in a publicly available GitHub repository.
+Olaf depends on two C libraries: a key-value store and an FFT library. LMDB [@lmdb] serves as a high performance key-value store. PFFFT[@pffft] is used to speed up FFT calculations. Additionally a hash table and a dequeue data structure are included from c-algorithms [@calgorithms]. Internal documentation follows the DoxyGen [@doxygen] standards. Two papers give the rationale behind the algorithms [@Wang2003a;@six2014panako]. Olaf can be compiled and installed using the `make` tool or with Zig [@zig] cross-compiler. The code and documentation of Olaf is hosted in a publicly available GitHub repository.
 
-[^0]:<https://www.ee.columbia.edu/~dpwe/resources/matlab/audfprint/>
-[^2]:<https://www.symas.com/lmdb>
-[^6]:<https://bitbucket.org/jpommier/pffft/src/master/>
-[^8]:<https://github.com/fragglet/c-algorithms>
-[^9]:<https://github.com/dpwe/audfprint>
-[^7]:<https://www.doxygen.nl/index.html>
-[^1]:<https://ziglang.org/> 
+[^1]: The memory usage to run a 20s query on an index containing one hour of audio is less than 512kB. The embedded variant takes considerably less memory since it does not need the key-value store and has a smaller index. A script is provided to measure memory use.  
 
 
 # Acknowledgements
