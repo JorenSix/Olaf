@@ -21,6 +21,12 @@
 number_of_files_to_store = 500
 report_memory_use_every_x_files = 10
 
+# measure yourself by compiling a c program with only a
+# main function and measuring it with the same command as below
+# On my mac the following oneliner works (zsh)
+# echo "int main(int argc, char** argv) { return 0; }" > t.c && gcc t.c && /usr/bin/time -l  ./a.out
+NUMBER_OF_BYTES_TO_RUN_EMPTY_C_PROGRAM = 950976
+
 RANDOM_SEED = 0
 
 ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
@@ -32,7 +38,7 @@ def memory_use(command)
 	res = `/usr/bin/time -l #{command} 2>&1`
 	if res =~ /.* (\d*)  peak memory footprint.*/
 		memory_use_in_bytes = $1.to_i
-		return (memory_use_in_bytes/1024.0).round
+		return ((memory_use_in_bytes - NUMBER_OF_BYTES_TO_RUN_EMPTY_C_PROGRAM)/1024.0).round
 	else
 		puts "Unexpected result for memory use command"
 	end

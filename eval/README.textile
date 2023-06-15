@@ -1,0 +1,36 @@
+h1. Olaf - Evalutation & benchmarking
+
+The tests check __wether Olaf works__.The evaluation verifies __how well__ Olaf works. The benchmark checks __how fast__ Olaf works and how it deals with scalability.  There are a few evaluation and benchmarking scripts available for Olaf. This text describes each script
+
+h2. Benchmark index size - __how fast__ does Olaf run?
+
+The benchmark script stores a large amount of audio in an index and keeps the time it takes to store the audio. Each time the size of the index is doubled a number of queries run to check the time it takes to query the index.
+
+With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the "FMA full":https://github.com/mdeff/fma dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times realtime with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the "query performance":./eval/olaf_benchmark/olaf_benchmark_query.svg is also checked. Run the benchmark yourself:
+
+The absolute values might differ significantly from one machine to another and are not that relevant. The fact that store speed and query speed do not halve each time the index size doubles is relevant: this shows that the system is scalable. This relatively limited effect of index size is expected to be similar on all machines.
+
+<div align="center">
+!./olaf_benchmark/olaf_benchmark.svg(Benchmark results for Olaf)!
+<small>Fig.  10^7 is 100 days of audio or .</small>
+</div>
+
+<div align="center">
+!./olaf_benchmark/olaf_benchmark_query.svg(Benchmark results for Olaf)!
+<small>Fig. Benchmark results query.</small>
+</div>
+
+h2. Benchmark - __how fast__ does Olaf run vs Panako?
+
+
+h2.
+<div align="center">
+!./olaf_memory_use/olaf_memory_use.svg(Olaf memory use)!
+<small>Fig. Benchmark results query.</small>
+</div>
+
+<div align="center">
+!./olaf_benchmark/olaf_benchmark_query.svg(Benchmark results for Olaf)!
+<small>Fig. Benchmark results query.</small>
+</div>
+
