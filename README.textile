@@ -148,11 +148,35 @@ bin/olaf_mem store olaf_audio_your_audio_file.raw "arandomidentifier" > your_hea
 To test and debug this header file, use the @mem@ version of Olaf on your computer. The ESP32 version is basically the same as the @mem@ version, only the audio comes from microphone input and not from a file.
 
 
-h2(#usage). Olaf Usage
+h2(#usage). Olaf Usage 
 
 On traditional computers, Olaf provides a _command line interface_ it can be called using @olaf sub-application [argument...]@. For each task Olaf has to perform, there is a sub-application. There are sub-applications to store fingerprints, to query audio fragments,... . A typical interaction with Olaf could look like this:
 
 !./docs/olaf_interaction.svg(Olaf interaction)!
+
+In a more copy-paste friendly way the following demonstrates example use of Olaf:
+
+<pre>
+git clone https://github.com/JorenSix/Olaf
+cd Olaf
+make && make install
+ruby eval/download_dataset.rb
+
+#store all audio in a folder and execute a query
+olaf store dataset/ref
+olaf query dataset/queries/1051039_34s-54s.mp3
+
+#print statistics:
+olaf stats
+
+#Deduplication of a folder with duplicate material
+cp dataset/ref/173050.mp3 dataset/ref/173050_dup.mp3
+olaf dedup dataset/ref
+
+#delete the duplicate from the index:
+olaf delete dataset/ref/173050_dup.mp3
+rm  dataset/ref/173050_dup.mp3
+</pre>
 
 
 h3(#store). Store fingerprints
