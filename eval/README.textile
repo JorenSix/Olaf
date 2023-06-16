@@ -12,12 +12,12 @@ The absolute values might differ significantly from one machine to another and a
 
 <div align="center">
 !./olaf_benchmark/olaf_benchmark.svg(Benchmark results for Olaf)!
-<small>Fig.  10^7 is 100 days of audio or .</small>
+<small>Fig.  This reports the time it takes to store 200 days of audio (or reference 10^7 is about 100 days of audio) The log-log linear relation means that the speed of storing audio is not slower for larger database.</small>
 </div>
 
 <div align="center">
 !./olaf_benchmark/olaf_benchmark_query.svg(Benchmark results for Olaf)!
-<small>Fig. Benchmark results query.</small>
+<small>Fig. This reports the time it takes to query audio. Each time the same audio is queried. This shows that a query goes slower when the index is larger but, crucially, the slowdown is not proportional to the increase in index size: this indicates a level of scalability.</small>
 </div>
 
 h2. Benchmark - __how fast__ does Olaf run vs Panako?
