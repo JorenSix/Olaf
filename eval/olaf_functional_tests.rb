@@ -5,7 +5,7 @@ class OlafStats
     attr_reader :number_of_songs, :total_duration
 
     def initialize
-        res = `olaf stats`
+        res = `olaf stats 2>/dev/null`
         res =~ /.*.songs.+?:\t?(\d+).*/m
         @number_of_songs = $1.to_i
         res =~ /.*.otal.dura.+?:\t?(\d+.\d+).*/m
