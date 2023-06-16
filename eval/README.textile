@@ -38,27 +38,27 @@ Note that the script has a couple of assumptions and limitations:
 
 <div align="center">
 !./olaf_vs_panako/olaf_vs_panako_store.svg(Olaf vs Panako store times)!
-<small>Fig. The time it takes to store the same audio files in Panako and Olaf. Note that the storage times are close to each other but, perhaps surprisingly, Panako is faster. The raw speed of C in Olaf is countered by the multithreaded nature of the Java implementation. Also the less conservative memory use by the Java version makes it faster.</small>
+<small>Fig. The time it takes to store the same audio files in Panako and Olaf. Times are reported in s/s. A value of 150 means that the system can store 150 seconds of audio in a single second. Note that the storage times are close to each other but, perhaps surprisingly, Panako is faster. The raw speed of C in Olaf is countered by the multi-threaded nature of the Java implementation. Also the less conservative memory use by the Java version makes it faster.</small>
 </div>
 
 <div align="center">
 !./olaf_vs_panako/olaf_vs_panako_query.svg(Olaf vs Panako query times)!
-<small>Fig. The time it takes to query the same audio files in Panako and Olaf. Note that the query times are close to each other but, perhaps surprisingly, Panako is faster. The raw speed of C in Olaf is countered by the multithreaded nature of the Java implementation. Also the less conservative memory use by the Java version makes it faster..</small>
+<small>Fig. The time it takes to query the same audio files in Panako and Olaf. The time is reported in absolute values. This means that it takes e.g. 7.7 seconds to run a query for Panako and 8.3 seconds for Olaf to run the exact same query on an index with the same audio. Note that the query times are close to each other but, perhaps surprisingly, Panako is faster. The raw speed of C in Olaf is countered by the multithreaded nature of the Java implementation. Also the less conservative memory use by the Java version makes it faster..</small>
 </div>
 
 h2. Benchmark - How much memory does Olaf use?
 
-A script is provided to measure memory use while running a query. First a few tracks are added to the index, then memory use for a 20s fragment is measured and 
+A script is provided to measure memory use while running a query. First a few tracks are added to the index, then memory use for a 20 second fragment is measured and 
 
 A script is provided to measure memory use when running a 20 second query. To see the influence of the size of the index the memory use  is measured after every 10 stored files.  The size of the index is expressed in seconds. The memory use is reported in kilobytes
 
-The script needs access to a folder with mp3 or other audio files. It can be rand like this:
+The script needs access to a folder with @mp3@ or other audio files. It can be ran like this:
 
 <pre>
 ruby eval/olaf_melory_use.rb /User/Music
 </pre>
 
-The script assumes that the installed version of olaf uses the same index as @bin/olaf_c@ which is used for memory consumption.
+The script assumes that the installed version of Olaf uses the same index as @bin/olaf_c@ which is used for memory consumption.
 
 To measure memory use the macOS utility /usr/bin/time is used. Similar utilities are available for Linux or other systems. To use the script on your system check and adapt the @memory_use@ function accordingly. 
 
@@ -70,6 +70,53 @@ echo "int main(int argc, char** argv) { return 0; }" > t.c && gcc t.c && /usr/bi
 
 <div align="center">
 !./olaf_memory_use/olaf_memory_use.svg(Olaf memory use)!
-<small>Fig. Memory use of running a 20s fragment with Olaf for several sizes of the index.</small>
+<small>Fig. Memory use of running a 20 second query with Olaf for several sizes of the index. On traditional computers a memory use of a few MB is negligible. This changes for embedded systems. The memory use of Olaf in that case is lower than 512kB value since the index is smaller, the queries are shorter and no key-value store is used.</small>
 </div>
+
+To detect memory leaks the macOS @leaks@ utility can be used in the following way:
+
+<pre>
+@leaks --atExit -- bin/olaf_c query dataset/raw/queries/olaf_audio_147199_115s-135s.raw 147199.mp3@
+</pre>
+
+This reports if any memory leaks are found and where these potentially originate. To detect leaks in all code paths other commands (store, delete) should be checked as well. On other systems similar utilities exist: on Linux valgrind is a possible alternative.
+
+h2(#test). Testing Olaf - check __wether Olaf works__ 
+
+The first thing this checks is whether Olaf compiles correctly. Afterwards, a small dataset is indexed and some queries are fired. The result of the queries is evaluated for correctness. Also the memory version of Olaf is checked. To run this yourself, with Ruby, @ffmpeg@ and @ffprobe@ installed:
+
+<pre>
+git clone https://github.com/JorenSix/Olaf
+cd Olaf
+make && make install
+ruby eval/olaf_functional_tests.rb
+</pre>
+
+Less interesting are the unit tests, these are mainly of interest for developing Olaf. The unit test can be compiled with `make test` and ran with `./bin/olaf_tests`.
+
+
+h3(#eval). Evaluating Olaf
+
+ In the @eval@ folder there is an evaluation script which takes a folder as input and stores and evaluates queries with several modifications. "SoX":https://sox.sourceforge.net/ needs to be available on the system for this to work. 
+
+ True/false negative/positives are reported. There are a few options to make the evaluation more thorough or fit your use case. The number of tracks stored, the number of distractor, the number of true negatives, the severity of the modifications, the durations of the queries, ... can be configured. To run the evaluation:
+
+<pre>
+ruby eval/olaf_evaluation.rb /folder/with/music
+</pre>
+
+The result of an evaluation depends slightly on the input folder but should be similar to the following:
+
+<pre>
+True positive rate for none_0 1.000
+True negative rate for none_0 0.970
+True positive rate for flanger_0 0.859
+True negative rate for flanger_0 0.960
+True positive rate for band_passed_2000Hz 1.000
+True negative rate for band_passed_2000Hz 0.970
+True positive rate for chorus_0 0.860
+True negative rate for chorus_0 0.949
+True positive rate for echo_0 0.970
+True negative rate for echo_0 0.970	
+</pre>
 
