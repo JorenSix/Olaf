@@ -247,6 +247,8 @@ h2(#teb). Testing, Evaluating and Benchmarking Olaf
 
 The tests check __wether Olaf works__.The evaluation verifies __how well__ Olaf works. The benchmark checks __how fast__ Olaf works and how it deals with scalability.
 
+"More details on testing, evaluating and benchmarking Olaf":./eval can be found in the seperate page. There information on memory use can be found together with a comparison against Panako.
+
 h3(#test). Testing Olaf
 
 The first thing this checks is whether Olaf compiles correctly. Afterwards, a small dataset is indexed and some queries are fired. The result of the queries is evaluated for correctness. Also the memory version of Olaf is checked. To run this yourself, with Ruby, ffmpeg and ffprobe installed:
