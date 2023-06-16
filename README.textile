@@ -154,7 +154,7 @@ On traditional computers, Olaf provides a _command line interface_ it can be cal
 
 !./docs/olaf_interaction.svg(Olaf interaction)!
 
-In a more copy-paste friendly way the following demonstrates example use of Olaf:
+In a more copy-paste friendly way the following demonstrates example use of Olaf. In the example, first a dataset is downloaded then all audio files in a folder are indexed. Then statistics about the index are printed. Finally a folder is deduplicated: the duplicates material in a folder are identified and the duplicate is removed. 
 
 <pre>
 git clone https://github.com/JorenSix/Olaf
@@ -166,16 +166,16 @@ ruby eval/download_dataset.rb
 olaf store dataset/ref
 olaf query dataset/queries/1051039_34s-54s.mp3
 
-#print statistics:
+#print statistics of the index:
 olaf stats
 
 #Deduplication of a folder with duplicate material
-cp dataset/ref/173050.mp3 dataset/ref/173050_dup.mp3
+ffmpeg -i dataset/ref/173050.mp3 dataset/ref/173050_dup.ogg
 olaf dedup dataset/ref
 
 #delete the duplicate from the index:
-olaf delete dataset/ref/173050_dup.mp3
-rm  dataset/ref/173050_dup.mp3
+olaf delete dataset/ref/173050_dup.ogg
+rm  dataset/ref/173050_dup.ogg
 </pre>
 
 
