@@ -1,6 +1,6 @@
 h1. Olaf - Evalutation & benchmarking
 
-The tests check __wether Olaf works__.The evaluation verifies __how well__ Olaf works. The benchmark checks __how fast__ Olaf works and how it deals with scalability.  There are a few evaluation and benchmarking scripts available for Olaf. This text describes each script
+The tests check __wether Olaf works__.The evaluation verifies __how well__ Olaf works. The benchmark checks __how fast__ Olaf works and how it deals with scalability and resources.  There are a few evaluation and benchmarking scripts available for Olaf. This text describes each script
 
 h2. Benchmark index size - __how fast__ does Olaf run?
 
@@ -22,15 +22,54 @@ The absolute values might differ significantly from one machine to another and a
 
 h2. Benchmark - __how fast__ does Olaf run vs Panako?
 
+Olaf shares many similarities with <a href="https://github.com/JorenSix/Panako">Panako</a>. A similar algorithm is implemented. There are a few key differences. Panako is implemented in Java, is multi-threaded and is not conservative with memory use. Panako also contains an additional algorithm which is robust against speed changes.
 
-h2.
+There is a script which compares Olaf runtimes with Panako directly the by storing items in an empty database and now and then run a query. The times it takes to store and run queries is reported and compared. Run the script with a (large) collection of music (e.g. the free music archive)
+
+<pre>
+ruby eval/olaf_vs_panako.rb /home/user/music
+</pre>
+
+Note that the script has a couple of assumptions and limitations:
+
+* the script does not check the result of the commands
+* the indexes of both systems should be empty at the start, this is not checked by the script
+* it assumes both Panako and Olaf are installed correctly on the system
+
 <div align="center">
-!./olaf_memory_use/olaf_memory_use.svg(Olaf memory use)!
-<small>Fig. Benchmark results query.</small>
+!./olaf_vs_panako/olaf_vs_panako_store.svg(Olaf vs Panako store times)!
+<small>Fig. The time it takes to store the same audio files in Panako and Olaf. Note that the storage times are close to each other but, perhaps surprisingly, Panako is faster. The raw speed of C in Olaf is countered by the multithreaded nature of the Java implementation. Also the less conservative memory use by the Java version makes it faster.</small>
 </div>
 
 <div align="center">
-!./olaf_benchmark/olaf_benchmark_query.svg(Benchmark results for Olaf)!
-<small>Fig. Benchmark results query.</small>
+!./olaf_vs_panako/olaf_vs_panako_query.svg(Olaf vs Panako query times)!
+<small>Fig. The time it takes to query the same audio files in Panako and Olaf. Note that the query times are close to each other but, perhaps surprisingly, Panako is faster. The raw speed of C in Olaf is countered by the multithreaded nature of the Java implementation. Also the less conservative memory use by the Java version makes it faster..</small>
+</div>
+
+h2. Benchmark - How much memory does Olaf use?
+
+A script is provided to measure memory use while running a query. First a few tracks are added to the index, then memory use for a 20s fragment is measured and 
+
+A script is provided to measure memory use when running a 20 second query. To see the influence of the size of the index the memory use  is measured after every 10 stored files.  The size of the index is expressed in seconds. The memory use is reported in kilobytes
+
+The script needs access to a folder with mp3 or other audio files. It can be rand like this:
+
+<pre>
+ruby eval/olaf_melory_use.rb /User/Music
+</pre>
+
+The script assumes that the installed version of olaf uses the same index as @bin/olaf_c@ which is used for memory consumption.
+
+To measure memory use the macOS utility /usr/bin/time is used. Similar utilities are available for Linux or other systems. To use the script on your system check and adapt the @memory_use@ function accordingly. 
+
+The baseline memory of an 'empty' c program is subtracted from the reported values: only the memory use of Olaf is reported not that of the environment. On macOS this means that about one megabyte of memory is not reported. The following one-liner can be used to check the memory use to run an empty c program:
+
+<pre>
+echo "int main(int argc, char** argv) { return 0; }" > t.c && gcc t.c && /usr/bin/time -l  ./a.out  
+</pre>
+
+<div align="center">
+!./olaf_memory_use/olaf_memory_use.svg(Olaf memory use)!
+<small>Fig. Memory use of running a 20s fragment with Olaf for several sizes of the index.</small>
 </div>
 
