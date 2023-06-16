@@ -36,7 +36,11 @@ h2(#overview). Overview
 
 h2(#why). Why Olaf?
 
-With respect to other audio search systems, Olaf stands out for three reasons. Olaf runs on embedded devices. Olaf is fast on traditional computers. Olaf runs in the browsers. 
+With respect to other audio search systems, Olaf stands out for three reasons:
+
+* Olaf runs on embedded devices. 
+* Olaf is fast on traditional computers. 
+* Olaf runs in the browsers. 
 
 There seem to be no lightweight acoustic fingerprinting libraries that are straightforward to run on embedded platforms. On embedded platforms memory and computational resources are severely limited. Olaf is written in portable C with these restrictions in mind. Olaf mainly targets 32-bit ARM devices such as some Teensy's, some Arduino's and the ESP32. Other modern __embedded platforms__ with similar specifications and should work as well.
 
@@ -62,8 +66,11 @@ h3(#compilation). Compilation and installation
 To compile the version with a key value store for traditional computers use the following. By default the makefile uses @gcc@ set to the C11 standard. Other compilers compliant with the C11 standard work equally well. Make sure @gcc@ is installed correctly or modify the Makefile for your compiler of choice. Compilation and installation:
 
 <pre>
+#sudo apt-get install ffmpeg ruby
+git clone https://github.com/JorenSix/Olaf
+cd Olaf
 make
-make install
+sudo make install
 </pre>
 
 By default, a directory named @.olaf@ is created in the current user home directory. The command line script is installed to @/usr/local/olaf@, which is assumed to be on the user's path.
@@ -197,8 +204,11 @@ Deletion of fingerprints is similar to adding prints:
 
 <pre>olaf delete item.mp3</pre>
 
-Note that it is currently unclear what the performance implications are when adding and removing many items to the db. In other words: how balanced the B+ tree remains with many leaves removed.
+Note that it is currently unclear what the performance implications are when adding and removing many items to the db. In other words: how balanced the B+ tree remains with many leaves removed. To make sure the tree remains balanced it is always an option to clear the database and re-index the audio:
 
+<pre>olaf clear</pre>
+
+The clear command deletes the database and optionally clears the folder with cached fingerprints. It requests permission before deleting. To force deletion the @-f@ flag can be used: @olaf clear -f@.
 
 h3(#dedup). Deduplicate a collection
 
