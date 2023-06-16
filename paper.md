@@ -37,7 +37,7 @@ On a more meta-level Olaf also facilitates MIR and acoustic fingerprinting resea
 
 The portability and low memory[^1] usage of Olaf allows it to run on microcontrollers such as the ESP32 or similarly specced microcontrollers. This unique feature facilitates innovative IoT music recognition and music synchronization applications. Olaf also runs in the browser. A compilation emits a WebAssembly binary which, together with the Web Audio API, enables browser based acoustic fingerprinting applications. 
 
-Alternative systems with available implementations are by @neuralfp, Panako by @six2022panako, audfprint by @ellis2014labrosafp, PeakFP by @cortes2022baf and ChromaPrint by @chromaprint. All have a different focus and none offer the portability to target browsers or the low memory usage to target microcontrollers.
+Alternative systems with available implementations are by @neuralfp, Panako by @six2022panako, audfprint by @ellis2014labrosafp, PeakFP by @cortes2022baf, ChromaPrint by @chromaprint, SpectroMap by @spectromap and Dejavu by @dejavu. All have a different focus and trade-offs but none offer the portability to target browsers or have the low memory usage to target microcontrollers.
 
 # Design
 
