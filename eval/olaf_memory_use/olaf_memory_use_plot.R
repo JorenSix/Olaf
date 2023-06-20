@@ -9,5 +9,5 @@ a <- ggplot(bm, aes(bm$index_size, bm$memory_use)) +
   xlab("Indexed audio (s)") +
   ylab("Memory use (kB)") +
   ylim(c(0,2500)) +
-   theme()
+  theme()
 ggsave(file="olaf_memory_use.svg", plot=a, width=10, height=8)

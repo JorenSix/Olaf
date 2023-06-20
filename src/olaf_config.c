@@ -148,7 +148,7 @@ Olaf_Config* olaf_config_esp_32(void){
 	config->minMatchCount = 4;
 	config->minMatchTimeDiff = 1.0;
 
-	config->keepMatchesFor = 8;//seconds
+	config->keepMatchesFor = 9;//seconds
 	//print results after x seconds or only at the end of stream (when zero)
 	config->printResultEvery = 1;//seconds
 
@@ -162,8 +162,8 @@ Olaf_Config* olaf_config_mem(void){
 	config->maxResults = 10;
 
 	//No streaming: print after end of file
-	config->printResultEvery = 0;//seconds
-	config->keepMatchesFor = 0;//seconds
+	config->printResultEvery = 1;//seconds
+	config->keepMatchesFor = 8;//seconds
 
 	config->verbose = false;
 
