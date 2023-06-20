@@ -10,7 +10,7 @@ Olaf_Runner * olaf_runner_new(int mode){
 	runner->mode = mode;
 	//Get the default configuration
 	#ifdef mem
-		fprintf(stderr,"Loaded the mem configuration");
+		fprintf(stderr,"Info: using the mem configuration\n");
 		runner->config = olaf_config_mem();
 	#else
 		runner->config = olaf_config_default();

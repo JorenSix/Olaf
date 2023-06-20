@@ -190,8 +190,12 @@ int main(int argc, const char* argv[]){
 		olaf_stream_processor_process(processor);
 		olaf_stream_processor_destroy(processor);
 	}else{
+		if(argc % 2 == 1 ){
+			fprintf(stderr,"Error: You need to provide converted raw audio and the original file name, for example:\n\tolaf query audio.raw original_filename.mp3\n");
+			exit(-3);	
+		}
 		//for each audio file
-		for(int arg_index = 2 ; arg_index < argc ; arg_index+=2){
+		for(int arg_index = 2 ; arg_index + 1 < argc ; arg_index+=2){
 			const char* raw_path =  argv[arg_index];
 			const char* orig_path = argv[arg_index + 1];
 			Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_path,orig_path);
