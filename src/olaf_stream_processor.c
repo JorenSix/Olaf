@@ -74,6 +74,10 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,processor->audio_identifier);
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT ){
 		fp_db_writer = NULL;
+		printf("fp_hash, ");
+		printf("t1, f1, m1, ");
+		printf("t2, f2, m2, ");
+		printf("t3, f3, m3\n");
 	}
 
 	struct extracted_event_points * eventPoints = NULL;
