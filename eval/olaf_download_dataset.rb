@@ -9,6 +9,10 @@ QUERY_URL = "https://0110.be/releases/Panako/Panako-test-dataset/queries/"
 QUERY_FILES = %w(1024035_55s-75s.mp3 1051039_34s-54s.mp3 1071559_60s-80s.mp3 1075784_78s-98s.mp3 11266_69s-89s.mp3 132755_137s-157s.mp3 147199_115s-135s.mp3 173050_86s-106s.mp3 189211_60s-80s.mp3 295781_88s-108s.mp3 297888_45s-65s.mp3 361430_180s-200s.mp3 371009_187s-207s.mp3 378501_59s-79s.mp3 384991_294s-314s.mp3 432279_81s-101s.mp3 43383_224s-244s.mp3 478466_24s-44s.mp3 602848_242s-262s.mp3 604705_154s-174s.mp3 612409_73s-93s.mp3 824093_182s-202s.mp3 84302_232s-252s.mp3 852601_43s-63s.mp3 96644_84s-104s.mp3)
 QUERY_TARGET_FOLDER = "dataset/queries"
 
+QUERY_OTA_URL = "https://0110.be/releases/Panako/Panako-test-dataset/queries_ota/"
+QUERY_OTA_FILES = %w(1024035_55s-75s_ota.mp3 1051039_34s-54s_ota.mp3 1071559_60s-80s_ota.mp3 1075784_78s-98s_ota.mp3 11266_69s-89s_ota.mp3 132755_137s-157s_ota.mp3 147199_115s-135s_ota.mp3 173050_86s-106s_ota.mp3 189211_60s-80s_ota.mp3 295781_88s-108s_ota.mp3 297888_45s-65s_ota.mp3 361430_180s-200s_ota.mp3 371009_187s-207s_ota.mp3 378501_59s-79s_ota.mp3 384991_294s-314s_ota.mp3 432279_81s-101s_ota.mp3 43383_224s-244s_ota.mp3 478466_24s-44s_ota.mp3 602848_242s-262s_ota.mp3 604705_154s-174s_ota.mp3 612409_73s-93s_ota.mp3 824093_182s-202s_ota.mp3 84302_232s-252s_ota.mp3 852601_43s-63s_ota.mp3 96644_84s-104s_ota.mp3)
+QUERY_OTA_TARGET_FOLDER = "dataset/queries_ota"
+
 def download(url,target)
     download = URI.open(url)
     IO.copy_stream(download, target)
@@ -37,8 +41,12 @@ end
     end
     return true
 end
-  
-  
+
+if ARGV[0] == "ota"
+  download_files(QUERY_OTA_URL, QUERY_OTA_TARGET_FOLDER, QUERY_OTA_FILES)
+  exit -1 unless check_files(QUERY_OTA_TARGET_FOLDER,"*.mp3",50*1024)  
+end
+
 download_files(REF_URL, REF_TARGET_FOLDER, REF_FILES)
 exit -1 unless check_files(REF_TARGET_FOLDER,"*.mp3",100*1024)
 
