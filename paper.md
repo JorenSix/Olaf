@@ -35,9 +35,9 @@ Audio search algorithms have been described for decades [@Wang2003a;@sonnleitner
 
 On a more meta-level Olaf also facilitates MIR and acoustic fingerprinting research. Audio duplicate detection can be used to clean up and evaluate machine learning datasets [@weck2023data]. Olaf can also serve as a baseline for specific acoustic fingerprinting cases such as broadcast audio monitoring [@cortes2022baf].
 
-The portability and low memory[^1] usage of Olaf allows it to run on microcontrollers such as the ESP32 or similarly specced microcontrollers. This unique feature facilitates innovative IoT music recognition and music synchronization applications. Olaf also runs in the browser. A compilation emits a WebAssembly binary which, together with the Web Audio API, enables browser based acoustic fingerprinting applications. 
+The portability and low memory usage of Olaf allow it to run on microcontrollers such as the ESP32 or similarly specced microcontrollers. The memory usage to run a 20s query on an index containing one hour of audio is less than 512kB[^1]. The embedded variant takes considerably less memory since it does not need the key-value store and has a smaller index. This unique feature facilitates innovative IoT music recognition and music synchronization applications. Olaf also runs in the browser. A compilation emits a WebAssembly binary which, together with the Web Audio API, enables browser based acoustic fingerprinting applications. 
 
-Alternative systems with available implementations are by @neuralfp, Panako by @six2022panako, audfprint by @ellis2014labrosafp, PeakFP by @cortes2022baf, ChromaPrint by @chromaprint, SpectroMap by @spectromap and Dejavu by @dejavu. All have a different focus and trade-offs but none offer the portability to target browsers or have the low memory usage to target microcontrollers.
+Alternative systems with available implementations are by @neuralfp, Panako[^2] by @six2022panako, audfprint by @ellis2014labrosafp, PeakFP by @cortes2022baf, ChromaPrint by @chromaprint, SpectroMap by @spectromap and Dejavu by @dejavu. All have a different focus and trade-offs but none offer the portability to target browsers or have the low memory usage to target microcontrollers.
 
 # Design
 
@@ -49,9 +49,12 @@ For traditional computers file handling and transcoding is governed by a compani
 
 Olaf depends on two C libraries: a key-value store and an FFT library. LMDB [@lmdb] serves as a high performance key-value store. PFFFT [@pffft] is used to speed up FFT calculations. Additionally a hash table and a dequeue data structure are included from c-algorithms [@calgorithms]. Internal documentation follows the DoxyGen [@doxygen] standards. Two papers give the rationale behind the algorithms [@Wang2003a;@six2014panako]. Olaf can be compiled and installed using the `make` tool or with Zig [@zig] cross-compiler. 
 
-To try Olaf yourself or adapt Olaf for your needs: the code and documentation of Olaf is hosted in a publicly available GitHub repository.
+To try Olaf yourself or adapt Olaf for your needs: the code and documentation of Olaf is hosted in a publicly available GitHub repository. 
 
-[^1]: The memory usage to run a 20s query on an index containing one hour of audio is less than 512kB. The embedded variant takes considerably less memory since it does not need the key-value store and has a smaller index. A script is provided to measure memory use.  
+[^1]: A script to measure memory use can be found here:   
+https://github.com/JorenSix/Olaf/blob/master/eval/olaf_memory_use.rb
+[^2]: Panako and Olaf implement similar algorithms, one in Java and the other in C. A direct comparison shows that Panako is faster since it uses more memory and threads:   
+https://github.com/JorenSix/Olaf/tree/master/eval
 
 
 # Acknowledgements
