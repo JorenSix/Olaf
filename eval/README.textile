@@ -48,9 +48,7 @@ Note that the script has a couple of assumptions and limitations:
 
 h2. Benchmark - How much memory does Olaf use?
 
-A script is provided to measure memory use while running a query. First a few tracks are added to the index, then memory use for a 20 second fragment is measured and 
-
-A script is provided to measure memory use when running a 20 second query. To see the influence of the size of the index the memory use  is measured after every 10 stored files.  The size of the index is expressed in seconds. The memory use is reported in kilobytes
+A "script is provided to measure memory use" when running a 20 second query. To see the influence of the size of the index the memory use  is measured after every 10 stored files.  The size of the index is expressed in seconds. The memory use is reported in kilobytes
 
 The script needs access to a folder with @mp3@ or other audio files. It can be ran like this:
 
@@ -60,20 +58,20 @@ ruby eval/olaf_melory_use.rb /User/Music
 
 The script assumes that the installed version of Olaf uses the same index as @bin/olaf_c@ which is used for memory consumption.
 
-To measure memory use the macOS utility /usr/bin/time is used. Similar utilities are available for Linux or other systems. To use the script on your system check and adapt the @memory_use@ function accordingly. 
+To measure memory use, the macOS utility @/usr/bin/time@ is employed. Similar utilities are available for Linux or other systems. To use the script on your system check and adapt the @memory_use@ function accordingly. 
 
-The baseline memory of an 'empty' c program is subtracted from the reported values: only the memory use of Olaf is reported not that of the environment. On macOS this means that about one megabyte of memory is not reported. The following one-liner can be used to check the memory use to run an empty c program:
+The baseline memory of an 'empty' c program is subtracted from the reported values: only the memory use of Olaf is reported not that of the environment. On macOS this means that about one megabyte of memory is not reported! The following one-liner can be used to check the memory use to run an empty c program on macOS:
 
 <pre>
-echo "int main(int argc, char** argv) { return 0; }" > t.c && gcc t.c && /usr/bin/time -l  ./a.out  
+echo "int main(int argc, char** argv) { return 0; }" > t.c && gcc t.c && /usr/bin/time -l  ./a.out
 </pre>
 
 <div align="center">
 !./olaf_memory_use/olaf_memory_use.svg(Olaf memory use)!
-<small>Fig. Memory use of running a 20 second query with Olaf for several sizes of the index. On traditional computers a memory use of a few MB is negligible. This changes for embedded systems. The memory use of Olaf in that case is lower than 512kB value since the index is smaller, the queries are shorter and no key-value store is used.</small>
+<small>Fig. Memory use of running a 20 second query with Olaf for several sizes of the index. On traditional computers a memory use of a few MB is negligible. This changes for embedded systems. The memory use of Olaf in that case is lower than 512kB since the index is smaller, the queries are shorter and no key-value store is used.</small>
 </div>
 
-To detect memory leaks the macOS @leaks@ utility can be used in the following way:
+Memory use is one thing, memory leaks another. To detect memory leaks the macOS @leaks@ utility can be used in the following way:
 
 <pre>
 @leaks --atExit -- bin/olaf_c query dataset/raw/queries/olaf_audio_147199_115s-135s.raw 147199.mp3@
@@ -99,13 +97,13 @@ h3(#eval). Evaluating Olaf
 
  In the @eval@ folder there is an evaluation script which takes a folder as input and stores and evaluates queries with several modifications. "SoX":https://sox.sourceforge.net/ needs to be available on the system for this to work. 
 
- True/false negative/positives are reported. There are a few options to make the evaluation more thorough or fit your use case. The number of tracks stored, the number of distractor, the number of true negatives, the severity of the modifications, the durations of the queries, ... can be configured. To run the evaluation:
+ "True/false negative/positives":https://en.wikipedia.org/wiki/Sensitivity_and_specificity are reported. There are a few options to make the evaluation more thorough or fit your use case. The number of tracks stored, the number of distractors, the number of true negatives, the severity of the modifications, the duration of the queries, ... can be configured by modifying the first lines of the script. To run the evaluation:
 
 <pre>
 ruby eval/olaf_evaluation.rb /folder/with/music
 </pre>
 
-The result of an evaluation depends slightly on the input folder but should be similar to the following:
+The result of an evaluation depends on the input audio but should be similar to the following for music like signals:
 
 <pre>
 True positive rate for none_0 1.000
