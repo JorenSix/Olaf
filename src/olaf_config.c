@@ -162,8 +162,8 @@ Olaf_Config* olaf_config_mem(void){
 	config->maxResults = 10;
 
 	//No streaming: print after end of file
-	config->printResultEvery = 1;//seconds
-	config->keepMatchesFor = 8;//seconds
+	config->printResultEvery = 0;//seconds
+	config->keepMatchesFor = 0;//seconds
 
 	config->verbose = false;
 
