@@ -1,12 +1,12 @@
-h1. Olaf - Evalutation & benchmarking
+h1. Olaf - Evaluation & benchmarking
 
-The tests check __wether Olaf works__.The evaluation verifies __how well__ Olaf works. The benchmark checks __how fast__ Olaf works and how it deals with scalability and resources.  There are a few evaluation and benchmarking scripts available for Olaf. This text describes each script
+The tests check __whether Olaf works__.The evaluation verifies __how well__ Olaf works. The benchmark checks __how fast__ Olaf works and how it deals with scalability and resources.  There are a few evaluation and benchmarking scripts available for Olaf. This text describes each script
 
 h2. Benchmark index size - __how fast__ does Olaf run?
 
 The benchmark script stores a large amount of audio in an index and keeps the time it takes to store the audio. Each time the size of the index is doubled a number of queries run to check the time it takes to query the index.
 
-With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the "FMA full":https://github.com/mdeff/fma dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times realtime with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the "query performance":./eval/olaf_benchmark/olaf_benchmark_query.svg is also checked. Run the benchmark yourself:
+With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the "FMA full":https://github.com/mdeff/fma dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times real-time with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the "query performance":./eval/olaf_benchmark/olaf_benchmark_query.svg is also checked. Run the benchmark yourself:
 
 The absolute values might differ significantly from one machine to another and are not that relevant. The fact that store speed and query speed do not halve each time the index size doubles is relevant: this shows that the system is scalable. This relatively limited effect of index size is expected to be similar on all machines.
 
@@ -24,7 +24,7 @@ h2. Benchmark - __how fast__ does Olaf run vs Panako?
 
 Olaf shares many similarities with <a href="https://github.com/JorenSix/Panako">Panako</a>. A similar algorithm is implemented. There are a few key differences. Panako is implemented in Java, is multi-threaded and is not conservative with memory use. Panako also contains an additional algorithm which is robust against speed changes.
 
-There is a script which compares Olaf runtimes with Panako directly the by storing items in an empty database and now and then run a query. The times it takes to store and run queries is reported and compared. Run the script with a (large) collection of music (e.g. the free music archive)
+There is a script which compares Olaf run times with Panako directly the by storing items in an empty database and now and then run a query. The times it takes to store and run queries is reported and compared. Run the script with a (large) collection of music (e.g. the free music archive)
 
 <pre>
 ruby eval/olaf_vs_panako.rb /home/user/music
@@ -43,7 +43,7 @@ Note that the script has a couple of assumptions and limitations:
 
 <div align="center">
 !./olaf_vs_panako/olaf_vs_panako_query.svg(Olaf vs Panako query times)!
-<small>Fig. The time it takes to query the same audio files in Panako and Olaf. The time is reported in absolute values. This means that it takes e.g. 7.7 seconds to run a query for Panako and 8.3 seconds for Olaf to run the exact same query on an index with the same audio. Note that the query times are close to each other but, perhaps surprisingly, Panako is faster. The raw speed of C in Olaf is countered by the multithreaded nature of the Java implementation. Also the less conservative memory use by the Java version makes it faster..</small>
+<small>Fig. The time it takes to query the same audio files in Panako and Olaf. The time is reported in absolute values. This means that it takes e.g. 7.7 seconds to run a query for Panako and 8.3 seconds for Olaf to run the exact same query on an index with the same audio. Note that the query times are close to each other but, perhaps surprisingly, Panako is faster. The raw speed of C in Olaf is countered by the multi-threaded nature of the Java implementation. Also the less conservative memory use by the Java version makes it faster..</small>
 </div>
 
 h2. Benchmark - How much memory does Olaf use?
@@ -79,9 +79,9 @@ To detect memory leaks the macOS @leaks@ utility can be used in the following wa
 @leaks --atExit -- bin/olaf_c query dataset/raw/queries/olaf_audio_147199_115s-135s.raw 147199.mp3@
 </pre>
 
-This reports if any memory leaks are found and where these potentially originate. To detect leaks in all code paths other commands (store, delete) should be checked as well. On other systems similar utilities exist: on Linux valgrind is a possible alternative.
+This reports if any memory leaks are found and where these potentially originate. To detect leaks in all code paths other commands (store, delete) should be checked as well. On other systems similar utilities exist: on Linux "valgrind":https://valgrind.org/ is a possible alternative.
 
-h2(#test). Testing Olaf - check __wether Olaf works__ 
+h2(#test). Testing Olaf - check __whether Olaf works__ 
 
 The first thing this checks is whether Olaf compiles correctly. Afterwards, a small dataset is indexed and some queries are fired. The result of the queries is evaluated for correctness. Also the memory version of Olaf is checked. To run this yourself, with Ruby, @ffmpeg@ and @ffprobe@ installed:
 
