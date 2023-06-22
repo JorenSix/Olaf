@@ -25,7 +25,7 @@ olaf_db_mem.c
 olaf_ep_extractor.c
 olaf_fp_extractor.c
 olaf_fp_matcher.c
-olaf_max_filter_perceptual.c
+olaf_max_filter_perceptual_van_herk.c
 pffft.c
 )
 

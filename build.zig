@@ -20,7 +20,7 @@ pub fn build(b: *std.build.Builder) void {
         lib.addCSourceFile("src/pffft.c", &cflagslib);
         lib.addCSourceFile("src/queue.c", &cflagslib);
         lib.addCSourceFile("src/olaf_deque.c", &cflagslib);
-        lib.addCSourceFile("src/olaf_max_filter_perceptual.c", &cflagslib);
+        lib.addCSourceFile("src/olaf_max_filter_perceptual_van_herk.c", &cflagslib);
         lib.addCSourceFile("src/olaf.c", &cflagslib);
         lib.addCSourceFile("src/olaf_config.c", &cflagslib);
         lib.addCSourceFile("src/olaf_db_mem.c", &cflagslib);
@@ -46,7 +46,7 @@ pub fn build(b: *std.build.Builder) void {
         exe.addCSourceFile("src/pffft.c", &cflags);
         exe.addCSourceFile("src/queue.c", &cflags);
         exe.addCSourceFile("src/olaf_deque.c", &cflags);
-        exe.addCSourceFile("src/olaf_max_filter_perceptual.c", &cflags);
+        exe.addCSourceFile("src/olaf_max_filter_perceptual_van_herk.c", &cflags);
         exe.addCSourceFile("src/olaf.c", &cflags);
         exe.addCSourceFile("src/olaf_config.c", &cflags);
         exe.addCSourceFile("src/olaf_db.c", &cflags);

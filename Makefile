@@ -7,7 +7,7 @@ compile:
 	gcc -c src/hash-table.c     		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/queue.c  		   		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_deque.c  	   		-W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_max_filter_perceptual.c	-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_max_filter_perceptual_van_herk.c	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_file_writer.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_db.c 				-W -Wall -std=c11 -pedantic -O2
@@ -31,7 +31,7 @@ compile_gprof:
 	gcc -c src/hash-table.c     		-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/queue.c  		   		-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_deque.c  	   		-pg -W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_max_filter_perceptual.c	-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_max_filter_perceptual_van_herk.c	-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf.c 					-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_file_writer.c 	-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_db.c 				-pg -W -Wall -std=c11 -pedantic -O2
@@ -54,7 +54,7 @@ mem:
 	gcc -c src/hash-table.c     	 	 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/queue.c  		   		 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_deque.c  	   		 -Dmem -W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_max_filter_perceptual.c  -Dmem -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_max_filter_perceptual_van_herk.c  -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf.c 					 -Dmem -W -Wall -std=gnu11 -pedantic -O2
 	gcc -c src/olaf_db_mem.c 			 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer_mem.c 	 -Dmem -W -Wall -std=c11 -pedantic -O2
@@ -88,7 +88,7 @@ web:
 		src/hash-table.c \
 		src/queue.c \
 		src/olaf_deque.c \
-		src/olaf_max_filter_perceptual.c \
+		src/olaf_max_filter_perceptual_van_herk.c \
 		src/olaf_ep_extractor.c \
 		src/olaf_fp_extractor.c \
 		src/olaf_db_mem.c \
