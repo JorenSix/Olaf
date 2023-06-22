@@ -38,12 +38,12 @@ Note that the script has a couple of assumptions and limitations:
 
 <div align="center">
 !./olaf_vs_panako/olaf_vs_panako_store.svg(Olaf vs Panako store times)!
-<small>Fig. The time it takes to store the same audio files in Panako and Olaf. Times are reported in s/s. A value of 150 means that the system can store 150 seconds of audio in a single second. Note that the storage times are close to each other but, perhaps surprisingly, Panako is faster. The raw speed of C in Olaf is countered by the multi-threaded nature of the Java implementation. Also the less conservative memory use by the Java version makes it faster.</small>
+<small>Fig. The time it takes to store the same audio files in Panako and Olaf. Times are reported in s/s. A value of 250 means that the system can store 250 seconds of audio in a single second. Note that the storage speed of Olaf is about double that of Panako. This is mainly due to an algorithmic optimization in Olaf in the max filtering step.</small>
 </div>
 
 <div align="center">
 !./olaf_vs_panako/olaf_vs_panako_query.svg(Olaf vs Panako query times)!
-<small>Fig. The time it takes to query the same audio files in Panako and Olaf. The time is reported in absolute values. This means that it takes e.g. 7.7 seconds to run a query for Panako and 8.3 seconds for Olaf to run the exact same query on an index with the same audio. Note that the query times are close to each other but, perhaps surprisingly, Panako is faster. The raw speed of C in Olaf is countered by the multi-threaded nature of the Java implementation. Also the less conservative memory use by the Java version makes it faster..</small>
+<small>Fig. The time it takes to query the same audio files in Panako and Olaf. The time is reported in s/s. A value of 250 means that it takes e.g. 1 second to query for 250s of audio. The difference is mainly due to an algorithmic optimization in Olaf in the max filtering step.</small>
 </div>
 
 h2. Benchmark - How much memory does Olaf use?

@@ -13,8 +13,8 @@ a <- ggplot(bm, aes(bm$index_size,bm$olaf_query_time)) +
   geom_point(aes(x = bm$index_size, y = bm$panako_query_time, colour="Panako") , shape="triangle") +
   geom_point(na.rm = TRUE) +
   xlab("Indexed audio (s)") +
-  ylab("Query time (s)") +
-  ylim(c(0,10))+
+  ylab("Query time (s/s)") +
+  ylim(c(0,300))+
   scale_color_manual(name='Query times',
                      breaks=c('Olaf', 'Panako'),
                      values=c('Olaf'='black', 'Panako'='steelblue'))+

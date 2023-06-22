@@ -87,11 +87,15 @@ next_threshold = RUN_QUERY_AFTER
 
 query_files = input_files[-NUMBER_OF_QUERIES..-1]
 
+run_indexed_seconds = 0
+
 puts "index_size,olaf_store_time,panako_store_time,olaf_query_time,panako_query_time"
 
 input_files.each_with_index do |file, index|
 
-	total_indexed_seconds  = total_indexed_seconds + file_length(file)
+	audio_duration = file_length(file)
+	total_indexed_seconds  = total_indexed_seconds + audio_duration
+	run_indexed_seconds = run_indexed_seconds + audio_duration
 
 	olaf_store_cmd = OLAF_STORE_COMMAND.gsub('%s',file)
 	olaf_store_time = time_command(olaf_store_cmd)
@@ -103,24 +107,27 @@ input_files.each_with_index do |file, index|
 	total_olaf_store_time = total_olaf_store_time + olaf_store_time
 
 
-
 	#STDERR.puts "#{index}, #{file}, #{total_indexed_seconds.round}, #{olaf_store_time}, #{panako_store_time}"
 
 	if (total_indexed_seconds > next_threshold or total_indexed_seconds > NUMBER_OF_SECONDS_TO_INDEX)
 		olaf_query_time = 0
 		panako_query_time = 0
+		run_query_seconds = 0
 		query_files.each do |query_file|
 			olaf_query_cmd = OLAF_QUERY_COMMAND.gsub("%s",query_file)
 			olaf_query_time += time_command(olaf_query_cmd)
+			audio_duration = file_length(query_file)
+			run_query_seconds += audio_duration
 
 			panako_query_cmd = PANAKO_QUERY_COMMAND.gsub("%s",query_file)
 			panako_query_time += time_command(panako_query_cmd)
 		end
 
-		puts "#{total_indexed_seconds.round}, #{"%.2f" % total_olaf_store_time}, #{"%.2f" % total_panako_store_time}, #{"%.2f" % olaf_query_time}, #{"%.2f" % panako_query_time}"
+		puts "#{total_indexed_seconds.round}, #{"%.2f" % (run_indexed_seconds / total_olaf_store_time) }, #{"%.2f" %  (run_indexed_seconds / total_panako_store_time )}, #{"%.2f" % (run_query_seconds / olaf_query_time )}, #{"%.2f" % (run_query_seconds / panako_query_time )}"
 		next_threshold  = next_threshold + RUN_QUERY_AFTER
 		total_olaf_store_time = 0
-		total_olaf_store_time = 0
+		total_panako_store_time = 0
+		run_indexed_seconds = 0
 	end
 	if total_indexed_seconds > NUMBER_OF_SECONDS_TO_INDEX
 		exit(0)

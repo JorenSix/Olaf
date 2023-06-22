@@ -53,7 +53,7 @@ To try Olaf yourself or adapt Olaf for your needs: the code and documentation of
 
 [^1]: A script to measure memory use can be found here:   
 https://github.com/JorenSix/Olaf/blob/master/eval/olaf_memory_use.rb
-[^2]: Panako and Olaf implement similar algorithms, one in Java and the other in C. A direct comparison shows that Panako is faster since it uses more memory and threads:   
+[^2]: Panako and Olaf implement similar algorithms, one in Java and the other in C. A direct comparison shows that Olaf is almost twice as fast as Panako:   
 https://github.com/JorenSix/Olaf/tree/master/eval
 
 
