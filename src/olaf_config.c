@@ -54,7 +54,7 @@ Olaf_Config* olaf_config_default(void){
 	config->filterSizeFrequency=103;//frequency bins 
 	config->halfFilterSizeFrequency=config->filterSizeFrequency/2;
 
-	config->filterSizeTime=25;// 25 * 128/16 = 200 ms
+	config->filterSizeTime=24;// 25 * 128/16 = 200 ms
 	config->halfFilterSizeTime=config->filterSizeTime/2;
 
 	//prevent silence to register as event points

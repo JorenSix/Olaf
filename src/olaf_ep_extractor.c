@@ -33,10 +33,6 @@ struct Olaf_EP_Extractor{
 	// The 'vertical' max-filtered magnitudes for the  
 	float** maxes;
 
-	// The horizontally max-filtered magnitudes for the
-	// current frame
-	float* horizontalMaxes;
-
 	int filterIndex;
 	
 	int audioBlockIndex;
@@ -54,12 +50,9 @@ Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){
 
 	int halfAudioBlockSize = config->audioBlockSize / 2;
 
-	ep_extractor->horizontalMaxes = (float *) calloc(halfAudioBlockSize ,sizeof(float));
-  if(ep_extractor->horizontalMaxes == NULL) fprintf(stdout,"Failed to allocate memory: horizontalMaxes");
-
 	ep_extractor->eventPoints.eventPoints = (struct eventpoint *) calloc(config->maxEventPoints , sizeof(struct eventpoint));
 	ep_extractor->eventPoints.eventPointIndex = 0;
-  if(ep_extractor->horizontalMaxes == NULL) fprintf(stdout,"Failed to allocate memory: eventPoints");
+	if(ep_extractor->eventPoints.eventPoints == NULL) fprintf(stdout,"Failed to allocate memory: eventPoints");
 
 	//initialize t with a high number
 	for(int i = 0 ; i < config->maxEventPoints; i++){
@@ -67,44 +60,64 @@ Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){
 	}
 	
 	ep_extractor->mags  =(float **) calloc(config->filterSizeTime , sizeof(float *));
-  if(ep_extractor->mags == NULL) fprintf(stdout,"Failed to allocate memory: mags");
+	if(ep_extractor->mags == NULL) fprintf(stdout,"Failed to allocate memory: mags");
 	ep_extractor->maxes = (float **) calloc(config->filterSizeTime , sizeof(float *));
-  if(ep_extractor->maxes == NULL) fprintf(stdout,"Failed to allocate memory: maxes");
+	if(ep_extractor->maxes == NULL) fprintf(stdout,"Failed to allocate memory: maxes");
 
 	for(int i = 0; i < config->filterSizeTime ;i++){
 		ep_extractor->maxes[i]= (float *) calloc(halfAudioBlockSize , sizeof(float));
-    if(ep_extractor->maxes[i] == NULL) fprintf(stdout,"Failed to allocate memory: maxes[i]");
+		if(ep_extractor->maxes[i] == NULL) fprintf(stdout,"Failed to allocate memory: maxes[i]");
+
 		ep_extractor->mags[i] = (float *) calloc(halfAudioBlockSize , sizeof(float));
-    if(ep_extractor->mags[i] == NULL) fprintf(stderr,"Failed to allocate memory: mags[i]");
+		if(ep_extractor->mags[i] == NULL) fprintf(stderr,"Failed to allocate memory: mags[i]");
 	}
 
-  	ep_extractor->filterIndex = 0;
-  	return ep_extractor;
+	ep_extractor->filterIndex = 0;
+	return ep_extractor;
 }
 
 void olaf_ep_extractor_destroy(Olaf_EP_Extractor * ep_extractor){
 	free(ep_extractor->eventPoints.eventPoints);
-	free(ep_extractor->horizontalMaxes);
 
 	for(int i = 0; i < ep_extractor->config->filterSizeTime ;i++){
 	  free(ep_extractor->maxes[i]);
 	  free(ep_extractor->mags[i]);
-  	}
-
-  	free(ep_extractor->maxes);
-  	free(ep_extractor->mags);
-  	free(ep_extractor);
-}
-
-void olaf_ep_extractor_max_filter_time(float* data[],float * max,int length,int filterSize){
-	for(int i = 0 ; i < length;i++){
-		max[i] = -10000000;
-		for(int j = 0 ; j < filterSize; j++){
-			if(data[j][i]>max[i])
-				max[i]=data[j][i];
-		}
 	}
+
+	free(ep_extractor->maxes);
+	free(ep_extractor->mags);
+	free(ep_extractor);
 }
+
+
+#if defined(__ARM_NEON)
+
+	#include <arm_neon.h>
+	
+	// ARM NEON implementation here
+	float olaf_ep_extractor_max_filter_time(float* array, size_t array_size){
+		assert(array_size % 4 == 0);
+		float32x4_t vec_max = vld1q_f32(array);
+		for (size_t j = 4; j < array_size; j += 4) {
+			float32x4_t vec = vld1q_f32(array + j);
+			vec_max = vmaxq_f32(vec_max, vec);
+		}
+		float32x2_t max_val = vpmax_f32(vget_low_f32(vec_max), vget_high_f32(vec_max));
+		max_val = vpmax_f32(max_val, max_val);
+		return vget_lane_f32(max_val, 0);
+	}
+
+#else
+	//naive fallback here, sse version is slower!
+	float olaf_ep_extractor_max_filter_time(float* array,size_t array_size){
+		float max = -10000000;
+		for(size_t i = 0 ; i < array_size;i++){
+			if(array[i]>max) max = array[i];
+		}
+		return max;
+	}
+#endif
+
 
 void olaf_ep_extractor_print_ep(struct eventpoint e){
 	fprintf(stderr,"t:%d, f:%d, u:%d, mag:%.4f\n",e.timeIndex,e.frequencyBin,e.usages,e.magnitude);
@@ -113,42 +126,26 @@ void olaf_ep_extractor_print_ep(struct eventpoint e){
 void olaf_ep_extractor_max_filter_frequency(float* data, float * max, int length,int half_filter_size ){
 	size_t filterSize = half_filter_size + half_filter_size + 1;
 	olaf_max_filter(data,length,filterSize , max);
-
-	/*
-	//compare naive and other max filter
-	float other[length];
-	
-	for(int i = 0 ; i < length;i++){
-		int startIndex = i - half_filter_size > 0 ? i - half_filter_size : 0;
-		int stopIndex = i + half_filter_size < length ? i + half_filter_size + 1: length;
-		other[i] = -100000;
-		for(int j = startIndex ; j < stopIndex; j++){
-			if(data[j]>other[i])
-				other[i]=data[j];
-		}
-	}
-
-	for(size_t i = 0; i < (size_t) length ; i++){
-		if(other[i] != max[i]){
-			fprintf(stderr,"%f %f  %f %zu\n",max[i],other[i],data[i],i);
-		}
-	}*/
-	
 }
 
 void extract_internal(Olaf_EP_Extractor * ep_extractor){
 
-	olaf_ep_extractor_max_filter_time(ep_extractor->maxes,ep_extractor->horizontalMaxes,ep_extractor->config->audioBlockSize/2, ep_extractor->config->filterSizeTime);
-
-	int halfFilterSizeTime = ep_extractor->config->halfFilterSizeTime;
-	int halfAudioBlockSize = ep_extractor->config->audioBlockSize/2;
+	size_t filterSizeTime = (size_t) ep_extractor->config->filterSizeTime;
+	size_t halfFilterSizeTime = ep_extractor->config->halfFilterSizeTime;
+	size_t halfAudioBlockSize = ep_extractor->config->audioBlockSize/2;
 	struct eventpoint * eventPoints = ep_extractor->eventPoints.eventPoints;
 	int eventPointIndex = ep_extractor->eventPoints.eventPointIndex;
 	int minFreqencyBin = ep_extractor->config->minFrequencyBin;
 
 	//do not start at zero 
-	for(int j = minFreqencyBin ; j < halfAudioBlockSize - 1 ; j++){
-		float maxVal = ep_extractor->horizontalMaxes[j];
+	for(size_t j = minFreqencyBin ; j < halfAudioBlockSize - 1 ; j++){
+
+		float timeslice[filterSizeTime];
+		for(size_t t = 0 ; t < filterSizeTime; t++){
+			timeslice[t] = ep_extractor->maxes[t][j];
+		}
+		float maxVal = olaf_ep_extractor_max_filter_time(timeslice,ep_extractor->config->filterSizeTime);
+
 		float currentVal = ep_extractor->mags[halfFilterSizeTime][j];
 
 		if(currentVal == maxVal && maxVal > ep_extractor->config->minEventPointMagnitude){
