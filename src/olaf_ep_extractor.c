@@ -140,15 +140,25 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
 	//do not start at zero 
 	for(size_t j = minFreqencyBin ; j < halfAudioBlockSize - 1 ; j++){
 
-		float timeslice[filterSizeTime];
-		for(size_t t = 0 ; t < filterSizeTime; t++){
-			timeslice[t] = ep_extractor->maxes[t][j];
-		}
-		float maxVal = olaf_ep_extractor_max_filter_time(timeslice,ep_extractor->config->filterSizeTime);
-
 		float currentVal = ep_extractor->mags[halfFilterSizeTime][j];
+    //the vertically filtered max value
+    float maxVal = ep_extractor->maxes[halfFilterSizeTime][j];
 
-		if(currentVal == maxVal && maxVal > ep_extractor->config->minEventPointMagnitude){
+    //if the current value is too low (below abs threshold) or not equal to the
+    //vertical max value, then this is not an event point and can be skipped.
+    //This also skips calculating the horizontal max value and wasting resources
+    if(currentVal < ep_extractor->config->minEventPointMagnitude || currentVal != maxVal){
+      continue;
+    }
+
+    //Only now execute the horizontal max filter
+    float timeslice[filterSizeTime];
+    for(size_t t = 0 ; t < filterSizeTime; t++){
+      timeslice[t] = ep_extractor->maxes[t][j];
+      maxVal = olaf_ep_extractor_max_filter_time(timeslice,ep_extractor->config->filterSizeTime);
+    }
+		
+		if(currentVal == maxVal){
 			int timeIndex = ep_extractor->audioBlockIndex - halfFilterSizeTime;
 			int frequencyBin = j;
 			float magnitude = ep_extractor->mags[halfFilterSizeTime][frequencyBin];
