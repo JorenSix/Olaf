@@ -14,7 +14,7 @@ a <- ggplot(bm, aes(bm$index_size,bm$olaf_store_time)) +
   geom_point(na.rm = TRUE) +
   xlab("Indexed audio (s)") +
   ylab("Store time (s/s)") +
-  ylim(c(0,300))+
+  ylim(c(0,500))+
   scale_color_manual(name='Store times',
                      breaks=c('Olaf', 'Panako'),
                      values=c('Olaf'='black', 'Panako'='steelblue'))+
