@@ -1,6 +1,4 @@
-!https://github.com/JorenSix/Olaf/actions/workflows/make.yml/badge.svg(Olaf build and test status)!
-
-[![status](https://joss.theoj.org/papers/f5b4572fd51939c2ab8363e561bdb2b7/status.svg)](https://joss.theoj.org/papers/f5b4572fd51939c2ab8363e561bdb2b7)
+!https://github.com/JorenSix/Olaf/actions/workflows/make.yml/badge.svg(Olaf build and test status)!  !https://joss.theoj.org/papers/f5b4572fd51939c2ab8363e561bdb2b7/status.svg!:https://joss.theoj.org/papers/f5b4572fd51939c2ab8363e561bdb2b7
 
 h1. OLAF -  Overly Lightweight Acoustic Fingerprinting
 
