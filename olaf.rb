@@ -31,10 +31,10 @@ MONITOR_LENGTH_IN_SECONDS = 7
 TARGET_SAMPLE_RATE = 16000
 
 ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,raw,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
-AUDIO_DURATION_COMMAND = "ffprobe -i \"__input__\" -show_entries format=duration -v quiet -of csv=\"p=0\""
-AUDIO_CONVERT_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -i \"__input__\" -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le \"__output__\""
-AUDIO_CONVERT_FROM_RAW_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le -i \"__input__\"  \"__output__\""
-AUDIO_CONVERT_COMMAND_WITH_START_DURATION = "ffmpeg -hide_banner -y -loglevel panic -ss __start__ -i \"__input__\" -t __duration__ -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le \"__output__\""
+AUDIO_DURATION_COMMAND = proc{ |input| %W[ffprobe -i #{input} -show_entries format=duration -v quiet -of csv=p=0] }
+AUDIO_CONVERT_COMMAND = proc{ |input, output| %W[ffmpeg -hide_banner -y -loglevel panic -i #{input} -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le #{output}] }
+AUDIO_CONVERT_FROM_RAW_COMMAND = proc{ |input, output| %W[ffmpeg -hide_banner -y -loglevel panic -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le -i #{input} #{output}] }
+AUDIO_CONVERT_COMMAND_WITH_START_DURATION = proc{ |input, output, start, duration| %W[ffmpeg -hide_banner -y -loglevel panic -ss #{start} -i #{input} -t #{duration} -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le #{output}] }
 MIC_INPUT = %W[ffmpeg -hide_banner -loglevel panic -f avfoundation -i none:default -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le pipe:1]
 
 #alt mic input: sox -d -t raw -b 32 -e float -c 1  -r 16000 - | ./bin/olaf_mem query
@@ -84,8 +84,8 @@ end
 def has(audio_file)
   #return false if no db exits
   return false if (Dir.glob(File.join(DB_FOLDER,"*")).size == 0)
-  
-  result = `#{EXECUTABLE_LOCATION} has '#{audio_file}'`
+
+  result = IO.popen([EXECUTABLE_LOCATION, 'has', audio_file], &:read)
   unless(result.empty?)
     result_line = result.split("\n")[1]
     result_line.split(";").size > 1
@@ -95,14 +95,13 @@ def has(audio_file)
 end
 
 def audio_file_duration(audio_file)
-  duration_command = AUDIO_DURATION_COMMAND.gsub("__input__",audio_file)
-  `#{duration_command}`.to_f
+  duration_command = AUDIO_DURATION_COMMAND[audio_file]
+  IO.popen(duration_command, &:read).to_f
 end
 
 def batch_monitor(index,length,audio_filename,ignore_self_match, skip_size)
   audio_filename = File.expand_path(audio_filename)
-  audio_filename_escaped = escape_audio_filename(audio_filename)
-  audio_identifier = `olaf_c name_to_id '#{audio_filename_escaped}'`.strip
+  audio_identifier = IO.popen([EXECUTABLE_LOCATION, 'name_to_id', audio_filename], &:read).strip
 
   monitor_out_file = "mon_out_#{audio_identifier}.csv"
   if File.exist? monitor_out_file
@@ -120,12 +119,10 @@ end
 
 def monitor(index,length,audio_filename,ignore_self_match, skip_size,stream)
   audio_filename = File.expand_path(audio_filename)
-  audio_filename_escaped =  escape_audio_filename(audio_filename) 
 
+  query_audio_identifer = IO.popen([EXECUTABLE_LOCATION, 'name_to_id', audio_filename], &:read).strip.to_i
 
-  query_audio_identifer =  `olaf_c name_to_id '#{audio_filename_escaped}'`.strip.to_i
-
-  puts audio_filename_escaped
+  puts audio_filename
   puts query_audio_identifer
 
   tot_duration = audio_file_duration(audio_filename)
@@ -134,10 +131,10 @@ def monitor(index,length,audio_filename,ignore_self_match, skip_size,stream)
 
   while tot_duration > stop do
 
-    with_converted_audio_part(audio_filename_escaped,start,skip_size) do |tempfile|
+    with_converted_audio_part(audio_filename,start,skip_size) do |tempfile|
 
-      stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} query \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")
-      
+      stdout, stderr, status = Open3.capture3(EXECUTABLE_LOCATION, 'query', tempfile.path, audio_filename)
+
       stdout.split("\n").each do |line|
         data = line.split(",")
         matching_audio_id = data[4].strip.to_i
@@ -155,13 +152,10 @@ def monitor(index,length,audio_filename,ignore_self_match, skip_size,stream)
 end
 
 def query(index,length,audio_filename,ignore_self_match)
-  audio_filename_escaped =  escape_audio_filename(audio_filename)
-  return unless audio_filename_escaped
+  query_audio_identifer =  IO.popen([EXECUTABLE_LOCATION, 'name_to_id', audio_filename], &:read).strip.to_i
 
-  query_audio_identifer =  `olaf_c name_to_id '#{audio_filename_escaped}'`.strip.to_i
-
-  with_converted_audio(audio_filename_escaped) do |tempfile|
-    stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} query \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")
+  with_converted_audio(audio_filename) do |tempfile|
+    stdout, stderr, status = Open3.capture3(EXECUTABLE_LOCATION, 'query', tempfile.path, audio_filename)
 
     stdout.split("\n").each do |line|
       data = line.split(",")
@@ -180,12 +174,10 @@ def query(index,length,audio_filename,ignore_self_match)
   end 
 end
 
-def with_converted_audio(audio_filename_escaped)
+def with_converted_audio(audio_filename)
   tempfile = Tempfile.new(['olaf_audio', '.raw'])
-  convert_command = AUDIO_CONVERT_COMMAND
-  convert_command = convert_command.gsub("__input__",audio_filename_escaped)
-  convert_command = convert_command.gsub("__output__",tempfile.path)
-  system convert_command
+  convert_command = AUDIO_CONVERT_COMMAND[audio_filename, tempfile.path]
+  system(*convert_command)
 
   yield tempfile
 
@@ -194,18 +186,15 @@ def with_converted_audio(audio_filename_escaped)
   tempfile.unlink
 end
 
-def with_converted_audio_files(audio_filenames_escaped)
+def with_converted_audio_files(audio_filenames)
   tempfiles = Array.new
 
-  audio_filenames_escaped.each do |audio_filename_escaped|
+  audio_filenames.each do |audio_filename|
     tempfile = Tempfile.new(['olaf_audio', '.raw'])
-    convert_command = AUDIO_CONVERT_COMMAND
-    convert_command = convert_command.gsub("__input__",audio_filename_escaped)
-    convert_command = convert_command.gsub("__output__",tempfile.path)
-  
-    system convert_command
+    convert_command = AUDIO_CONVERT_COMMAND[audio_filename, tempfile.path]
+    system(*convert_command)
 
-    #puts "Transcoded #{File.basename audio_filename_escaped}"
+    #puts "Transcoded #{File.basename audio_filename}"
 
     tempfiles << tempfile
   end
@@ -219,15 +208,11 @@ def with_converted_audio_files(audio_filenames_escaped)
   end 
 end
 
-def with_converted_audio_part(audio_filename_escaped,start,duration)
+def with_converted_audio_part(audio_filename,start,duration)
   tempfile = Tempfile.new(['olaf_audio', '.raw'])
-  convert_command = AUDIO_CONVERT_COMMAND_WITH_START_DURATION
-  convert_command = convert_command.gsub("__input__",audio_filename_escaped)
-  convert_command = convert_command.gsub("__output__",tempfile.path)
-  convert_command = convert_command.gsub("__start__",start.to_s)
-  convert_command = convert_command.gsub("__duration__",duration.to_s)
-  
-  system convert_command
+  convert_command = AUDIO_CONVERT_COMMAND_WITH_START_DURATION[audio_filename, tempfile.path, start, duration]
+
+  system(*convert_command)
 
   yield tempfile
 
@@ -237,14 +222,11 @@ def with_converted_audio_part(audio_filename_escaped,start,duration)
 end
 
 def to_raw(index,length,audio_filename)
-  audio_filename_escaped = escape_audio_filename(audio_filename)
-  return unless audio_filename_escaped
-  
   basename = File.basename(audio_filename,File.extname(audio_filename))
   raw_audio_filename = "olaf_audio_#{basename}.raw"
   return if File.exist?(raw_audio_filename)
-  
-  with_converted_audio(audio_filename_escaped) do |tempfile|
+
+  with_converted_audio(audio_filename) do |tempfile|
     system("cp '#{tempfile.path}' '#{raw_audio_filename}'")
     puts "#{index}/#{length},#{File.basename audio_filename},#{raw_audio_filename}\n"
   end
@@ -252,31 +234,18 @@ end
 
 def to_wav(index,length,raw_audio_filename)
   output_filename = File.basename(raw_audio_filename,File.extname(raw_audio_filename)) + ".wav"
-  convert_command = AUDIO_CONVERT_FROM_RAW_COMMAND
-  convert_command = convert_command.gsub("__input__",raw_audio_filename)
-  convert_command = convert_command.gsub("__output__",output_filename)
+  convert_command = AUDIO_CONVERT_FROM_RAW_COMMAND[raw_audio_filename, output_filename]
 
-  unless File.exist?(output_filename) 
-    system(convert_command)
+  unless File.exist?(output_filename)
+    system(*convert_command)
   end
   puts "#{index}/#{length},#{File.basename raw_audio_filename},#{output_filename}\n"
 end
 
 
-def escape_audio_filename(audio_filename)
-  begin
-    audio_filename.gsub(/(["])/, '\\\\\1')
-  rescue
-    puts "ERROR, probably invalid byte sequence in UTF-8 in #{audio_filename}"
-    return nil
-  end
-end
-
 def print(index,length,audio_filename)
-  audio_filename_escaped = escape_audio_filename(audio_filename)
-  return unless audio_filename_escaped
-  with_converted_audio(audio_filename_escaped) do |tempfile|
-    stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} print \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")
+  with_converted_audio(audio_filename) do |tempfile|
+    stdout, stderr, status = Open3.capture3(EXECUTABLE_LOCATION, 'print', tempfile.path, audio_filename)
     stdout.split("\n").each do |line|
       puts "#{index}/#{length},#{File.expand_path audio_filename},#{line}\n"
     end
@@ -304,22 +273,17 @@ def store_cached
       next
     end
 
-    audio_filename_escaped = escape_audio_filename(audio_filename)
-
-    if (SKIP_DUPLICATES && has(audio_filename_escaped))
+    if (SKIP_DUPLICATES && has(audio_filename))
       puts "#{index}/#{length} #{File.basename audio_filename} SKIPPED: already indexed audio file"
     else
-      stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} store_cached \"#{cache_file}\"")
-      puts "#{index}/#{length} #{File.basename audio_filename} #{stdout.strip}" 
+      stdout, stderr, status = Open3.capture3(EXECUTABLE_LOCATION, 'store_cached', cache_file)
+      puts "#{index}/#{length} #{File.basename audio_filename} #{stdout.strip}"
     end
   end
 end
 
 def cache(index,length,audio_filename)
-  audio_filename_escaped = escape_audio_filename(audio_filename)
-  return unless audio_filename_escaped
-
-  audio_identifier = `olaf_c name_to_id '#{audio_filename_escaped}'`.strip
+  audio_identifier = IO.popen([EXECUTABLE_LOCATION, 'name_to_id', audio_filename], &:read).strip
   cache_file_name = File.join(CACHE_FOLDER,"#{audio_identifier}.tdb")
 
   if File.exist? cache_file_name
@@ -327,13 +291,14 @@ def cache(index,length,audio_filename)
     return
   end
 
-  if (SKIP_DUPLICATES && has(audio_filename_escaped))
+  if (SKIP_DUPLICATES && has(audio_filename))
     puts "#{index}/#{length} #{File.basename audio_filename} SKIPPED: already indexed audio file "
     return
   end
   
-  with_converted_audio(audio_filename_escaped) do |tempfile|
-    Open3.popen3("#{EXECUTABLE_LOCATION} print \"#{tempfile.path}\" \"#{audio_filename_escaped}\"") do |stdin, stdout, stderr, status , thread |
+
+  with_converted_audio(audio_filename) do |tempfile|
+    Open3.popen3(EXECUTABLE_LOCATION, 'print', tempfile.path, audio_filename) do |stdin, stdout, stderr, status , thread |
       File.open(cache_file_name,"w") do |cache_file|
         fp_counter = 0
         while line = stdout.gets do 
@@ -348,18 +313,15 @@ def cache(index,length,audio_filename)
 end
 
 def store(index,length,audio_filename)
-  audio_filename_escaped = escape_audio_filename(audio_filename)
-  return unless audio_filename_escaped
-
   #Do not store same audio twice
   if(CHECK_INCOMING_AUDIO && audio_file_duration(audio_filename) == 0)
     puts "#{index}/#{length} #{File.basename audio_filename} INVALID audio file? Duration zero."
-  elsif (SKIP_DUPLICATES && has(audio_filename_escaped))
+  elsif (SKIP_DUPLICATES && has(audio_filename))
     puts "#{index}/#{length} #{File.basename audio_filename} SKIP: already stored audio "
   else
-    with_converted_audio(audio_filename_escaped) do |tempfile|
-      stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} store \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")
-      puts "#{index}/#{length} #{File.basename audio_filename} #{stderr.strip}" 
+    with_converted_audio(audio_filename) do |tempfile|
+      stdout, stderr, status = Open3.capture3(EXECUTABLE_LOCATION, 'store', tempfile.path, audio_filename)
+      puts "#{index}/#{length} #{File.basename audio_filename} #{stderr.strip}"
     end
   end
 end
@@ -405,14 +367,10 @@ def clear(arguments)
 end
 
 def delete(index,length,audio_filename)
-
-  audio_filename_escaped = escape_audio_filename(audio_filename)
-  return unless audio_filename_escaped
-  
   #Do not store same audio twice
-  with_converted_audio(audio_filename_escaped) do |tempfile|
-    stdout, stderr, status = Open3.capture3("#{EXECUTABLE_LOCATION} delete \"#{tempfile.path}\" \"#{audio_filename_escaped}\"")
-    puts "#{index}/#{length} #{File.basename audio_filename} #{stderr.strip}" 
+  with_converted_audio(audio_filename) do |tempfile|
+    stdout, stderr, status = Open3.capture3(EXECUTABLE_LOCATION, 'delete', tempfile.path, audio_filename)
+    puts "#{index}/#{length} #{File.basename audio_filename} #{stderr.strip}"
   end
 end
 
@@ -483,7 +441,7 @@ commands = {
     ",
     :help => "",
     :needs_audio_files => false,
-    :lambda => -> { system("#{EXECUTABLE_LOCATION} stats") }
+    :lambda => -> { system(EXECUTABLE_LOCATION, 'stats') }
   },
   "store" => {
     :description => "Extracts and stores fingerprints into an index.
