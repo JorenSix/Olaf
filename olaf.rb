@@ -181,7 +181,7 @@ def query(index,length,audio_filename,ignore_self_match)
 end
 
 def with_converted_audio(audio_filename_escaped)
-  tempfile = Tempfile.new(["olaf_audio_#{rand(20000)}", '.raw'])
+  tempfile = Tempfile.new(['olaf_audio', '.raw'])
   convert_command = AUDIO_CONVERT_COMMAND
   convert_command = convert_command.gsub("__input__",audio_filename_escaped)
   convert_command = convert_command.gsub("__output__",tempfile.path)
@@ -198,7 +198,7 @@ def with_converted_audio_files(audio_filenames_escaped)
   tempfiles = Array.new
 
   audio_filenames_escaped.each do |audio_filename_escaped|
-    tempfile = Tempfile.new(["olaf_audio_#{rand(200000)}", '.raw'])
+    tempfile = Tempfile.new(['olaf_audio', '.raw'])
     convert_command = AUDIO_CONVERT_COMMAND
     convert_command = convert_command.gsub("__input__",audio_filename_escaped)
     convert_command = convert_command.gsub("__output__",tempfile.path)
@@ -220,7 +220,7 @@ def with_converted_audio_files(audio_filenames_escaped)
 end
 
 def with_converted_audio_part(audio_filename_escaped,start,duration)
-  tempfile = Tempfile.new(["olaf_audio_#{rand(20000)}", '.raw'])
+  tempfile = Tempfile.new(['olaf_audio', '.raw'])
   convert_command = AUDIO_CONVERT_COMMAND_WITH_START_DURATION
   convert_command = convert_command.gsub("__input__",audio_filename_escaped)
   convert_command = convert_command.gsub("__output__",tempfile.path)
