@@ -175,8 +175,8 @@ int main(int argc, const char* argv[]){
 	} else if(strcmp(command,"store_cached") == 0){
 		olaf_store_cached(argc,argv);
 	} else {
-		fprintf(stderr,"%s Unkown command: \n",command);
-		olaf_print_help("Unkonwn command\n");
+		fprintf(stderr,"%s Unknown command: \n",command);
+		olaf_print_help("Unknown command\n");
 	}
 
 	Olaf_Runner * runner = olaf_runner_new(runner_mode);
