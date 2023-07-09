@@ -35,7 +35,7 @@ AUDIO_DURATION_COMMAND = "ffprobe -i \"__input__\" -show_entries format=duration
 AUDIO_CONVERT_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -i \"__input__\" -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le \"__output__\""
 AUDIO_CONVERT_FROM_RAW_COMMAND = "ffmpeg -hide_banner -y -loglevel panic  -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le -i \"__input__\"  \"__output__\""
 AUDIO_CONVERT_COMMAND_WITH_START_DURATION = "ffmpeg -hide_banner -y -loglevel panic -ss __start__ -i \"__input__\" -t __duration__ -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le \"__output__\""
-MIC_INPUT = "ffmpeg -hide_banner -loglevel panic  -f avfoundation -i 'none:default' -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le pipe:1"
+MIC_INPUT = %W[ffmpeg -hide_banner -loglevel panic -f avfoundation -i none:default -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le pipe:1]
 
 #alt mic input: sox -d -t raw -b 32 -e float -c 1  -r 16000 - | ./bin/olaf_mem query
 
@@ -366,30 +366,8 @@ end
 
 def microphone
   argument = ""
-  puts "#{MIC_INPUT} | #{EXECUTABLE_LOCATION} query"
-  Open3.popen3("#{MIC_INPUT} | #{EXECUTABLE_LOCATION} query") do |stdin, stdout, stderr, wait_thr|
-    pid = wait_thr.pid
-
-    #Thread.new do 
-    #  sleep(1)
-      #Process.kill("SIGALRM", pid)
-    #end
-
-    #Thread.new do
-    #  sleep(5)
-      #Process.kill("SIGINFO", pid)
-    #end
-    
-    Thread.new do
-     stdout.each {|l| puts l }
-    end
-
-    Thread.new do
-     stderr.each {|l| puts l }
-    end
-
-    wait_thr.value
-  end
+  puts "#{MIC_INPUT.shelljoin} | #{EXECUTABLE_LOCATION} query"
+  Open3.pipeline(MIC_INPUT, [EXECUTABLE_LOCATION, 'query'])
 end
 
 def clear(arguments)
