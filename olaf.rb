@@ -30,12 +30,14 @@ SKIP_DUPLICATES = true
 MONITOR_LENGTH_IN_SECONDS = 7
 TARGET_SAMPLE_RATE = 16000
 
-ALLOWED_AUDIO_FILE_EXTENSIONS = "**/*.{m4a,wav,mp4,wv,ape,ogg,mp3,raw,flac,wma,M4A,WAV,MP4,WV,APE,OGG,MP3,FLAC,WMA}"
+
+ALLOWED_AUDIO_FILE_EXTENSIONS = %w[.m4a .wav .mp4 .wv .ape .ogg .mp3 .raw .flac .wma]
 AUDIO_DURATION_COMMAND = proc{ |input| %W[ffprobe -i #{input} -show_entries format=duration -v quiet -of csv=p=0] }
 AUDIO_CONVERT_COMMAND = proc{ |input, output| %W[ffmpeg -hide_banner -y -loglevel panic -i #{input} -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le #{output}] }
 AUDIO_CONVERT_FROM_RAW_COMMAND = proc{ |input, output| %W[ffmpeg -hide_banner -y -loglevel panic -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le -i #{input} #{output}] }
 AUDIO_CONVERT_COMMAND_WITH_START_DURATION = proc{ |input, output, start, duration| %W[ffmpeg -hide_banner -y -loglevel panic -ss #{start} -i #{input} -t #{duration} -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le #{output}] }
 MIC_INPUT = %W[ffmpeg -hide_banner -loglevel panic -f avfoundation -i none:default -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le pipe:1]
+
 
 #alt mic input: sox -d -t raw -b 32 -e float -c 1  -r 16000 - | ./bin/olaf_mem query
 
@@ -46,9 +48,13 @@ MIC_INPUT = %W[ffmpeg -hide_banner -loglevel panic -f avfoundation -i none:defau
 def audio_file_list(arg,files_to_process)
   arg = File.expand_path(arg)
   if File.directory?(arg)
-    audio_files_in_dir = Dir.glob(File.join(arg,ALLOWED_AUDIO_FILE_EXTENSIONS))
-    audio_files_in_dir.each do |audio_filename|
-      files_to_process << audio_filename
+    Find.find(arg) do |path|
+      # ignore files and directories starting with dot
+      if File.basename(path).start_with?('.')
+        Find.prune if File.directory?(path)
+      elsif File.file?(path) && ALLOWED_AUDIO_FILE_EXTENSIONS.include?(File.extname(path).downcase)
+        files_to_process << path
+      end
     end
   elsif File.extname(arg).eql? ".txt"
     audio_files_in_txt = File.read(arg).split("\n")
