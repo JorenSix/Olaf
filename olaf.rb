@@ -27,7 +27,7 @@ CACHE_FOLDER = File.expand_path("~/.olaf/cache") #needs to be the same in the c 
 EXECUTABLE_LOCATION = "/usr/local/bin/olaf_c"
 CHECK_INCOMING_AUDIO = true
 SKIP_DUPLICATES = true
-MONITOR_LENGTH_IN_SECONDS = 7
+FRAGMENT_DURATION_IN_SECONDS = 30
 TARGET_SAMPLE_RATE = 16000
 
 
@@ -38,6 +38,35 @@ AUDIO_CONVERT_FROM_RAW_COMMAND = proc{ |input, output| %W[ffmpeg -hide_banner -y
 AUDIO_CONVERT_COMMAND_WITH_START_DURATION = proc{ |input, output, start, duration| %W[ffmpeg -hide_banner -y -loglevel panic -ss #{start} -i #{input} -t #{duration} -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le #{output}] }
 MIC_INPUT = %W[ffmpeg -hide_banner -loglevel panic -f avfoundation -i none:default -ac 1 -ar #{TARGET_SAMPLE_RATE} -f f32le -acodec pcm_f32le pipe:1]
 
+
+class OlafResultLine
+    attr_reader :valid, :empty_match
+    attr_reader :index, :total, :query, :query_offset, :match_count,:query_start,:query_stop,:ref_path,:ref_id,:ref_start,:ref_stop
+    
+    def initialize(line)
+        data = line.split(",").map(&:strip)
+
+        @valid = (data.size == 11 and data[3] =~/\d+/)
+        if(@valid)
+            @index = data[0].to_i
+            @total = data[1].to_i
+            @query = data[2]
+            @query_offset = data[3].to_f
+            @match_count = data[4].to_i
+            @query_start = data[5].to_f
+            @query_stop = data[6].to_f
+            @ref_path = data[7]
+            @ref_id = data[8]
+            @ref_start = data[9].to_f
+            @ref_stop = data[10].to_f
+        end
+        @empty_match = @match_count == 0 
+    end
+
+    def to_s
+        "#{index} , #{total} , #{query} , #{query_offset} , #{match_count} , #{query_start} , #{query_stop} , #{ref_path} , #{ref_id} , #{ref_start} , #{ref_stop}"
+    end    
+end
 
 #alt mic input: sox -d -t raw -b 32 -e float -c 1  -r 16000 - | ./bin/olaf_mem query
 
@@ -105,31 +134,10 @@ def audio_file_duration(audio_file)
   IO.popen(duration_command, &:read).to_f
 end
 
-def batch_monitor(index,length,audio_filename,ignore_self_match, skip_size)
-  audio_filename = File.expand_path(audio_filename)
-  audio_identifier = IO.popen([EXECUTABLE_LOCATION, 'name_to_id', audio_filename], &:read).strip
-
-  monitor_out_file = "mon_out_#{audio_identifier}.csv"
-  if File.exist? monitor_out_file
-    puts "#{index}/#{length}, Skipped #{audio_filename}"
-    return
-  end
-
-  File.open(monitor_out_file, "w") do |f|
-    monitor(index,length,audio_filename,ignore_self_match, skip_size,f) 
-  end
-
-  puts "#{index}/#{length}, processed #{audio_filename}"
-end
-
-
-def monitor(index,length,audio_filename,ignore_self_match, skip_size,stream)
+def query_fragmented(index,length,audio_filename,ignore_self_match, skip_size,stream)
   audio_filename = File.expand_path(audio_filename)
 
   query_audio_identifer = IO.popen([EXECUTABLE_LOCATION, 'name_to_id', audio_filename], &:read).strip.to_i
-
-  puts audio_filename
-  puts query_audio_identifer
 
   tot_duration = audio_file_duration(audio_filename)
   start = 0
@@ -147,7 +155,7 @@ def monitor(index,length,audio_filename,ignore_self_match, skip_size,stream)
 
         #ignore self matches if requested (for deduplication)
         unless(ignore_self_match and query_audio_identifer.eql? matching_audio_id)
-          stream.puts "#{index}, #{length}_#{start}s, #{File.basename audio_filename}, #{line}\n"
+          stream.puts "#{index}, #{length}, #{File.basename audio_filename}, #{start}, #{line}\n"
         end
 
       end
@@ -170,7 +178,7 @@ def query(index,length,audio_filename,ignore_self_match)
 
       #ignore self matches if requested (for deduplication)
       unless(ignore_self_match and query_audio_identifer.eql? matching_audio_id)
-        puts "#{index}, #{length}, #{File.basename audio_filename}, #{line}\n"
+        puts "#{index}, #{length}, #{File.basename audio_filename}, 0, #{line}\n"
       end
      
     end
@@ -380,6 +388,8 @@ def delete(index,length,audio_filename)
   end
 end
 
+
+
 #create the db folders unless it exist
 FileUtils.mkdir_p DB_FOLDER unless File.exist?(DB_FOLDER)
 FileUtils.mkdir_p CACHE_FOLDER unless File.exist?(CACHE_FOLDER)
@@ -391,6 +401,7 @@ audio_files = Array.new
 threads = 1
 fragmented = false
 allow_identity_match = true 
+skip_store = false
 
 #finds and verifies threads argument
 arg_index = ARGV.find_index("--threads")
@@ -402,8 +413,7 @@ if arg_index
     STDERR.puts "Expected a numeric argument for '--threads': 'olaf cache files --threads 8'"
     exit(-9)
   end
-  #delete --threads and numeric argument from list
-  ARGV.delete_at(arg_index)
+  ARGV.delete_at(arg_index) #delete --threads and numeric argument from list
   ARGV.delete_at(arg_index)
 end
 
@@ -416,15 +426,19 @@ end
 arg_index = ARGV.find_index("--no-identiy-match")
 if arg_index
   allow_identity_match = false
-  #delete --fragmented from argument list
-  ARGV.delete_at(arg_index)
+  ARGV.delete_at(arg_index) #delete --fragmented from argument list
 end
 
 arg_index = ARGV.find_index("--fragmented")
 if arg_index
   fragmented = true
-  #delete --fragmented from argument list
-  ARGV.delete_at(arg_index)
+  ARGV.delete_at(arg_index) #delete --fragmented from argument list
+end
+
+arg_index = ARGV.find_index("--skip_store")
+if arg_index
+  skip_store = true
+  ARGV.delete_at(arg_index) #delete --fragmented from argument list
 end
 
 #this method wraps threach but only if it is needed (threads > 1)
@@ -518,7 +532,7 @@ commands = {
   "query" => {
     :description => "Extracts fingerprints from audio, matches them with the index and report matches.
     \t\t--threads n\t The number of threads to use.
-    \t\t--fragmented\t If present it does not match the full query all at once \n\t\t\tbut chops the query into #{MONITOR_LENGTH_IN_SECONDS}s fragments and matches each fragment.
+    \t\t--fragmented\t If present it does not match the full query all at once \n\t\t\tbut chops the query into #{FRAGMENT_DURATION_IN_SECONDS}s fragments and matches each fragment.
     \t\t--no-identity-match n\t If present identiy matches are not reported: \n\t\t\twhen a query is present in the index and it matches with itself it is not reported.
     ",
     :help => "[--fragmented] [--threads x] audio_files...",
@@ -527,7 +541,7 @@ commands = {
 
        threach_with_index(audio_files,threads) do |audio_file, index|
         if fragmented
-          monitor(index+1, audio_files.length, audio_file, !allow_identity_match, MONITOR_LENGTH_IN_SECONDS, STDOUT)
+          query_fragmented(index+1, audio_files.length, audio_file, !allow_identity_match, FRAGMENT_DURATION_IN_SECONDS, STDOUT)
         else
           query(index+1, audio_files.length, audio_file, !allow_identity_match)
         end
@@ -564,19 +578,23 @@ commands = {
     \tThen all files are matched with the index.
     \tIdentity matches are not reported.
     \t\t--threads n\t The number of threads to use.
-    \t\t--fragmented\t If present it does not match the full query all at once \n\t\t\tbut chops the query into #{MONITOR_LENGTH_IN_SECONDS}s fragments and matches each fragment.
+    \t\t--fragmented\t If present it does not match the full query all at once \n\t\t\tbut chops the query into #{FRAGMENT_DURATION_IN_SECONDS}s fragments and matches each fragment.
+    \t\t--skip-store\t Use this to skip storing the audio files \n\t\t and skip checking whether audio files are indexed.
     ",
 
     :help => "[--fragmented] [--threads x] audio_files...",
     :needs_audio_files => true,
     :lambda => -> do
-      audio_files.each_with_index do |audio_file, index|
-        store(index+1, audio_files.length, audio_file)
+
+      unless skip_store
+        audio_files.each_with_index do |audio_file, index|
+          store(index+1, audio_files.length, audio_file)
+        end
       end
 
       threach_with_index(audio_files,threads) do |audio_file, index|
         if fragmented
-          monitor(index+1, audio_files.length, audio_file, true, MONITOR_LENGTH_IN_SECONDS, STDOUT)
+          query_fragmented(index+1, audio_files.length, audio_file, true, FRAGMENT_DURATION_IN_SECONDS, STDOUT)
         else
           query(index+1, audio_files.length, audio_file, true)
         end
@@ -628,3 +646,7 @@ if cmd[:needs_audio_files]
 end
 
 cmd[:lambda].call
+
+
+
+

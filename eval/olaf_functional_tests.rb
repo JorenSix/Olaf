@@ -1,3 +1,5 @@
+require_relative('olaf_result_line.rb')
+
 #This script executes functional tests which should always work correctly
 #They are checked during CI
 
@@ -14,35 +16,9 @@ class OlafStats
     end
 end
 
-#1/1 96644_84s-104s.mp3 match count (#), q start (s) , q stop (s), ref path, ref ID, ref start (s), ref stop (s)
-#1, 1, 852601_43s-63s.mp3 , 252, 86.01, 105.58, /Users/joren/Downloads/Olaf/eval/dataset/ref/852601.mp3, 4218917231, 43.08, 62.65
-class OlafResultLine
-    attr_reader :valid, :empty_match
-    attr_reader :index, :total, :query,:match_count,:query_start,:query_stop,:ref_path,:ref_id,:ref_start,:ref_stop
-    
-    def initialize(line)
-        data = line.split(",").map(&:strip)
+#1/1 96644_84s-104s.mp3, 0, match count (#), q start (s) , q stop (s), ref path, ref ID, ref start (s), ref stop (s)
+#1, 1, 852601_43s-63s.mp3, 0 , 252, 86.01, 105.58, /Users/joren/Downloads/Olaf/eval/dataset/ref/852601.mp3, 4218917231, 43.08, 62.65
 
-        @valid = (data.size == 10 and data[3] =~/\d+/)
-        if(@valid)
-            @index = data[0].to_i
-            @total = data[1].to_i
-            @query = data[2]
-            @match_count = data[3].to_i
-            @query_start = data[4].to_f
-            @query_stop = data[5].to_f
-            @ref_path = data[6]
-            @ref_id = data[7]
-            @ref_start = data[8].to_f
-            @ref_stop = data[9].to_f
-        end
-        @empty_match = @match_count == 0 
-    end
-
-    def to_s
-        "#{index} , #{total} , #{query} , #{match_count} , #{query_start} , #{query_stop} , #{ref_path} , #{ref_id} , #{ref_start} , #{ref_stop}"
-    end    
-end
 
 
 def assert(message, &block)
