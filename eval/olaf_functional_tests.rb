@@ -16,9 +16,7 @@ class OlafStats
     end
 end
 
-#1/1 96644_84s-104s.mp3, 0, match count (#), q start (s) , q stop (s), ref path, ref ID, ref start (s), ref stop (s)
 #1, 1, 852601_43s-63s.mp3, 0 , 252, 86.01, 105.58, /Users/joren/Downloads/Olaf/eval/dataset/ref/852601.mp3, 4218917231, 43.08, 62.65
-
 
 
 def assert(message, &block)
@@ -70,8 +68,11 @@ QUERY_FILES.each do |file|
     puts cmd
     lines = cmd.split("\n").map{|l| OlafResultLine.new(l) }.delete_if{|l| !l.valid}
     
+    #remove header
+    lines.shift
+
     first_match = lines.first
-    
+
     query_filename = File.basename(file,File.extname(file))
     query_filename =~/(\d+)_(\d+)s-(\d+)s/
     query_ref_id = $1.to_i
@@ -122,8 +123,7 @@ assert("Mem binary should exist!"){File.exist? MEM_BINARY_LOCATION}
 
 raw_query = "dataset/raw/queries/olaf_audio_1051039_34s-54s.raw"
 cmd = `#{MEM_BINARY_LOCATION} query #{raw_query} 105_query.wav`
-
-lines = cmd.split("\n").map{|l| "1,1, queryfile," + l }
+lines = cmd.split("\n").map{|l| "1,1, queryfile, 0, " + l }
 lines = lines.drop(1)
 lines = lines.map{|l| OlafResultLine.new(l) }.delete_if{|l| !l.valid}
 

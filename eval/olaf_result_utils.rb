@@ -27,6 +27,15 @@
 # 
 # cat result_output.csv | ruby eval/olaf_result_utils.rb filter
 # 
+# Subsequent matching fragments can be merged with the merge command.
+# If fragments of 30 seconds are used and second 0 - 30 match with a reference 
+# item and also 30 - 60 matches with the same reference, the result lines are merged:
+# 
+# cat result_output.csv | ruby eval/olaf_result_utils.rb merge
+# #verify with:
+# nl result_output.csv
+# cat result_output.csv | ruby eval/olaf_result_utils.rb merge | nl
+# 
 # To verify false or true positives it is of interest to listen to the 
 # matches. This script selects the matching parts of the query and reference and
 # stores them in a wav file for inspection. Here a random selection of 10 results are checked:
@@ -44,7 +53,8 @@ require_relative 'olaf_result_line.rb'
 
 AUDIO_SELECT_COMMAND = proc{ |input, output, start, duration| %W[ffmpeg -hide_banner -y -loglevel panic  -i #{input} -ss #{start} -t #{duration} -ac 1 #{output}] }
 MIN_DURATION_IN_SECONDS = 5
-MIN_MATCH_SCORE = 8
+MIN_MATCH_SCORE = 13
+FRAGMENT_DURATION_IN_SECONDS = 30
 
 def store_audio_part(in_audio_file, in_offset, duration, out_audio_file )
   select_command = AUDIO_SELECT_COMMAND[in_audio_file, out_audio_file, in_offset, duration]
@@ -105,11 +115,87 @@ elsif command == "filter"
   lines.each do |line|
     result_line = OlafResultLine.new(line)
     if result_line.valid
+      name_ok = (File.basename(result_line.query).start_with? "MN" and File.basename(result_line.ref_path).start_with? "MN")
+      diff_ok = (result_line.query_start - result_line.ref_start).abs > 100
+      time_ok = (result_line.query_start > 100 and result_line.ref_start < 40 )
       duration = (result_line.query_stop - result_line.query_start)
       duration_ok = duration > min_duration
       match_count_ok = result_line.match_count > MIN_MATCH_SCORE
-      puts result_line if (duration_ok and match_count_ok)
+      puts result_line if (duration_ok and match_count_ok and name_ok and diff_ok and time_ok)
     end
+  end
+
+
+
+elsif command == "merge"
+  lines = STDIN.read.split("\n")
+  
+  result_lines = Hash.new
+  
+  #store in result_lines hash
+  lines.each do |line|
+    result_line = OlafResultLine.new(line)
+    if result_line.valid
+      key = [File.basename(result_line.query,File.extname(result_line.query)), File.basename(result_line.ref_path,File.extname(result_line.ref_path))].join("-_-")
+      result_lines[key] = Array.new unless result_lines[key]
+      result_lines[key] << result_line
+    end
+  end
+
+  result_lines.each do |key,lines|
+    
+
+    #keeps only the best match for each offset
+    #makes sure the lines are sorted by offset and match count
+    lines = lines.sort_by{ |l| [l.query_offset, -l.match_count, l.query_start]}
+    offsets = Hash.new
+    lines = lines.delete_if do |l|
+      already_seen = offsets[l.query_offset]
+      offsets[l.query_offset] = true
+      already_seen
+    end
+
+    #merge the matches if offsets are forming a uninterrupted sequence
+    seq = Array.new
+    prev_query_offset = -1
+    lines.each do |l|
+      if(prev_query_offset < 0)
+        #start a new sequence from here
+        seq << l
+      elsif (prev_query_offset + FRAGMENT_DURATION_IN_SECONDS) == l.query_offset
+        #continue a sequence
+        seq << l
+      else
+        #end and restart a sequence
+        match_count = 0
+        seq.each do |sl|
+          match_count = match_count + sl.match_count
+        end
+        seq[0].match_count = match_count
+        seq[0].query_stop = seq[-1].query_stop
+        seq[0].ref_stop = seq[-1].ref_stop
+        puts seq[0]
+
+        ##start a new sequence
+        seq = [l]
+      end
+      prev_query_offset = l.query_offset
+       #make query time absolute, not relative vs offset:
+      l.query_start = l.query_offset + l.query_start
+      l.query_stop = l.query_offset + l.query_stop
+      l.query_offset = 0
+    end
+
+    match_count = 0
+    seq.each do |sl|
+      match_count = match_count + sl.match_count 
+    end
+
+    seq[0].match_count = match_count
+    seq[0].query_stop = seq[-1].query_stop
+    seq[0].ref_stop = seq[-1].ref_stop
+
+    puts seq[0]
   end
 
 elsif command == "check"

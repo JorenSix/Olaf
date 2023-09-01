@@ -1,6 +1,6 @@
 class OlafResultLine
     attr_reader :valid, :empty_match
-    attr_reader :index, :total, :query, :query_offset, :match_count,:query_start,:query_stop,:ref_path,:ref_id,:ref_start,:ref_stop
+    attr_accessor :index, :total, :query, :query_offset, :match_count,:query_start,:query_stop,:ref_path,:ref_id,:ref_start,:ref_stop
     
     def initialize(line)
         data = line.split(",").map(&:strip)
