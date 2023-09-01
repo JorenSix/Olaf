@@ -65,7 +65,7 @@ assert("Command : #{cmd}") { system(cmd) }
 
 QUERY_FILES.each do |file|
     cmd = `olaf query '#{file}'`
-    puts cmd
+    
     lines = cmd.split("\n").map{|l| OlafResultLine.new(l) }.delete_if{|l| !l.valid}
     
     #remove header
@@ -78,8 +78,6 @@ QUERY_FILES.each do |file|
     query_ref_id = $1.to_i
     query_ref_start = $2.to_i
     query_ref_stop = $3.to_i
-
-    puts first_match
 
     expect_match = REF_FILES.include? File.join(REF_TARGET_FOLDER,"#{query_ref_id}.mp3")
 
