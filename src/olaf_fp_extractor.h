@@ -130,6 +130,6 @@
 	 *
 	 * @return     An integer describing the hash order.
 	 */
-	int olaf_fp_extractor_compare_fp(const void * a, const void * b);
+	//int olaf_fp_extractor_compare_fp(const void * a, const void * b);
 
 #endif // OLAF_FP_EXTRACTOR_H

@@ -80,6 +80,13 @@
 	struct extracted_event_points * olaf_ep_extractor_extract(Olaf_EP_Extractor * olaf_ep_extractor, float* fft_magnitudes, int audioBlockIndex);
 
 	/**
+	 * For debug and visualization purposes: return the current fft magnitudes.
+	 * @param olaf_ep_extractor The EP extractor state struct.
+	 * @return The latest fft magnitude struct.
+	 */
+	float * olaf_ep_extractor_mags(Olaf_EP_Extractor * olaf_ep_extractor);
+
+	/**
 	 * Free memory or other resources.
 	 * @param  olaf_ep_extractor The EP extractor to destroy.
 	 */ 

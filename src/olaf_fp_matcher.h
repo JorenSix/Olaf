@@ -58,8 +58,7 @@
  	void olaf_fp_matcher_match(Olaf_FP_Matcher * olaf_fp_matcher, struct extracted_fingerprints * olaf_fps);
 
 	//Remove old matches
-
-	void olaf_fp_matcher_mark_old_matches(Olaf_FP_Matcher * olaf_fp_matcher, int current_query_time);
+	//void olaf_fp_matcher_mark_old_matches(Olaf_FP_Matcher * olaf_fp_matcher, int current_query_time);
 
 	//Print the header to interpret the csv results
 	

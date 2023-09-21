@@ -205,6 +205,16 @@ void rotate(Olaf_EP_Extractor * ep_extractor){
 	ep_extractor->mags[ep_extractor->config->filterSizeTime-1] = tempMag;
 }
 
+float * olaf_ep_extractor_mags(Olaf_EP_Extractor * olaf_ep_extractor){
+	//this needs to be called after rotate() above 
+	//and the index is incremented
+	if(olaf_ep_extractor->filterIndex==olaf_ep_extractor->config->filterSizeTime-1){
+		return olaf_ep_extractor->mags[olaf_ep_extractor->config->filterSizeTime-2];
+	}else{
+		return olaf_ep_extractor->mags[olaf_ep_extractor->filterIndex-1];
+	}
+}
+
 struct extracted_event_points * olaf_ep_extractor_extract(Olaf_EP_Extractor * ep_extractor, float* fft_out, int audioBlockIndex){
 
 	int filterIndex = ep_extractor->filterIndex;

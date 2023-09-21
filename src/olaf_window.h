@@ -32,7 +32,7 @@
  * Construct e.g. with Numpy's signal.windows.hamming(1024). See https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.windows.hamming.html
  * 
  */
-const float hamming_window_1024[] = {
+static const float hamming_window_1024[] = {
 0.08000000000000007,
 0.08000867630758934,
 0.08003470490305992,
@@ -1069,7 +1069,7 @@ const float hamming_window_1024[] = {
  * Construct e.g. with Numpy's signal.windows.hamming(512). See https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.windows.hamming.html
  * 
  */
-const float hamming_window_512[] = {
+static const float hamming_window_512[] = {
        0.08      , 0.08003477, 0.08013909, 0.08031292, 0.08055626,
        0.08086906, 0.08125127, 0.08170284, 0.0822237 , 0.08281376,
        0.08347295, 0.08420116, 0.08499828, 0.08586418, 0.08679875,
