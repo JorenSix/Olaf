@@ -5,6 +5,8 @@ bin/*
 *.csv
 *.vs*
 *wav
+*so
+__pycache__
 *mkv
 zig-out/*
 zig-cache/*
