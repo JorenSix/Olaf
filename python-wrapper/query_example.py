@@ -17,8 +17,6 @@ audio_file = librosa.ex('choice')
 Olaf(OlafCommand.STORE,audio_file).do(duration=10.0)
 original, sr = librosa.load(audio_file,mono=True, sr=config.audioSampleRate,duration=10)
 
-print(sr)
-
 y, sr = librosa.load(audio_file,mono=True, sr=config.audioSampleRate,duration=10,offset=5.0)
 y = y * 0.8 #change the volume
 

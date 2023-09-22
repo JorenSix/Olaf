@@ -28,7 +28,6 @@ supported_headers = ["./src/olaf_config.h",
 "./src/olaf_fp_db_writer.h",
 "./src/olaf_fft.h"]
 
-
 data = ""
 for header_file in supported_headers:
 	with open(header_file) as f:

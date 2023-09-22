@@ -1,3 +1,4 @@
+#make sure it can find olaf_cffi module
 import sys
 sys.path.insert(0, '.')
 
@@ -27,7 +28,9 @@ class Olaf:
 		self.fp_extractor = lib.olaf_fp_extractor_new(self.config)
 
 		if self.command == OlafCommand.EXTRACT_MAGNITUDES:
-			print(self.config.sqrtMagnitude)
+			#Forces olaf to calculate the sqrt of the magnitudes, 
+			#for visualization
+			self.config.sqrtMagnitude = True
 		if self.command == OlafCommand.QUERY:
 			self.fp_db = lib.olaf_db_new(self.config.dbFolder,True);
 			self.fp_matcher = lib.olaf_fp_matcher_new(self.config,self.fp_db)
