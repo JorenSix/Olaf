@@ -20,3 +20,8 @@ python python-wrapper/setup.py
 # Test the python wrapper
 python python-wrapper/spectrogram_example.py
 </pre>
+
+
+!../docs/olaf-power-spectrum.webp(Olaf Spectrum and event points)!
+
+
