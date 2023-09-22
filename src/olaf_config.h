@@ -101,7 +101,11 @@
 		 */
 		int eventPointThreshold;
 
-		
+		/**Calculating the square root of the magnitude is not
+		 * strictly needed for event point extraction, but for debug and
+		 * visualization it can be practical, default is false. 
+		 */
+		bool sqrtMagnitude;
 		//-----------Fingerprint configuration
 		
 		/** Include magnitude info in fingerprints or not.

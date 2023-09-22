@@ -47,6 +47,7 @@ Olaf_Config* olaf_config_default(void){
 
 	config->maxEventPoints=60;
 	config->eventPointThreshold = 30;
+	config->sqrtMagnitude = false;
 
 	//the filter used in both frequency as time direction 
 	//to find maxima

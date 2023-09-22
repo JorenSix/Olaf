@@ -1,3 +1,7 @@
+#make sure it can find olaf_cffi module
+import sys
+sys.path.insert(0, '.')
+
 from olaf import Olaf, OlafCommand
 from olaf_cffi import ffi, lib
 import numpy as np

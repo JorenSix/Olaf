@@ -43,8 +43,9 @@ lib:
 	gcc -c src/olaf_stream_processor.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_matcher.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_config.c 			-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_fft.c 				-W -Wall -std=c11 -pedantic -O2
 	mkdir -p bin
-	gcc -o bin/olaf.so *.o 			-lc -lm -ffast-math -pthread -shared
+	gcc -o bin/libolaf.so *.o 			-lc -lm -ffast-math -pthread -shared
 
 #A compilation with support for profiling
 compile_gprof:
@@ -128,6 +129,7 @@ clean:
 	-rm -f wasm/js/olaf.js
 	-rm -f wasm/js/olaf.html
 	-rm -f wasm/js/olaf.wasm
+	-rm -f olaf_cffi*
 
 #Deletes the database, check your configuration for the database location
 destroy_db:

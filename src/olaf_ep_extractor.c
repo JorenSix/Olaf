@@ -223,7 +223,11 @@ struct extracted_event_points * olaf_ep_extractor_extract(Olaf_EP_Extractor * ep
 
 	int magnitudeIndex = 0;
 	for(int j = 0 ; j < ep_extractor->config->audioBlockSize ; j+=2){
-		ep_extractor->mags[filterIndex][magnitudeIndex] = fft_out[j] * fft_out[j] + fft_out[j+1] * fft_out[j+1];
+		if(ep_extractor->config->sqrtMagnitude){
+			ep_extractor->mags[filterIndex][magnitudeIndex] = sqrt(fft_out[j] * fft_out[j] + fft_out[j+1] * fft_out[j+1]);
+		}else{
+			ep_extractor->mags[filterIndex][magnitudeIndex] = fft_out[j] * fft_out[j] + fft_out[j+1] * fft_out[j+1];	
+		}
 		magnitudeIndex++;
 	}
 

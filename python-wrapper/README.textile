@@ -1,0 +1,22 @@
+h1. OLAF -  Overly Lightweight Acoustic Fingerprinting - Python Wrapper
+
+Olaf is a C application or library for content-based audio search. Olaf is able to extract fingerprints from an audio stream, and either store those fingerprints in a database, or find a match between extracted fingerprints and stored fingerprints. This page explains how to use Olaf's functionality from Python.
+
+<pre>
+# clone the repository  
+git clone --depth 1 https://github.com/JorenSix/Olaf
+cd Olaf
+# To automatically setup folders for Olaf files
+make
+make install
+#Build the library version of Olaf libolaf.so
+make clean
+make lib
+# Install the python requirements, librosa and numpy are 
+# not strictly necessary but very practical
+pip install -r python-wrapper/requirements.txt
+# Build the CFFI python library
+python python-wrapper/setup.py
+# Test the python wrapper
+python python-wrapper/spectrogram_example.py
+</pre>

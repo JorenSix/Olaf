@@ -1,0 +1,4 @@
+cffi==1.15.0
+librosa==0.8.1
+matplotlib==3.7.1
+numpy==1.22.4

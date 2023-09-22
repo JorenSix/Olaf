@@ -1,3 +1,5 @@
+import sys
+sys.path.insert(0, '.')
 
 import librosa
 from olaf_cffi import ffi, lib
@@ -24,6 +26,8 @@ class Olaf:
 		self.ep_extractor = lib.olaf_ep_extractor_new(self.config)
 		self.fp_extractor = lib.olaf_fp_extractor_new(self.config)
 
+		if self.command == OlafCommand.EXTRACT_MAGNITUDES:
+			print(self.config.sqrtMagnitude)
 		if self.command == OlafCommand.QUERY:
 			self.fp_db = lib.olaf_db_new(self.config.dbFolder,True);
 			self.fp_matcher = lib.olaf_fp_matcher_new(self.config,self.fp_db)
