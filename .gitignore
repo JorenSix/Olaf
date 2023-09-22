@@ -11,7 +11,7 @@ __pycache__
 zig-out/*
 zig-cache/*
 src/zig-cache/*
-wasm/*
+
 eval/dataset/*
 dataset/
 
@@ -23,3 +23,5 @@ olaf_cffi*
 *esp32.svd
 
 docs/api/*
+
+wasm/js/olaf_processor.js

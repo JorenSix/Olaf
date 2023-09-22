@@ -27,7 +27,6 @@ print(results)
 
 y_long = np.concatenate((np.zeros(int(diff_in_seconds*sr)),y))
 
-
 fig, ax = plt.subplots(nrows=2, sharex=True, sharey=True)
 librosa.display.waveplot(original, sr=sr, ax=ax[0])
 ax[0].set(title='Original')

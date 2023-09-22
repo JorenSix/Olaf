@@ -68,7 +68,7 @@ int EMSCRIPTEN_KEEPALIVE olaf_fingerprint_match(float * audio_buffer, uint32_t *
 		state.db = olaf_db_new(NULL,true);
 		state.ep_extractor = olaf_ep_extractor_new(state.config);
 		state.fp_extractor = olaf_fp_extractor_new(state.config);
-		state.fp_matcher = olaf_fp_matcher_new(state.config,state.db);
+		state.fp_matcher = olaf_fp_matcher_new(state.config,state.db,olaf_fp_matcher_callback_print_result);
 
 		state.audioBlockIndex = 0;
 	}
