@@ -33,6 +33,12 @@ for header_file in supported_headers:
 	with open(header_file) as f:
 		data += ''.join([line for line in f if not line.strip().startswith('#')])
 
+data= """
+
+extern "Python" void olaf_python_wrapper_handle_result(int matchCount, float queryStart, float queryStop, const char* path, uint32_t matchIdentifier, float referenceStart, float referenceStop);
+
+""" + data
+
 ffibuilder.cdef(data)
 
 if __name__ == "__main__":

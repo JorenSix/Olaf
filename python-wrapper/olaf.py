@@ -14,7 +14,24 @@ class OlafCommand(Enum):
     EXTRACT_FINGERPRINTS = 4
     EXTRACT_MAGNITUDES = 5
 
+@ffi.def_extern()
+def olaf_python_wrapper_handle_result( matchCount,  queryStart,  queryStop, path,  matchIdentifier,  referenceStart,  referenceStop):
+	if(matchCount != 0):
+		d = {
+			'matchCount':matchCount,
+			'queryStart':queryStart,
+			'queryStop':queryStop,
+			'path':ffi.string(path),
+			'matchIdentifier':matchIdentifier,
+			'referenceStart':referenceStart,
+			'referenceStop':referenceStop
+		}
+		Olaf.results.append(d)
+
+	return None
+
 class Olaf:
+	results = []
 
 	# Initializing
 	def __init__(self,command,path):
@@ -33,7 +50,9 @@ class Olaf:
 			self.config.sqrtMagnitude = True
 		if self.command == OlafCommand.QUERY:
 			self.fp_db = lib.olaf_db_new(self.config.dbFolder,True);
-			self.fp_matcher = lib.olaf_fp_matcher_new(self.config,self.fp_db)
+			Olaf.results.clear
+			#register callback
+			self.fp_matcher = lib.olaf_fp_matcher_new(self.config,self.fp_db,lib.olaf_python_wrapper_handle_result)
 		if self.command == OlafCommand.STORE:
 			self.fp_db = lib.olaf_db_new(self.config.dbFolder,False);
 			self.fp_db_writer = lib.olaf_fp_db_writer_new(self.fp_db,self.audio_identifier)
@@ -51,6 +70,7 @@ class Olaf:
 		if self.command == OlafCommand.QUERY:
 			lib.olaf_fp_matcher_destroy(self.fp_matcher)
 			lib.olaf_db_destroy(self.fp_db)
+
 		if self.command == OlafCommand.STORE:
 			lib.olaf_fp_db_writer_destroy(self.fp_db_writer,True)
 			lib.olaf_db_destroy(self.fp_db)
@@ -154,10 +174,12 @@ class Olaf:
 			return True
 		if self.command == OlafCommand.QUERY:
 			lib.olaf_fp_matcher_match(self.fp_matcher,fps);
-			lib.olaf_fp_matcher_print_header();
+			#lib.olaf_fp_matcher_callback_print_header();
 			lib.olaf_fp_matcher_print_results(self.fp_matcher);
-			lib.olaf_fp_matcher_match(self.fp_matcher,fps);
-			return True
+			if len(Olaf.results) == 0 :
+				return None
+			return Olaf.results
+			
 		if self.command == OlafCommand.EXTRACT_EVENT_POINTS:
 			return event_points
 		if self.command == OlafCommand.EXTRACT_MAGNITUDES:

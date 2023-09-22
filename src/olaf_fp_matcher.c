@@ -51,7 +51,6 @@ struct match_result{
 inline int max ( int a, int b ) { return a > b ? a : b; }
 inline int min ( int a, int b ) { return a < b ? a : b; }
 
-
 struct Olaf_FP_Matcher{
 
 	//A hash table to quickly check whether a match_id and time diff
@@ -70,6 +69,9 @@ struct Olaf_FP_Matcher{
 	//A list of results returns by the database
 	//  limited to a configured maxDBCollisions
 	uint64_t * db_results;
+
+	Olaf_FP_Matcher_Result_Callback result_callback;
+
 
 	int last_print_at;
 };
@@ -111,7 +113,7 @@ void olaf_hash_table_value_free_func(void *value){
 }
 
 //Creates a new matcher 
-Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db ){
+Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db,Olaf_FP_Matcher_Result_Callback callback ){
 	Olaf_FP_Matcher *fp_matcher = (Olaf_FP_Matcher *) malloc(sizeof(Olaf_FP_Matcher));
 	
 	//The database results are integers which combine a time info and match id
@@ -120,6 +122,7 @@ Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db ){
 	fp_matcher->last_print_at = 0;
 	fp_matcher->config = config;
 	fp_matcher->db = db;
+	fp_matcher->result_callback = callback;
 
 	hash_table_register_free_functions(fp_matcher->result_hash_table,NULL, olaf_hash_table_value_free_func);
 
@@ -238,7 +241,7 @@ void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_finger
 		int current_query_time = fingerprints->fingerprints[fingerprints->fingerprintIndex-1].timeIndex3;
 		//printf("Current time: %d, Last print at: %d \n", current_query_time,fp_matcher->last_print_at );
 		if( current_query_time - fp_matcher->last_print_at > printResultEvery){
-			olaf_fp_matcher_print_header();
+			olaf_fp_matcher_callback_print_header();
 			olaf_fp_matcher_print_results(fp_matcher);
 			fp_matcher->last_print_at = current_query_time;
 		}
@@ -267,17 +270,19 @@ int olaf_fp_sort_results_by_match_count(const void * a, const void * b) {
 	return diff;
 }
 
-void olaf_fp_matcher_print_header(void){
+void olaf_fp_matcher_callback_print_header(void){
 	printf("match count (#), q start (s) , q stop (s), ref path, ref ID, ref start (s), ref stop (s)\n");
 }
+void olaf_fp_matcher_callback_print_result(int matchCount, float queryStart, float queryStop, const char* path, uint32_t matchIdentifier, float referenceStart, float referenceStop) {
+    printf("%d, %.2f, %.2f, %s, %u, %.2f, %.2f\n", matchCount, queryStart, queryStop, path, matchIdentifier, referenceStart, referenceStop);
+}
+
 
 //Print the final results: sort the m_results array and print
 void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 	size_t match_results_index = 0;
 	size_t match_results_max = fp_matcher->config->maxResults;
 	struct match_result ** match_results = (struct match_result **) calloc(match_results_max, sizeof(struct match_result*));
-
-
 
 	HashTableIterator iterator;
 	HashTablePair pair;
@@ -331,17 +336,20 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 			Olaf_Resource_Meta_data meta_data;
 			olaf_db_find_meta_data(fp_matcher->db,&matchIdentifier,&meta_data);
 
-			printf("%d, %.2f, %.2f, %s, %u, %.2f, %.2f\n",match->matchCount,queryStart,queryStop,meta_data.path,matchIdentifier,referenceStart,referenceStop);
+			fp_matcher->result_callback(match->matchCount,queryStart,queryStop,meta_data.path,matchIdentifier,referenceStart,referenceStop);
 		}
 	}
 
 	//report empty results if not results are found
 	if(match_results_index == 0 ){
-		printf("%d, %.2f, %.2f, %s, %u, %.2f, %.2f\n",0,0.0,0.0,"",0,0.0,0.0);
+		//printf("%d, %.2f, %.2f, %s, %u, %.2f, %.2f\n",0,0.0,0.0,"",0,0.0,0.0);
+		fp_matcher->result_callback(0,0,0,"",0,0,0);
 	}
 
 	free(match_results);
 }
+
+
 
 void olaf_fp_matcher_destroy(Olaf_FP_Matcher * fp_matcher){
 	hash_table_free(fp_matcher->result_hash_table);

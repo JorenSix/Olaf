@@ -26,6 +26,20 @@
 	#include "olaf_fp_extractor.h"
 	#include "olaf_db.h"
 	#include "olaf_config.h"
+
+	
+	/**
+	 * @brief Callback function template to respond to a result.
+	 *
+	 * @param matchCount         The number of matches. If zero, this means an empty result.
+	 * @param queryStart         The match start time, in seconds,  in the query.
+	 * @param queryStop          The match end time, in seconds, of the query fingerprint.
+	 * @param path               The path of the matched resource.
+	 * @param matchIdentifier    The identifier of the matched audio file.
+	 * @param referenceStart     The match start time, in seconds, of the reference fingerprint.
+	 * @param referenceStop      The match end time, in seconds, of the reference fingerprint.
+	 */
+	typedef void (*Olaf_FP_Matcher_Result_Callback)(int matchCount, float queryStart, float queryStop, const char* path, uint32_t matchIdentifier, float referenceStart, float referenceStop);
 	
 	/**
 	 * @struct Olaf_FP_Matcher
@@ -45,7 +59,7 @@
 	 *
 	 * @return     A newly initialzed state struct, or undefined if memory could not be allocated.
 	 */
-	Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db );
+	Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db,Olaf_FP_Matcher_Result_Callback callback );
 	
 	//Matches fingerprints to the database and updates internal state
 	
@@ -56,16 +70,28 @@
 	 * @param      olaf_fps         The fingerprints
 	 */
  	void olaf_fp_matcher_match(Olaf_FP_Matcher * olaf_fp_matcher, struct extracted_fingerprints * olaf_fps);
-
-	//Remove old matches
-	//void olaf_fp_matcher_mark_old_matches(Olaf_FP_Matcher * olaf_fp_matcher, int current_query_time);
-
-	//Print the header to interpret the csv results
 	
 	/**
 	 * @brief      Print a header for the CSV output.
 	 */
-	void olaf_fp_matcher_print_header(void);
+	void olaf_fp_matcher_callback_print_header(void);
+
+	/**
+	 * @brief Prints a match result using the specified format.
+	 *
+	 * This function is an example of a callback function that can be used with
+	 * `olaf_fp_matcher_callback_print_results`. It prints a single match result in a
+	 * specific format.
+	 *
+	 * @param matchCount         The number of matches.
+	 * @param queryStart         The match start time, in seconds,  in the query.
+	 * @param queryStop          The match end time, in seconds, of the query fingerprint.
+	 * @param path               The path of the matched resource.
+	 * @param matchIdentifier    The identifier of the matched audio file.
+	 * @param referenceStart     The match start time, in seconds, of the reference fingerprint.
+	 * @param referenceStop      The match end time, in seconds, of the reference fingerprint.
+	 */
+	void olaf_fp_matcher_callback_print_result(int matchCount, float queryStart, float queryStop, const char* path, uint32_t matchIdentifier, float referenceStart, float referenceStop);
 
 	/**
 	 * @brief      Print the current results.

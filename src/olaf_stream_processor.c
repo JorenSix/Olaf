@@ -69,7 +69,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 
 
 	if(processor->runner->mode == OLAF_RUNNER_MODE_QUERY ){
-		fp_matcher = olaf_fp_matcher_new(processor->config,processor->runner->db);
+		fp_matcher = olaf_fp_matcher_new(processor->config,processor->runner->db,olaf_fp_matcher_callback_print_result);
 	} else if(processor->runner->mode == OLAF_RUNNER_MODE_STORE || processor->runner->mode == OLAF_RUNNER_MODE_DELETE){
 		fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,processor->audio_identifier);
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT ){
@@ -156,7 +156,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		//use the fingerprints to match with the reference database
 		//report matches if found
 		olaf_fp_matcher_match(fp_matcher,fingerprints);
-		olaf_fp_matcher_print_header();
+		olaf_fp_matcher_callback_print_header();
 		olaf_fp_matcher_print_results(fp_matcher);
 		olaf_fp_matcher_destroy(fp_matcher);
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_STORE){

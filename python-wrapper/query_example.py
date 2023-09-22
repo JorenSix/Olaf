@@ -17,12 +17,16 @@ audio_file = librosa.ex('choice')
 Olaf(OlafCommand.STORE,audio_file).do(duration=10.0)
 original, sr = librosa.load(audio_file,mono=True, sr=config.audioSampleRate,duration=10)
 
-y, sr = librosa.load(audio_file,mono=True, sr=config.audioSampleRate,duration=10,offset=5.0)
+y, sr = librosa.load(audio_file,mono=True, sr=config.audioSampleRate,duration=10,offset=7.0)
 y = y * 0.8 #change the volume
 
-y_long = np.concatenate((np.zeros(5*sr),y))
+results = Olaf(OlafCommand.QUERY,audio_file).do(y=y)
+diff_in_seconds = results[0]['referenceStart']-results[0]['queryStart']
 
-Olaf(OlafCommand.QUERY,audio_file).do(y=y)
+print(results)
+
+y_long = np.concatenate((np.zeros(int(diff_in_seconds*sr)),y))
+
 
 fig, ax = plt.subplots(nrows=2, sharex=True, sharey=True)
 librosa.display.waveplot(original, sr=sr, ax=ax[0])
