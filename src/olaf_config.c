@@ -128,6 +128,8 @@ Olaf_Config* olaf_config_esp_32(void){
 	config->numberOfEPsPerFP = 2;
 	config->maxEventPointUsages = 20;
 
+	config->audioStepSize = 256;
+
 	//config->filterSizeTime=13;
 	//config->halfFilterSizeTime=config->filterSizeTime/2;
 
