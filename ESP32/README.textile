@@ -26,7 +26,11 @@ h2. ESP32 INMP441 Olaf
 
 This code shows how to match incoming audio from a INMP441 microphone to fingerprints stored in a header file. The embedded version of Olaf does not use a key value store but a list of hashes stored in a @src/olaf_fp_ref_mem.h@ header file. This header file is the fingerprint index. 
 
-The 'index' or header file can be created on a computer to contain fingerprints extracted from audio. By default it recognizes 'Let It Go' from Frozen. To create this header file for your audio do the following:
+The 'index' or header file can be created on a computer to contain fingerprints extracted from audio. By default it recognizes 'Let It Go' from the Frozen soundtrack. The program reads audio samples and operates on overlapping blocks of audio. The code in @loop()@ makes sure that a full block is read and handed over to Olaf for recognition. 
+
+Once audio is recognized a callback is ... called. The @olaf_fp_matcher_callback_esp32@ callback starts blinking a led during recognition. The ESP32 stops blinking once recognition ends. 
+
+To match another audio file, a header file with fingerprints extracted from that audio file needs to be created. This is done as follows:
 
 <pre>
 git clone --depth 1 https://github.com/JorenSix/Olaf
@@ -38,10 +42,10 @@ make clean
 make mem
 #Convert your audio
 olaf to_raw your_audio_file.mp3
-#extract the fingerprints
+#extract the fingerprints and write the header file
 bin/olaf_mem store olaf_audio_your_audio_file.raw "arandomidentifier" > src/olaf_fp_ref_mem.h
 </pre>
 
-By default the @src/olaf_fp_ref_mem.h@ is included in the ESP32 code. To test and debug this header file, use the @mem@ version of Olaf on your computer. The ESP32 version is basically the same as the @mem@ version, only the audio comes from a MEMS microphone input and not from a file.
+By default the @src/olaf_fp_ref_mem.h@ is included in the ESP32 code. To test and debug this header file, query the @mem@ version of Olaf on your computer: @bin/olaf query olaf_audio_your_audio_file.raw "arandomidentifier"@. The ESP32 version is basically the same as the @mem@ version, only the audio comes from a MEMS microphone input in the ESP32 version and not from a file.
 
-Once your are sure that the @mem@ version of Olaf works as expected and the INMP441 microphone is tested the ESP32 version can be ran using the Arduino IDE.
+Once your are sure that the @mem@ version of Olaf works as expected and the INMP441 microphone is tested, the ESP32 version can be deployed on the ESP32 hardware using the Arduino IDE.
