@@ -17,11 +17,11 @@ class CORSRequestHandler(SimpleHTTPRequestHandler):
         self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
 
         #Enable caching for performance reasons
-        self.send_header('Access-Control-Allow-Methods', 'GET')
-        self.send_header('Cache-Control', 'max-age=2592000, stale-while-revalidate=86400e')
+        #self.send_header('Access-Control-Allow-Methods', 'GET')
+        #self.send_header('Cache-Control', 'max-age=2592000, stale-while-revalidate=86400e')
 
         #To disable caching:
-        #self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
+        self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate')
 
         
         return super(CORSRequestHandler, self).end_headers()

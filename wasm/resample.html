@@ -8,7 +8,10 @@
 </head>
 <body>
 
-	<button onclick="startOrStopAudio()">Start or stop audio</button>
+	<h3>Web Audio API resampling via Audio Worklet demo</h3>
+	<small>See the browser developer console for output.</small><br>
+	<br>
+	<button onclick="startOrStopAudio()">Start or stop resampling</button>
 
 	<script>
 		var audioContext = null;
@@ -30,11 +33,10 @@
 				
 				microphone.connect(resampleNode);
 
-				//resampleNode.connect(audioContext.destination);
-
 				resampleNode.port.onmessage = (event) => {
-				  let data = event.data;
-				  console.log(data);
+				  let resampleRatio = event.data;
+				  let theoretical = 16000.0 / audioContext.sampleRate 
+				  console.log(audioContext.currentTime, "resample ratio:",resampleRatio, "expected ratio:",theoretical);
 				};
 			});
 		}
@@ -43,6 +45,7 @@
 			if(audioContext == null){
 
 				console.log("Starting audio stream");
+
 				navigator.mediaDevices.getUserMedia({audio: true,video: false}).then(stream => {
 					startStream(stream);
 				}).catch(err => { 
