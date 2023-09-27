@@ -1,0 +1,67 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<title>Olaf audio fingerprinting resample test</title>
+	<style>
+		body {font-family: sans-serif;}
+	</style>
+</head>
+<body>
+
+	<button onclick="startOrStopAudio()">Start or stop audio</button>
+
+	<script>
+		var audioContext = null;
+		var microphoneStream = null;
+
+		function startStream(stream){
+			microphoneStream = stream;
+			audioContext = new AudioContext();
+			var microphone = audioContext.createMediaStreamSource(stream);
+
+			console.log("Audio context sample rate: ",audioContext.sampleRate);
+			
+			audioContext.audioWorklet.addModule('js/resample_processor.js').then(() => {
+
+				// After the resolution of module loading, an AudioWorkletNode can be
+				// constructed.
+				let resampleNode = new AudioWorkletNode(audioContext, 'resample-processor', {'numberOfOutputs': 0, 'numberOfInputs': 1
+				});
+				
+				microphone.connect(resampleNode);
+
+				//resampleNode.connect(audioContext.destination);
+
+				resampleNode.port.onmessage = (event) => {
+				  let data = event.data;
+				  console.log(data);
+				};
+			});
+		}
+
+		function startOrStopAudio(){
+			if(audioContext == null){
+
+				console.log("Starting audio stream");
+				navigator.mediaDevices.getUserMedia({audio: true,video: false}).then(stream => {
+					startStream(stream);
+				}).catch(err => { 
+					alert("Microphone is required: " + err);
+				});
+		  }else{
+			console.log("Stopping audio stream");
+
+			microphoneStream.getTracks().forEach(track =>  {
+				if (track.readyState == 'live') {
+					track.stop();
+				}
+			});
+			audioContext.close();
+			microphoneStream = null;
+			audioContext = null;
+		  }
+		}
+
+	</script>
+</body>
+</html>
