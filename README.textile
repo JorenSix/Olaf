@@ -358,6 +358,7 @@ h2(#credits). Credits
 * "PFFFT":https://bitbucket.org/jpommier/pffft/src/default/  a pretty fast FFT library. BSD license
 * "LMDB":https://symas.com/lmdb/ "Lightning Memory-Mapped Database":https://en.wikipedia.org/wiki/Lightning_Memory-Mapped_Database, a fast key value store with a permissive software license (the OpenLDAP Public License) by Howard Chu.
 * "Hash table":https://github.com/fragglet/c-algorithms and dequeue by Simon Howard, ISC lisence
+* "libsamplerate-js":https://github.com/aolsenjazz/libsamplerate-js the browser based version of Olaf uses a WASM build of an audio resampling library "SRC":http://www.mega-nerd.com/SRC/ which is BSD licensed. @libsamplerate-js@ is MIT licensed.
 
 Olaf by Joren Six at IPEM, Ghent University.
 
