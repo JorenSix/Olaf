@@ -50,7 +50,7 @@ class Olaf:
 			self.config.sqrtMagnitude = True
 		if self.command == OlafCommand.QUERY:
 			self.fp_db = lib.olaf_db_new(self.config.dbFolder,True);
-			Olaf.results.clear
+			Olaf.results.clear()
 			#register callback
 			self.fp_matcher = lib.olaf_fp_matcher_new(self.config,self.fp_db,lib.olaf_python_wrapper_handle_result)
 		if self.command == OlafCommand.STORE:
