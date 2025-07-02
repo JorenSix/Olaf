@@ -53,6 +53,8 @@ uint16_t gain_factor = 40;
 #define I2S_SD 33
 #define I2S_SCK 32
 
+#define LED_BUILTIN 11
+
 // Use I2S Processor 0
 #define I2S_PORT I2S_NUM_0
 
