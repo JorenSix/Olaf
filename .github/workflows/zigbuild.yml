@@ -1,0 +1,20 @@
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Build and Test
+    steps:
+      - uses: actions/checkout@v3
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: '0.14.1'  # Specify the Zig version you want to use
+      - run: zig build # Build the project with default target
+      - run: zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSmall # Build for Windows target

@@ -1,6 +1,6 @@
 # OLAF - Overly Lightweight Acoustic Fingerprinting
 
-![Olaf build and test status](https://github.com/JorenSix/Olaf/actions/workflows/make.yml/badge.svg) [![JOSS Paper](https://joss.theoj.org/papers/f5b4572fd51939c2ab8363e561bdb2b7/status.svg)](https://joss.theoj.org/papers/f5b4572fd51939c2ab8363e561bdb2b7)
+![Olaf build and test status](https://github.com/JorenSix/Olaf/actions/workflows/make.yml/badge.svg)![Olaf Zig build](https://github.com/JorenSix/Olaf/actions/workflows/zigbuild.yml/badge.svg) [![JOSS Paper](https://joss.theoj.org/papers/f5b4572fd51939c2ab8363e561bdb2b7/status.svg)](https://joss.theoj.org/papers/f5b4572fd51939c2ab8363e561bdb2b7)
 
 Olaf is a C application or library for content-based audio search. Olaf is able to extract fingerprints from an audio stream, and either store those fingerprints in a database, or find a match between extracted fingerprints and stored fingerprints. Olaf does this efficiently in order to be used on **embedded platforms**, traditional computers or in web browsers via WASM.
 
