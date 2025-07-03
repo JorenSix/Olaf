@@ -10,7 +10,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: Build and Test
+    name: Olaf Zig Build
     steps:
       - uses: actions/checkout@v3
       - uses: mlugg/setup-zig@v2
