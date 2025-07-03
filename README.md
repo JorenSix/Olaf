@@ -115,6 +115,15 @@ docker run -v $HOME/.olaf/docker_dbs:/root/.olaf -v $PWD:/root/audio olaf:1.0 ol
 
 In this case the `$HOME/.olaf/docker_dbs` is mapped to `/root/.olaf` in the container to store the database. The audio enters the system via a mapping of `$PWD` to `/root/audio` in the container, which is also the work directory in the container. So relative paths with respect to `$PWD` of the host can be resolved in the container, absolute paths can not.
 
+If you prefer docker compose the following should get you started:
+
+```bash
+ruby eval/olaf_download_dataset.rb 
+docker compose run olaf olaf store dataset/ref/*
+docker compose run olaf olaf query dataset/queries/*
+docker compose   run --remove-orphans olaf olaf stats 
+```
+
 ## Olaf in the browser
 
 To compile Olaf to WASM the `emcc` compiler from Emcripten is used. Make sure [Emscripten is correctly installed](https://emscripten.org/docs/getting_started/downloads.html) and run the following:
