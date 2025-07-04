@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Olaf Wrapper Config",
+  "type": "object",
+  "properties": {
+    "db_folder": {
+      "type": "string",
+      "description": "Path to the database folder."
+    },
+    "cache_folder": {
+      "type": "string",
+      "description": "Path to the cache folder."
+    },
+    "executable_location": {
+      "type": "string",
+      "description": "Path to the Olaf C executable."
+    },
+    "check_incoming_audio": {
+      "type": "boolean",
+      "description": "Whether to check incoming audio files for validity."
+    },
+    "skip_duplicates": {
+      "type": "boolean",
+      "description": "Whether to skip duplicate audio files."
+    },
+    "fragment_duration_in_seconds": {
+      "type": "integer",
+      "description": "Duration of audio fragments in seconds.",
+      "minimum": 1
+    },
+    "target_sample_rate": {
+      "type": "integer",
+      "description": "Target sample rate for audio processing.",
+      "minimum": 1
+    },
+    "allowed_audio_file_extensions": {
+      "type": "array",
+      "description": "List of allowed audio file extensions.",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+  ]
+}

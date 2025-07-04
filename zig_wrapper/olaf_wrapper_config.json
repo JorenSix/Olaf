@@ -1,0 +1,6 @@
+{
+  "db_folder": "/tmp/mydb",
+  "fragment_duration_in_seconds": 45,
+  "allowed_audio_file_extensions": [".mp3", ".wav"]
+
+}

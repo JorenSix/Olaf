@@ -68,5 +68,15 @@ pub fn build(b: *std.Build) void {
         exe.linkLibC();
 
         b.installArtifact(exe);
+
+         // Add the Zig wrapper executable (non-WASM only)
+        const wrapper = b.addExecutable(.{
+            .name = "olaf",
+            .root_source_file = b.path("src/olaf_wrapper.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+
+        b.installArtifact(wrapper);
     }
 }
