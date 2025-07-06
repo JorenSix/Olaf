@@ -27,7 +27,7 @@ pub fn build(b: *std.Build) void {
     exe.addCSourceFile(.{ .file = b.path("../src/queue.c"), .flags = &cflags });
     exe.addCSourceFile(.{ .file = b.path("../src/olaf_deque.c"), .flags = &cflags });
     exe.addCSourceFile(.{ .file = b.path("../src/olaf_max_filter_perceptual_van_herk.c"), .flags = &cflags });
-    exe.addCSourceFile(.{ .file = b.path("../src/olaf_wrapper_bridge.c"), .flags = &cflags });
+    exe.addCSourceFile(.{ .file = b.path("./olaf_wrapper_bridge.c"), .flags = &cflags });
     exe.addCSourceFile(.{ .file = b.path("../src/olaf_config.c"), .flags = &cflags });
     exe.addCSourceFile(.{ .file = b.path("../src/olaf_db.c"), .flags = &cflags });
     exe.addCSourceFile(.{ .file = b.path("../src/olaf_ep_extractor.c"), .flags = &cflags });

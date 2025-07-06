@@ -4,6 +4,7 @@ const process = std.process;
 
 const olaf_wrapper_config = @import("olaf_wrapper_config.zig");
 const olaf_wrapper_util = @import("olaf_wrapper_util.zig");
+const olaf_wrapper_bridge = @import("olaf_wrapper_bridge.zig");
 
 const debug = std.log.scoped(.olaf_wrapper).debug;
 const err = std.log.scoped(.olaf_wrapper).err;
@@ -68,23 +69,6 @@ fn printHelp(exe_path: []const u8) !void {
     }
 }
 
-const olaf = @cImport({
-    @cInclude("olaf_wrapper_bridge.h");
-});
-
-fn olaf_main_wrapped(allocator: std.mem.Allocator) !void {
-    const args_list = try process.argsAlloc(allocator);
-    defer process.argsFree(allocator, args_list);
-
-    var c_argv = try allocator.alloc([*c]const u8, args_list.len);
-    defer allocator.free(c_argv);
-    for (args_list, 0..) |arg, i| {
-        c_argv[i] = arg.ptr;
-    }
-    _ = olaf.olaf_main(@intCast(args_list.len), c_argv.ptr);
-    debug("olaf main", .{});
-}
-
 pub fn main() !void {
     //const allocator = std.heap.page_allocator;
 
@@ -93,7 +77,7 @@ pub fn main() !void {
     const allocator = gpa.allocator();
 
     debug("Starting olaf_wrapper...", .{});
-    try olaf_main_wrapped(allocator);
+    try olaf_wrapper_bridge.olaf_main_wrapped(allocator);
 
     var config = try olaf_wrapper_config.olafWrapperConfig(allocator);
     defer {
