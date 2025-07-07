@@ -9,6 +9,19 @@ const Mutex = std.Thread.Mutex;
 // Maximum number of concurrent worker threads
 const MAX_WORKERS = 3;
 
+// List of files to process
+const FILE_LIST = [_][]const u8{
+    "data_export_2024.csv",
+    "user_analytics.json",
+    "system_logs.txt",
+    "backup_archive.tar.gz",
+    "config_settings.xml",
+    "report_summary.pdf",
+    "database_dump.sql",
+    "access_logs.txt",
+    "transaction_history.csv",
+};
+
 // Worker status enum
 const WorkerStatus = enum(u8) {
     waiting,
@@ -233,28 +246,15 @@ fn workerThread(queue: *WorkQueue) void {
 
 pub fn main() !void {
     if (MAX_WORKERS == 1) {
-        try runSingleThreaded();
+        try runSingleThreaded(&FILE_LIST);
     } else {
-        try runMultiThreaded();
+        try runMultiThreaded(&FILE_LIST);
     }
 }
 
 // Single-threaded mode with progress display
-fn runSingleThreaded() !void {
+fn runSingleThreaded(filenames: []const []const u8) !void {
     print("🚀 Starting file processing in single-threaded mode...\n\n", .{});
-
-    // List of files to process
-    const filenames = [_][]const u8{
-        "data_export_2024.csv",
-        "user_analytics.json",
-        "system_logs.txt",
-        "backup_archive.tar.gz",
-        "config_settings.xml",
-        "report_summary.pdf",
-        "database_dump.sql",
-        "access_logs.txt",
-        "transaction_history.csv",
-    };
 
     var prng = std.Random.DefaultPrng.init(@intCast(time.timestamp()));
     var rng = prng.random();
@@ -324,27 +324,20 @@ fn runSingleThreaded() !void {
 }
 
 // Multi-threaded mode (original functionality)
-fn runMultiThreaded() !void {
+fn runMultiThreaded(filenames: []const []const u8) !void {
     print("🚀 Starting parallel file processing with {d} worker threads...\n\n", .{MAX_WORKERS});
-
-    // List of files to process
-    const filenames = [_][]const u8{
-        "data_export_2024.csv",
-        "user_analytics.json",
-        "system_logs.txt",
-        "backup_archive.tar.gz",
-        "config_settings.xml",
-        "report_summary.pdf",
-        "database_dump.sql",
-        "access_logs.txt",
-        "transaction_history.csv",
-    };
 
     var prng = std.Random.DefaultPrng.init(@intCast(time.timestamp()));
     var rng = prng.random();
 
     // Create worker states
-    var workers: [filenames.len]WorkerState = undefined;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    var workers = try allocator.alloc(WorkerState, filenames.len);
+    defer allocator.free(workers);
+
     for (filenames, 0..) |filename, i| {
         // Random processing time between 10-30 seconds
         const process_time = rng.intRangeAtMost(u32, 10000, 30000);
@@ -352,11 +345,11 @@ fn runMultiThreaded() !void {
     }
 
     // Create work queue
-    var queue = WorkQueue.init(&workers);
+    var queue = WorkQueue.init(workers);
 
     // Start display thread
     display_running.store(true, .release);
-    const display_thread = try Thread.spawn(.{}, displayProgress, .{ &workers, &queue });
+    const display_thread = try Thread.spawn(.{}, displayProgress, .{ workers, &queue });
 
     // Start worker threads (limited to MAX_WORKERS)
     var threads: [MAX_WORKERS]Thread = undefined;

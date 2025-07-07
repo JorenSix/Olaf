@@ -7,12 +7,18 @@ const olaf_wrapper_util = @import("olaf_wrapper_util.zig");
 const olaf_wrapper_bridge = @import("olaf_wrapper_bridge.zig");
 
 const debug = std.log.scoped(.olaf_wrapper).debug;
+
+const info = std.log.scoped(.olaf_wrapper).info;
 const err = std.log.scoped(.olaf_wrapper).err;
 
 fn print(comptime fmt: []const u8, args: anytype) void {
     // Ignore any error from printing
     _ = std.io.getStdOut().writer().print(fmt, args) catch {};
 }
+
+pub const std_options: std.Options = .{
+    .log_level = .debug,
+};
 
 const Args = struct {
     audio_files: std.ArrayList([]const u8),
@@ -21,6 +27,15 @@ const Args = struct {
     allow_identity_match: bool = true,
     skip_store: bool = false,
     force: bool = false,
+
+    pub fn deinit(self: *Args, allocator: std.mem.Allocator) void {
+        debug("Deinit Args", .{});
+        for (self.audio_files.items) |item| {
+            debug("Freeing audio_files item {s}", .{item});
+            allocator.free(item); // Do not free items, they are owned by the ArrayList
+        }
+        self.audio_files.deinit();
+    }
 };
 
 const Command = struct {
@@ -39,18 +54,38 @@ const commands = [_]Command{
         .needs_audio_files = true,
         .func = cmdToWav,
     },
+    .{
+        .name = "stats",
+        .description = "Print statistics about the audio files in the database.",
+        .help = "[--threads n] audio_files...",
+        .needs_audio_files = false,
+        .func = cmdStats,
+    },
 };
+
+fn cmdStats(_: std.mem.Allocator, _: *const olaf_wrapper_config.Config, _: *Args) !void {
+    try olaf_wrapper_bridge.olaf_stats();
+}
 
 fn cmdToWav(allocator: std.mem.Allocator, _: *const olaf_wrapper_config.Config, args: *Args) !void {
     // TODO: Implement parallel processing when threads > 1
     for (args.audio_files.items, 0..) |raw_file, i| {
-        const full_basename = std.fs.path.basename(raw_file);
+        const full_basename = try fs.cwd().realpathAlloc(allocator, raw_file);
+        defer {
+            debug("Defer full_basename cleanup", .{});
+            allocator.free(full_basename);
+        }
+
         const ext_start = std.mem.lastIndexOf(u8, full_basename, ".");
         const basename = if (ext_start) |idx| full_basename[0..idx] else full_basename;
 
         const wav_filename = try std.fmt.allocPrint(allocator, "{s}.wav", .{basename});
+        defer {
+            debug("Defer wav_filename cleanup", .{});
+            allocator.free(wav_filename);
+        }
+
         print("{d}/{d},{s},{s}\n", .{ i + 1, args.audio_files.items.len, full_basename, wav_filename });
-        allocator.free(wav_filename); // <-- Free after use!
     }
 }
 
@@ -76,31 +111,20 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    debug("Starting olaf_wrapper...", .{});
-    try olaf_wrapper_bridge.olaf_main_wrapped(allocator);
-
     var config = try olaf_wrapper_config.olafWrapperConfig(allocator);
     defer {
         debug("Defer config cleanup", .{});
         config.deinit(allocator);
     }
-
-    debug("Loaded config:", .{});
-    debug("DB folder: {s}", .{config.db_folder});
-    debug("Cache folder: {s}", .{config.cache_folder});
-    debug("Executable: {s}", .{config.executable_location});
-    debug("Check incoming audio: {any}", .{config.check_incoming_audio});
-    debug("Skip duplicates: {any}", .{config.skip_duplicates});
-    debug("Fragment duration: {d}", .{config.fragment_duration_in_seconds});
-    debug("Target sample rate: {d}", .{config.target_sample_rate});
-    debug("Allowed extensions: ", .{});
-    for (config.allowed_audio_file_extensions) |ext| {
-        debug("{s} ", .{ext});
-    }
-    debug("\n", .{});
+    config.debugPrint();
 
     const args_list = try process.argsAlloc(allocator);
     defer process.argsFree(allocator, args_list);
+
+    debug("Number of arguments: {d}", .{args_list.len});
+    for (args_list, 0..) |arg, index| {
+        debug("args[{d}]: \"{s}\"", .{ index, arg });
+    }
 
     if (args_list.len < 2) {
         try printHelp(args_list[0]);
@@ -109,29 +133,29 @@ pub fn main() !void {
 
     // Create directories if they don't exist
     const db_path = try olaf_wrapper_util.expandPath(allocator, config.db_folder);
+    debug("DB path: {s}", .{db_path});
     defer allocator.free(db_path);
-    const cache_path = try olaf_wrapper_util.expandPath(allocator, config.cache_folder);
-    defer allocator.free(cache_path);
-
     fs.cwd().makePath(db_path) catch |errr| {
         if (errr != error.PathAlreadyExists) return errr;
     };
+
+    const cache_path = try olaf_wrapper_util.expandPath(allocator, config.cache_folder);
+    defer allocator.free(cache_path);
+    debug("Cache path: {s}", .{cache_path});
     fs.cwd().makePath(cache_path) catch |errr| {
         if (errr != error.PathAlreadyExists) return errr;
     };
 
     const command_name = args_list[1];
+    debug("Command name: {s}", .{command_name});
 
-    // Parse arguments
     var args = Args{
         .audio_files = std.ArrayList([]const u8).init(allocator),
     };
+
     defer {
-        debug("Defer audio files cleanup", .{});
-        for (args.audio_files.items) |item| {
-            allocator.free(item);
-        }
-        args.audio_files.deinit();
+        debug("Deinit Args", .{});
+        args.deinit(allocator);
     }
 
     var i: usize = 2;
@@ -144,7 +168,6 @@ pub fn main() !void {
                 i += 1;
             } else {
                 print("Expected a numeric argument for '--threads': 'olaf cache files --threads 8'\n", .{});
-
                 return;
             }
         } else if (std.mem.eql(u8, arg, "--no-identity-match")) {

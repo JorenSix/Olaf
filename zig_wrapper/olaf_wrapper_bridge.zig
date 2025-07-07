@@ -6,6 +6,11 @@ const olaf = @cImport({
     @cInclude("olaf_wrapper_bridge.h");
 });
 
+pub fn olaf_stats() !void {
+    _ = olaf.olaf_stats();
+    debug("olaf stats", .{});
+}
+
 pub fn olaf_main_wrapped(allocator: std.mem.Allocator) !void {
     const args_list = try process.argsAlloc(allocator);
     defer process.argsFree(allocator, args_list);

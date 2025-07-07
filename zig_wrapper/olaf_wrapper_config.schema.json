@@ -11,10 +11,6 @@
       "type": "string",
       "description": "Path to the cache folder."
     },
-    "executable_location": {
-      "type": "string",
-      "description": "Path to the Olaf C executable."
-    },
     "check_incoming_audio": {
       "type": "boolean",
       "description": "Whether to check incoming audio files for validity."

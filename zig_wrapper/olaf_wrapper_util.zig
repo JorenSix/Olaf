@@ -4,20 +4,27 @@ const fs = std.fs;
 const debug = std.log.scoped(.olaf_wrapper).debug;
 const l_err = std.log.scoped(.olaf_wrapper).err;
 
+const epoch = std.time.epoch;
+
 /// Returns the modification date (year, month, day) of a file at `path`.
-pub fn getFileModificationDate(path: []const u8) !struct { year: i64, month: i64, day: i64 } {
+pub fn getFileModificationDate(path: []const u8) !struct { year: i64, month: u32, day: u32 } {
     const stat = try fs.cwd().statFile(path);
     const mtime_ns = @as(u64, @intCast(stat.mtime));
-    const mtime_s = @divTrunc(mtime_ns, 1_000_000_000);
-    const epoch_seconds = @as(i64, @intCast(mtime_s));
 
-    // Convert to date components (simplified)
-    const days_since_epoch = @divTrunc(epoch_seconds, 86400);
-    const year = 1970 + @divTrunc(days_since_epoch, 365);
-    const remaining_days = @mod(days_since_epoch, 365);
-    const month = @divTrunc(remaining_days, 30) + 1;
-    const day = @mod(remaining_days, 30) + 1;
-    return .{ .year = year, .month = month, .day = day };
+    // Convert nanoseconds to seconds
+    const mtime_s = @divTrunc(mtime_ns, std.time.ns_per_s);
+
+    // Use Zig's built-in epoch time handling
+    const epoch_seconds = epoch.EpochSeconds{ .secs = mtime_s };
+    const epoch_day = epoch_seconds.getEpochDay();
+    const year_day = epoch_day.calculateYearDay();
+    const month_day = year_day.calculateMonthDay();
+
+    return .{
+        .year = year_day.year,
+        .month = @intFromEnum(month_day.month),
+        .day = month_day.day_index + 1, // day_index is 0-based
+    };
 }
 
 /// Expands a path, replacing '~/' with the user's home directory if present. Returns a newly allocated string.
@@ -101,6 +108,7 @@ pub fn audioFileList(
                 if (entry.kind == .file and !std.mem.startsWith(u8, entry.basename, ".")) {
                     if (isAudioFile(entry.path, allowed_audio_file_extensions)) {
                         const full_path = try fs.path.join(allocator, &.{ expanded, entry.path });
+                        debug("Found audio file: {s}", .{full_path});
                         try files.append(full_path);
                     }
                 }

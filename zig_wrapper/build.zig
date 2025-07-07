@@ -40,6 +40,7 @@ pub fn build(b: *std.Build) void {
     exe.addCSourceFile(.{ .file = b.path("../src/olaf_stream_processor.c"), .flags = &cflags });
 
     exe.addIncludePath(b.path("../src"));
+    exe.addIncludePath(b.path("."));
 
     exe.linkLibC();
 
@@ -47,4 +48,8 @@ pub fn build(b: *std.Build) void {
 
     const run_step = b.addRunArtifact(exe);
     b.step("run", "Run the application").dependOn(&run_step.step);
+
+    if (b.args) |args| {
+        run_step.addArgs(args);
+    }
 }
