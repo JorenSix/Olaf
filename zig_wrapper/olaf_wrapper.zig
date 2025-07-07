@@ -27,6 +27,7 @@ const Args = struct {
     allow_identity_match: bool = true,
     skip_store: bool = false,
     force: bool = false,
+    config: ?*const olaf_wrapper_config.Config = null,
 
     pub fn deinit(self: *Args, allocator: std.mem.Allocator) void {
         debug("Deinit Args", .{});
@@ -61,7 +62,18 @@ const commands = [_]Command{
         .needs_audio_files = false,
         .func = cmdStats,
     },
+    .{
+        .name = "store",
+        .description = "Extracts and stores fingerprints into an index.",
+        .help = "audio_files...",
+        .needs_audio_files = true,
+        .func = cmdStore,
+    },
 };
+
+fn cmdStore(_: std.mem.Allocator, _: *const olaf_wrapper_config.Config, _: *Args) !void {
+    try olaf_wrapper_bridge.olaf_store_using_wrapper();
+}
 
 fn cmdStats(_: std.mem.Allocator, _: *const olaf_wrapper_config.Config, _: *Args) !void {
     try olaf_wrapper_bridge.olaf_stats();
@@ -69,11 +81,20 @@ fn cmdStats(_: std.mem.Allocator, _: *const olaf_wrapper_config.Config, _: *Args
 
 fn cmdToWav(allocator: std.mem.Allocator, _: *const olaf_wrapper_config.Config, args: *Args) !void {
     // TODO: Implement parallel processing when threads > 1
-    for (args.audio_files.items, 0..) |raw_file, i| {
-        const full_basename = try fs.cwd().realpathAlloc(allocator, raw_file);
+    for (args.audio_files.items, 0..) |in_audio_filename, i| {
+        const full_basename = try fs.cwd().realpathAlloc(allocator, in_audio_filename);
         defer {
             debug("Defer full_basename cleanup", .{});
             allocator.free(full_basename);
+        }
+
+        const full_in_audio_filename = olaf_wrapper_util.expandPath(allocator, in_audio_filename) catch |errr| {
+            err("Error expanding path: {s}", .{in_audio_filename});
+            return errr;
+        };
+        defer {
+            debug("Defer full_in_audio_filename cleanup", .{});
+            allocator.free(full_in_audio_filename);
         }
 
         const ext_start = std.mem.lastIndexOf(u8, full_basename, ".");
@@ -85,6 +106,21 @@ fn cmdToWav(allocator: std.mem.Allocator, _: *const olaf_wrapper_config.Config, 
             allocator.free(wav_filename);
         }
 
+        // Check if file already exists
+        if (fs.cwd().statFile(wav_filename)) |_| {
+            debug("Wav file already exists: {s}, skipping", .{wav_filename});
+            continue;
+        } else |_| {}
+
+        const sample_rate_str = try std.fmt.allocPrint(allocator, "{d}", .{args.config.?.target_sample_rate});
+        defer allocator.free(sample_rate_str);
+
+        const result = try olaf_wrapper_util.runCommand(allocator, &.{ "ffmpeg", "-hide_banner", "-loglevel", "panic", "-y", "-i", full_in_audio_filename, "-ac", "1", "-ar", sample_rate_str, wav_filename });
+        defer {
+            debug("Defer run command result cleanup", .{});
+            allocator.free(result.stdout);
+            allocator.free(result.stderr);
+        }
         print("{d}/{d},{s},{s}\n", .{ i + 1, args.audio_files.items.len, full_basename, wav_filename });
     }
 }
@@ -152,6 +188,8 @@ pub fn main() !void {
     var args = Args{
         .audio_files = std.ArrayList([]const u8).init(allocator),
     };
+
+    args.config = &config;
 
     defer {
         debug("Deinit Args", .{});

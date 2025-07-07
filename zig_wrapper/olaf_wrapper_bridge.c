@@ -107,7 +107,6 @@ int olaf_stats(void){
 	olaf_db_stats(db,config->verbose);
 	olaf_db_destroy(db);
 	olaf_config_destroy(config);
-	exit(0);
 	return 0;
 }
 

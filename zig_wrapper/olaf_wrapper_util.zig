@@ -146,6 +146,10 @@ pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struc
     child.stdout_behavior = .Pipe;
     child.stderr_behavior = .Pipe;
 
+    const cmd_str = try std.mem.join(allocator, " ", argv);
+    defer allocator.free(cmd_str);
+    debug("Running command: {s}", .{cmd_str});
+
     try child.spawn();
 
     // Use ArrayList to collect output as it streams in
@@ -170,7 +174,7 @@ pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struc
                 stdout_done = true;
             } else {
                 //print the output to stdout
-                std.debug.print("{s}", .{stdout_buf[0..n]}); // Uncomment to print stdout in real-time
+                debug("{s}", .{stdout_buf[0..n]}); // Uncomment to print stdout in real-time
                 try stdout_list.appendSlice(stdout_buf[0..n]);
             }
         }
@@ -179,6 +183,7 @@ pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struc
             if (n == 0) {
                 stderr_done = true;
             } else {
+                debug("{s}", .{stderr_buf[0..n]}); // Uncomment to print stdout in real-time
                 try stderr_list.appendSlice(stderr_buf[0..n]);
             }
         }
