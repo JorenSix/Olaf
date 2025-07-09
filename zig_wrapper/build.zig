@@ -47,6 +47,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(exe);
 
     const run_step = b.addRunArtifact(exe);
+    run_step.setCwd(b.path(".")); // Set working directory to project root
     b.step("run", "Run the application").dependOn(&run_step.step);
 
     if (b.args) |args| {

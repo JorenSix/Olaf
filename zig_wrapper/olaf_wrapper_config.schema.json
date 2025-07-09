@@ -5,38 +5,175 @@
   "properties": {
     "db_folder": {
       "type": "string",
-      "description": "Path to the database folder."
+      "description": "Path to the database folder.",
+      "default": "~/.olaf/db/"
     },
     "cache_folder": {
       "type": "string",
-      "description": "Path to the cache folder."
+      "description": "Path to the cache folder.",
+      "default": "~/.olaf/cache"
     },
     "check_incoming_audio": {
       "type": "boolean",
-      "description": "Whether to check incoming audio files for validity."
+      "description": "Whether to check incoming audio files for validity.",
+      "default": true
     },
     "skip_duplicates": {
       "type": "boolean",
-      "description": "Whether to skip duplicate audio files."
+      "description": "Whether to skip duplicate audio files.",
+      "default": true
     },
     "fragment_duration_in_seconds": {
       "type": "integer",
       "description": "Duration of audio fragments in seconds.",
-      "minimum": 1
+      "minimum": 3,
+      "default": 30
     },
     "target_sample_rate": {
       "type": "integer",
       "description": "Target sample rate for audio processing.",
-      "minimum": 1
+      "minimum": 4000,
+      "default": 16000,
+      "maximum": 48000
     },
     "allowed_audio_file_extensions": {
       "type": "array",
       "description": "List of allowed audio file extensions.",
       "items": {
         "type": "string"
-      }
+      },
+      "default": [".m4a", ".wav", ".mp4", ".wv", ".ape", ".ogg", ".mp3", ".raw", ".flac", ".wma"]
+    },
+    "audio_block_size": {
+      "type": "integer",
+      "description": "The size of a single audio block in samples.",
+      "default": 1024
+    },
+    "audio_step_size": {
+      "type": "integer",
+      "description": "The size of a step from one block of samples to the next.",
+      "default": 128
+    },
+    "bytes_per_audio_sample": {
+      "type": "integer",
+      "description": "The size of a single audio sample in bytes (e.g., 4 for 32-bit float).",
+      "default": 4
+    },
+    "max_event_points": {
+      "type": "integer",
+      "description": "Max number of event points before they are combined into fingerprints.",
+      "default": 60
+    },
+    "event_point_threshold": {
+      "type": "integer",
+      "description": "Once this number of event points is listed, start combining them into fingerprints.",
+      "default": 30
+    },
+    "sqrt_magnitude": {
+      "type": "boolean",
+      "description": "Whether to calculate the square root of the magnitude for event point extraction.",
+      "default": false
+    },
+    "filter_size_frequency": {
+      "type": "integer",
+      "description": "The filter size of the max filter in frequency bins.",
+      "default": 103
+    },
+    "filter_size_time": {
+      "type": "integer",
+      "description": "The filter size of the max filter in time (horizontal direction), expressed in blocks.",
+      "default": 24
+    },
+    "min_event_point_magnitude": {
+      "type": "number",
+      "description": "To avoid extracting event points of silence, the EP magnitude should be at least this value.",
+      "default": 0.001
+    },
+    "max_event_point_usages": {
+      "type": "integer",
+      "description": "The amount each event point is reused.",
+      "default": 10
+    },
+    "min_frequency_bin": {
+      "type": "integer",
+      "description": "Frequency bins below this value are not used in EP extraction.",
+      "default": 9
+    },
+    "verbose": {
+      "type": "boolean",
+      "description": "Print debug info. If true, a lot of messages are printed to the console.",
+      "default": false
+    },
+    "number_of_eps_per_fp": {
+      "type": "integer",
+      "description": "The number of event points (peaks) per fingerprint.",
+      "default": 3
+    },
+    "use_magnitude_info": {
+      "type": "boolean",
+      "description": "Include magnitude info in fingerprints or not.",
+      "default": false
+    },
+    "min_time_distance": {
+      "type": "integer",
+      "description": "Min time distance between two event points for fingerprint (in time steps).",
+      "default": 2
+    },
+    "max_time_distance": {
+      "type": "integer",
+      "description": "Max time distance between two event points for fingerprint (in time steps).",
+      "default": 33
+    },
+    "min_freq_distance": {
+      "type": "integer",
+      "description": "Min freq distance between two event points for fingerprint (in bins).",
+      "default": 1
+    },
+    "max_freq_distance": {
+      "type": "integer",
+      "description": "Max freq distance between two event points for fingerprint (in bins).",
+      "default": 128
+    },
+    "max_fingerprints": {
+      "type": "integer",
+      "description": "The maximum number of fingerprints to keep in memory during fingerprint extraction.",
+      "default": 300
+    },
+    "max_results": {
+      "type": "integer",
+      "description": "The maximum number of results in the matching step.",
+      "default": 50
+    },
+    "search_range": {
+      "type": "integer",
+      "description": "The range around a hash to search.",
+      "default": 5
+    },
+    "min_match_count": {
+      "type": "integer",
+      "description": "Minimum aligned matches before reporting match.",
+      "default": 6
+    },
+    "min_match_time_diff": {
+      "type": "number",
+      "description": "Duration in seconds before a match is reported. Zero means all matches are reported.",
+      "default": 0
+    },
+    "keep_matches_for": {
+      "type": "number",
+      "description": "Forget matches after x seconds, or never when zero.",
+      "default": 0
+    },
+    "print_result_every": {
+      "type": "number",
+      "description": "Print results after x seconds or only at the end of stream when zero.",
+      "default": 0
+    },
+    "max_db_collisions": {
+      "type": "integer",
+      "description": "Number of matches (hash collisions) allowed.",
+      "default": 2000
     }
   },
-  "required": [
-  ]
+  "required": []
 }

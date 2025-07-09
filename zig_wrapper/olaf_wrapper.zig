@@ -18,7 +18,7 @@ fn print(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub const std_options: std.Options = .{
-    .log_level = .info,
+    .log_level = .debug,
 };
 
 const Args = struct {
@@ -133,11 +133,28 @@ fn cmdStore(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Con
 
         debug("Processing audio file {d}/{d}: {s}", .{ i + 1, args.audio_files.items.len, expanded_audio_path });
 
-        const raw = "out.raw";
-        try olaf_wrapper_util_audio.convertToRaw(allocator, expanded_audio_path, raw, config.target_sample_rate);
+        // Get the system temp directory
+        const tmp_dir = if (std.process.getEnvVarOwned(allocator, "TMPDIR")) |dir| dir else |_| try allocator.dupe(u8, "/tmp/");
+        defer allocator.free(tmp_dir);
+
+        // Create a subdirectory for olaf cache
+        const olaf_cache_dir = try std.fmt.allocPrint(allocator, "{s}olaf_raw_audio_cache", .{tmp_dir});
+        defer allocator.free(olaf_cache_dir);
+
+        // Ensure the olaf_cache directory exists
+        fs.cwd().makePath(olaf_cache_dir) catch |errr| {
+            if (errr != error.PathAlreadyExists) return errr;
+        };
+
+        // Compose the temp file path
+        const temp_path = try std.fmt.allocPrint(allocator, "{s}/olaf_audio_{d}.raw", .{ olaf_cache_dir, std.time.milliTimestamp() });
+        defer allocator.free(temp_path);
+        defer fs.cwd().deleteFile(temp_path) catch {};
+
+        try olaf_wrapper_util_audio.convertToRaw(allocator, expanded_audio_path, temp_path, config.target_sample_rate);
 
         // Store the audio file
-        try olaf_wrapper_bridge.olaf_store(allocator, raw, expanded_audio_path);
+        try olaf_wrapper_bridge.olaf_store(allocator, temp_path, expanded_audio_path, args.config.?);
     }
 }
 
