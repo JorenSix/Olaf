@@ -105,13 +105,11 @@ Olaf_Config* olaf_default_config(){
 	return config;
 }
 
-int olaf_stats(void){
-	//print database statistics and exit
-	Olaf_Config* config = olaf_config_default();
+int olaf_stats(const Olaf_Config* config){
 	Olaf_DB* db = olaf_db_new(config->dbFolder,true);
 	olaf_db_stats(db,config->verbose);
 	olaf_db_destroy(db);
-	olaf_config_destroy(config);
+
 	return 0;
 }
 
@@ -205,7 +203,7 @@ int olaf_main(int argc, const char* argv[]){
 		exit(0);
 		return 0;
 	} else if(strcmp(command,"stats") == 0){
-		olaf_stats();
+		fprintf(stderr,"%s Usupported stats: \n",command);
 	} else if(strcmp(command,"store_cached") == 0){
 		olaf_store_cached(argc,argv);
 	} else {

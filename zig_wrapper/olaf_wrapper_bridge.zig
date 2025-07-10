@@ -93,11 +93,15 @@ pub fn olaf_query(allocator: std.mem.Allocator, input_raw: []const u8, input_pat
     try olaf_main(allocator, &args);
 }
 
-pub fn olaf_stats(allocator: std.mem.Allocator) !void {
-    const args = [_][]const u8{
-        "olaf", // program name
-        "stats", // command
-    };
+pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Config) !void {
+    const c_config = olaf.olaf_default_config(); // Ensure the default config is set
+    try copy_to_c_config(config, c_config);
 
-    try olaf_main(allocator, &args);
+    // Path configuration
+    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
+    c_config.*.dbFolder = c_db_folder;
+    defer {
+        allocator.free(c_db_folder);
+    }
+    _ = olaf.olaf_stats(c_config);
 }

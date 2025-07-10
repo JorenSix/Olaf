@@ -7,7 +7,7 @@
 
 
 // Print database statistics
-int olaf_stats(void);
+int olaf_stats(const Olaf_Config* config);
 
 
 // Get the default Olaf configuration

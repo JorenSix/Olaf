@@ -27,31 +27,6 @@ pub fn getFileModificationDate(path: []const u8) !struct { year: i64, month: u32
     };
 }
 
-/// Expands a path, replacing '~/' with the user's home directory if present. Returns a newly allocated string.
-pub fn expandPath(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
-    if (std.mem.startsWith(u8, path, "~/")) {
-        const home = std.process.getEnvVarOwned(allocator, "HOME") catch |err| switch (err) {
-            error.EnvironmentVariableNotFound => return allocator.dupe(u8, path),
-            else => return err,
-        };
-        defer allocator.free(home);
-        return std.fmt.allocPrint(allocator, "{s}{s}", .{ home, path[1..] });
-    }
-    return allocator.dupe(u8, path);
-}
-
-/// Returns true if the file at `path` has an extension in `allowed_audio_file_extensions` (case-insensitive).
-pub fn isAudioFile(path: []const u8, allowed_audio_file_extensions: []const []const u8) bool {
-    const ext = std.fs.path.extension(path);
-    for (allowed_audio_file_extensions) |allowed_ext| {
-        if (std.ascii.eqlIgnoreCase(ext, allowed_ext)) {
-            debug("Found audio file: {s} with extension {s}", .{ path, ext });
-            return true;
-        }
-    }
-    return false;
-}
-
 /// Returns the total size (in MB) of all files in the directory at `path` (recursively).
 pub fn folderSize(path: []const u8) !f64 {
     var total_size: u64 = 0;
@@ -72,18 +47,93 @@ pub fn folderSize(path: []const u8) !f64 {
             total_size += stat.size;
         }
     }
-
     return @as(f64, @floatFromInt(total_size)) / (1024.0 * 1024.0);
+}
+/// Expands a path, replacing '~/' with the user's home directory if present. Returns a newly allocated string.
+pub fn expandPath(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
+    if (std.mem.startsWith(u8, path, "~/")) {
+        const home = std.process.getEnvVarOwned(allocator, "HOME") catch |err| switch (err) {
+            error.EnvironmentVariableNotFound => return allocator.dupe(u8, path),
+            else => return err,
+        };
+        defer allocator.free(home);
+        return std.fmt.allocPrint(allocator, "{s}{s}", .{ home, path[1..] });
+    }
+    return allocator.dupe(u8, path);
+}
+
+/// Represents an audio file with its associated identifier
+pub const AudioFileWithId = struct {
+    path: []const u8,
+    identifier: []const u8,
+
+    pub fn deinit(self: AudioFileWithId, allocator: std.mem.Allocator) void {
+        allocator.free(self.path);
+        allocator.free(self.identifier);
+    }
+};
+
+pub fn audioFileListWithId(
+    allocator: std.mem.Allocator,
+    audio_file_path: []const u8,
+    audio_file_identifier: []const u8,
+    files: *std.ArrayList(AudioFileWithId),
+    allowed_audio_file_extensions: []const []const u8,
+) !void {
+    const expanded = try expandPath(allocator, audio_file_path);
+    defer allocator.free(expanded);
+
+    const stat = fs.cwd().statFile(expanded) catch |err| {
+        l_err("Could not find: {s}\n", .{expanded});
+        return err;
+    };
+
+    switch (stat.kind) {
+        .file => {
+            if (isAudioFile(expanded, allowed_audio_file_extensions)) {
+                const audio_file = AudioFileWithId{
+                    .path = try allocator.dupe(u8, expanded),
+                    .identifier = try allocator.dupe(u8, audio_file_identifier),
+                };
+                debug("Found audio file: {s} with identifier: {s}", .{ audio_file.path, audio_file.identifier });
+                try files.append(audio_file);
+            } else {
+                l_err("File is not an audio file: {s}\n", .{expanded});
+                return error.NotAudioFile;
+            }
+        },
+        .directory => {
+            l_err("Directories are not supported: {s}\n", .{expanded});
+            return error.DirectoryNotSupported;
+        },
+        else => {
+            l_err("Unsupported file type: {s}\n", .{expanded});
+            return error.UnsupportedFileType;
+        },
+    }
+}
+
+/// Returns true if the file at `path` has an extension in `allowed_audio_file_extensions` (case-insensitive).
+pub fn isAudioFile(path: []const u8, allowed_audio_file_extensions: []const []const u8) bool {
+    const ext = std.fs.path.extension(path);
+    for (allowed_audio_file_extensions) |allowed_ext| {
+        if (std.ascii.eqlIgnoreCase(ext, allowed_ext)) {
+            debug("Found audio file: {s} with extension {s}", .{ path, ext });
+            return true;
+        }
+    }
+    return false;
 }
 
 /// Populates `files` with audio file paths found from the argument `arg`.
 /// If `arg` is a directory, all audio files inside are added.
 /// If `arg` is a .txt file, each line is treated as a path and expanded.
 /// If `arg` is a file, it is added if it matches allowed extensions.
+/// When no explicit identifier is provided, the full path is used as the identifier.
 pub fn audioFileList(
     allocator: std.mem.Allocator,
     arg: []const u8,
-    files: *std.ArrayList([]const u8),
+    files: *std.ArrayList(AudioFileWithId),
     allowed_audio_file_extensions: []const []const u8,
 ) !void {
     const expanded = try expandPath(allocator, arg);
@@ -109,7 +159,12 @@ pub fn audioFileList(
                     if (isAudioFile(entry.path, allowed_audio_file_extensions)) {
                         const full_path = try fs.path.join(allocator, &.{ expanded, entry.path });
                         debug("Found audio file: {s}", .{full_path});
-                        try files.append(full_path);
+
+                        const audio_file = AudioFileWithId{
+                            .path = full_path,
+                            .identifier = try allocator.dupe(u8, full_path),
+                        };
+                        try files.append(audio_file);
                     }
                 }
             }
@@ -124,11 +179,27 @@ pub fn audioFileList(
                     const trimmed = std.mem.trim(u8, line, " \t\r\n");
                     if (trimmed.len > 0) {
                         const audio_path = try expandPath(allocator, trimmed);
-                        try files.append(audio_path);
+
+                        const audio_file = AudioFileWithId{
+                            .path = audio_path,
+                            .identifier = try allocator.dupe(u8, audio_path),
+                        };
+                        try files.append(audio_file);
                     }
                 }
             } else {
-                try files.append(try allocator.dupe(u8, expanded));
+                if (isAudioFile(expanded, allowed_audio_file_extensions)) {
+                    const path_copy = try allocator.dupe(u8, expanded);
+
+                    const audio_file = AudioFileWithId{
+                        .path = path_copy,
+                        .identifier = try allocator.dupe(u8, path_copy),
+                    };
+                    try files.append(audio_file);
+                } else {
+                    l_err("File is not an audio file: {s}\n", .{expanded});
+                    return error.NotAudioFile;
+                }
             }
         },
         else => {},
