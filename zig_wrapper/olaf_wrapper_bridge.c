@@ -155,6 +155,35 @@ int olaf_store_cached(int argc, const char* argv[]){
 	return 0;
 }
 
+void olaf_query(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier){
+	//store the fingerprints in the database
+	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
+	if(db == NULL){
+		fprintf(stderr,"Error: Could not open database %s.\n",config->dbFolder);
+		exit(-1);
+	}
+	
+	//create a new runner
+	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_QUERY);
+	runner->config = config;
+	
+	//create a new stream processor
+	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
+	
+	//process the audio file
+	olaf_stream_processor_process(processor);
+	
+	//destroy the stream processor
+	olaf_stream_processor_destroy(processor);
+
+	runner->config = olaf_config_default(); // prevent the runner from destroying the config	
+	//destroy the runner
+	olaf_runner_destroy(runner);
+	
+	//close the database
+	olaf_db_destroy(db);
+}
+
 void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier){
 	//store the fingerprints in the database
 	Olaf_DB* db = olaf_db_new(config->dbFolder,false);

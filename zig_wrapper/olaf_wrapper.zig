@@ -46,7 +46,7 @@ const Command = struct {
     description: []const u8,
     help: []const u8,
     needs_audio_files: bool,
-    func: *const fn (allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Config, args: *Args) anyerror!void,
+    func: *const fn (allocator: std.mem.Allocator, args: *Args) anyerror!void,
 };
 
 const commands = [_]Command{
@@ -60,7 +60,7 @@ const commands = [_]Command{
     .{
         .name = "stats",
         .description = "Print statistics about the audio files in the database.",
-        .help = "[--threads n] audio_files...",
+        .help = "",
         .needs_audio_files = false,
         .func = cmdStats,
     },
@@ -74,13 +74,68 @@ const commands = [_]Command{
     .{
         .name = "query",
         .description = "Query for fingerprint matches.",
-        .help = "[--threads n]  audio_files...",
+        .help = "[--threads n]  [audio_file...] | --with-ids [audio_file audio_identifier]",
         .needs_audio_files = true,
         .func = cmdQuery,
     },
 };
 
-fn cmdQuery(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Config, args: *Args) !void {
+// Helper function to create a temporary raw audio file path
+fn createTempRawPath(allocator: std.mem.Allocator) ![]u8 {
+    // Get the system temp directory
+    const tmp_dir = if (std.process.getEnvVarOwned(allocator, "TMPDIR")) |dir| dir else |_| try allocator.dupe(u8, "/tmp/");
+    defer allocator.free(tmp_dir);
+
+    // Create a subdirectory for olaf cache
+    const olaf_cache_dir = try std.fmt.allocPrint(allocator, "{s}olaf_raw_audio_cache", .{tmp_dir});
+    defer allocator.free(olaf_cache_dir);
+
+    // Ensure the olaf_cache directory exists
+    fs.cwd().makePath(olaf_cache_dir) catch |e| {
+        if (e != error.PathAlreadyExists) return e;
+    };
+
+    // Compose the temp file path
+    return try std.fmt.allocPrint(allocator, "{s}/olaf_audio_{d}.raw", .{ olaf_cache_dir, std.time.milliTimestamp() });
+}
+
+// Helper function to process an audio file and convert it to raw format
+fn processAudioFile(
+    allocator: std.mem.Allocator,
+    audio_file_with_id: olaf_wrapper_util.AudioFileWithId,
+    config: *const olaf_wrapper_config.Config,
+    index: usize,
+    total: usize,
+    comptime action: enum { Query, Store },
+) !void {
+    debug("Processing audio file {d}/{d}: {s}", .{ index + 1, total, audio_file_with_id.path });
+
+    const raw_audio_path = try createTempRawPath(allocator);
+    defer allocator.free(raw_audio_path);
+    defer fs.cwd().deleteFile(raw_audio_path) catch {};
+
+    try olaf_wrapper_util_audio.convertToRaw(allocator, audio_file_with_id.path, raw_audio_path, config.target_sample_rate);
+
+    switch (action) {
+        .Query => try olaf_wrapper_bridge.olaf_query(allocator, raw_audio_path, audio_file_with_id.identifier, config),
+        .Store => try olaf_wrapper_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, config),
+    }
+}
+
+fn cmdQuery(allocator: std.mem.Allocator, args: *Args) !void {
+    if (args.audio_files.items.len == 0) {
+        print("No audio files provided to query.\n", .{});
+        return;
+    }
+
+    debug("Querying {d} audio files", .{args.audio_files.items.len});
+
+    for (args.audio_files.items, 0..) |audio_file_with_id, i| {
+        try processAudioFile(allocator, audio_file_with_id, args.config.?, i, args.audio_files.items.len, .Query);
+    }
+}
+
+fn cmdStore(allocator: std.mem.Allocator, args: *Args) !void {
     if (args.audio_files.items.len == 0) {
         print("No audio files provided to store.\n", .{});
         return;
@@ -89,89 +144,44 @@ fn cmdQuery(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Con
     debug("Storing {d} audio files", .{args.audio_files.items.len});
 
     for (args.audio_files.items, 0..) |audio_file_with_id, i| {
-        debug("Processing audio file {d}/{d}: {s}", .{ i + 1, args.audio_files.items.len, audio_file_with_id.path });
-
-        const raw = "out.raw";
-        try olaf_wrapper_util_audio.convertToRaw(allocator, audio_file_with_id.path, raw, config.target_sample_rate);
-
-        // query the audio file
-        try olaf_wrapper_bridge.olaf_query(allocator, raw, audio_file_with_id.path);
+        try processAudioFile(allocator, audio_file_with_id, args.config.?, i, args.audio_files.items.len, .Store);
     }
 }
 
-fn cmdStore(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Config, args: *Args) !void {
-    debug("Storing {d} audio files", .{args.audio_files.items.len});
-
-    for (args.audio_files.items, 0..) |audio_file_with_id, i| {
-        debug("Processing audio file {d}/{d}: {s}", .{ i + 1, args.audio_files.items.len, audio_file_with_id.path });
-
-        // Get the system temp directory
-        const tmp_dir = if (std.process.getEnvVarOwned(allocator, "TMPDIR")) |dir| dir else |_| try allocator.dupe(u8, "/tmp/");
-        defer allocator.free(tmp_dir);
-
-        // Create a subdirectory for olaf cache
-        const olaf_cache_dir = try std.fmt.allocPrint(allocator, "{s}olaf_raw_audio_cache", .{tmp_dir});
-        defer allocator.free(olaf_cache_dir);
-
-        // Ensure the olaf_cache directory exists
-        fs.cwd().makePath(olaf_cache_dir) catch |errr| {
-            if (errr != error.PathAlreadyExists) return errr;
-        };
-
-        // Compose the temp file path
-        const raw_audio_path = try std.fmt.allocPrint(allocator, "{s}/olaf_audio_{d}.raw", .{ olaf_cache_dir, std.time.milliTimestamp() });
-        defer allocator.free(raw_audio_path);
-        defer fs.cwd().deleteFile(raw_audio_path) catch {};
-
-        try olaf_wrapper_util_audio.convertToRaw(allocator, audio_file_with_id.path, raw_audio_path, config.target_sample_rate);
-
-        // Store the audio file
-        try olaf_wrapper_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, args.config.?);
-    }
+fn cmdStats(allocator: std.mem.Allocator, args: *Args) !void {
+    try olaf_wrapper_bridge.olaf_stats(allocator, args.config.?);
 }
 
-fn cmdStoreWithIdentifier(_: std.mem.Allocator, _: *const olaf_wrapper_config.Config, args: *Args) !void {
-    if (args.audio_files.items.len == 0) {
-        print("No audio files provided to store.\n", .{});
-        return;
-    }
-    if (args.threads == 0) {
-        args.threads = 1;
-    }
+// Helper function to generate output filename for wav conversion
+fn generateWavFilename(allocator: std.mem.Allocator, audio_path: []const u8) !struct { basename: []u8, wav_filename: []u8 } {
+    const full_basename = try fs.cwd().realpathAlloc(allocator, audio_path);
 
-    debug("Storing {d} audio files with {d} threads", .{ args.audio_files.items.len, args.threads });
+    const ext_start = std.mem.lastIndexOf(u8, full_basename, ".");
+    const basename = if (ext_start) |idx| full_basename[0..idx] else full_basename;
+
+    const wav_filename = try std.fmt.allocPrint(allocator, "{s}.wav", .{basename});
+
+    return .{ .basename = full_basename, .wav_filename = wav_filename };
 }
 
-fn cmdStats(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Config, _: *Args) !void {
-    try olaf_wrapper_bridge.olaf_stats(allocator, config);
-}
-
-fn cmdToWav(allocator: std.mem.Allocator, _: *const olaf_wrapper_config.Config, args: *Args) !void {
+fn cmdToWav(allocator: std.mem.Allocator, args: *Args) !void {
     // TODO: Implement parallel processing when threads > 1
     for (args.audio_files.items, 0..) |audio_file_with_id, i| {
-        const full_basename = try fs.cwd().realpathAlloc(allocator, audio_file_with_id.path);
+        const names = try generateWavFilename(allocator, audio_file_with_id.path);
         defer {
-            debug("Defer full_basename cleanup", .{});
-            allocator.free(full_basename);
-        }
-
-        const ext_start = std.mem.lastIndexOf(u8, full_basename, ".");
-        const basename = if (ext_start) |idx| full_basename[0..idx] else full_basename;
-
-        const wav_filename = try std.fmt.allocPrint(allocator, "{s}.wav", .{basename});
-        defer {
-            debug("Defer wav_filename cleanup", .{});
-            allocator.free(wav_filename);
+            debug("Defer basename and wav_filename cleanup", .{});
+            allocator.free(names.basename);
+            allocator.free(names.wav_filename);
         }
 
         // Check if file already exists
-        if (fs.cwd().statFile(wav_filename)) |_| {
-            debug("Wav file already exists: {s}, skipping", .{wav_filename});
+        if (fs.cwd().statFile(names.wav_filename)) |_| {
+            debug("Wav file already exists: {s}, skipping", .{names.wav_filename});
         } else |_| {
-            try olaf_wrapper_util_audio.convertToWav(allocator, audio_file_with_id.path, wav_filename, args.config.?.target_sample_rate);
+            try olaf_wrapper_util_audio.convertToWav(allocator, audio_file_with_id.path, names.wav_filename, args.config.?.target_sample_rate);
         }
 
-        print("{d}/{d},{s},{s}\n", .{ i + 1, args.audio_files.items.len, full_basename, wav_filename });
+        print("{d}/{d},{s},{s}\n", .{ i + 1, args.audio_files.items.len, names.basename, names.wav_filename });
     }
 }
 
@@ -289,7 +299,7 @@ pub fn main() !void {
                 return;
             }
 
-            try cmd.func(allocator, &config, &args);
+            try cmd.func(allocator, &args);
 
             return;
         }

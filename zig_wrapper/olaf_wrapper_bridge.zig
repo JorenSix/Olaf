@@ -83,14 +83,24 @@ pub fn olaf_store(allocator: std.mem.Allocator, raw_audio_path: []const u8, audi
     olaf.olaf_store(c_config, c_raw_audio_path, c_audio_identifier);
 }
 
-pub fn olaf_query(allocator: std.mem.Allocator, input_raw: []const u8, input_path: []const u8) !void {
-    const args = [_][]const u8{
-        "olaf", // program name
-        "query", // command
-        input_raw, // input file
-        input_path, // input file name full path original
-    };
-    try olaf_main(allocator, &args);
+pub fn olaf_query(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_wrapper_config.Config) !void {
+    const c_config = olaf.olaf_default_config(); // Ensure the default config is set
+    try copy_to_c_config(config, c_config);
+
+    // Path configuration
+    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
+    c_config.*.dbFolder = c_db_folder;
+    defer {
+        allocator.free(c_db_folder);
+    }
+
+    const c_raw_audio_path = try allocator.dupeZ(u8, raw_audio_path);
+    defer allocator.free(c_raw_audio_path);
+
+    const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
+    defer allocator.free(c_audio_identifier);
+
+    olaf.olaf_query(c_config, c_raw_audio_path, c_audio_identifier);
 }
 
 pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Config) !void {
