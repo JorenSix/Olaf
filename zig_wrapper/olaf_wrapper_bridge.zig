@@ -18,11 +18,8 @@ fn olaf_main(allocator: std.mem.Allocator, args_list: []const []const u8) !void 
     debug("olaf main with custom args\n", .{});
 }
 
-fn copy_to_c_config(config: *const olaf_wrapper_config.Config, c_config: *olaf.Olaf_Config) void {
+fn copy_to_c_config(config: *const olaf_wrapper_config.Config, c_config: *olaf.Olaf_Config) !void {
     debug("Copying configuration to C struct", .{});
-
-    // Path configuration
-    c_config.dbFolder = @constCast(config.db_folder.ptr);
 
     // Audio configurations
     c_config.audioBlockSize = @intCast(config.audio_block_size);
@@ -66,18 +63,24 @@ fn copy_to_c_config(config: *const olaf_wrapper_config.Config, c_config: *olaf.O
     debug("Configuration copy complete", .{});
 }
 
-pub fn olaf_store(allocator: std.mem.Allocator, input_raw: []const u8, input_path: []const u8, config: *const olaf_wrapper_config.Config) !void {
-    const args = [_][]const u8{
-        "olaf", // program name
-        "store", // command
-        input_raw, // input file
-        input_path, // input file name full path original
-    };
-
+pub fn olaf_store(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_wrapper_config.Config) !void {
     const c_config = olaf.olaf_default_config(); // Ensure the default config is set
-    copy_to_c_config(config, c_config);
+    try copy_to_c_config(config, c_config);
 
-    try olaf.olf(allocator, &args);
+    // Path configuration
+    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
+    c_config.*.dbFolder = c_db_folder;
+    defer {
+        allocator.free(c_db_folder);
+    }
+
+    const c_raw_audio_path = try allocator.dupeZ(u8, raw_audio_path);
+    defer allocator.free(c_raw_audio_path);
+
+    const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
+    defer allocator.free(c_audio_identifier);
+
+    olaf.olaf_store(c_config, c_raw_audio_path, c_audio_identifier);
 }
 
 pub fn olaf_query(allocator: std.mem.Allocator, input_raw: []const u8, input_path: []const u8) !void {

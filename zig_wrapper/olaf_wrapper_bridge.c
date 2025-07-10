@@ -177,7 +177,8 @@ void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* aud
 	
 	//destroy the stream processor
 	olaf_stream_processor_destroy(processor);
-	
+
+	runner->config = olaf_config_default(); // prevent the runner from destroying the config	
 	//destroy the runner
 	olaf_runner_destroy(runner);
 	

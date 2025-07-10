@@ -1,5 +1,6 @@
 const std = @import("std");
 const json = std.json;
+const olaf_wrapper_util = @import("olaf_wrapper_util.zig");
 
 const debug = std.log.scoped(.olaf_wrapper).debug;
 
@@ -138,25 +139,31 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !
         const obj = value.object;
 
         // String fields
+        var db_folder: []u8 = undefined;
         if (obj.get("db_folder")) |val| {
             if (val == .string) {
-                config.db_folder = try allocator.dupe(u8, val.string);
+                db_folder = try allocator.dupe(u8, val.string);
             } else {
-                config.db_folder = try allocator.dupe(u8, config.db_folder);
+                db_folder = try allocator.dupe(u8, config.db_folder);
             }
         } else {
-            config.db_folder = try allocator.dupe(u8, config.db_folder);
+            db_folder = try allocator.dupe(u8, config.db_folder);
         }
+        defer allocator.free(db_folder);
+        config.db_folder = try olaf_wrapper_util.expandPath(allocator, db_folder);
 
+        var cache_folder: []u8 = undefined;
         if (obj.get("cache_folder")) |val| {
             if (val == .string) {
-                config.cache_folder = try allocator.dupe(u8, val.string);
+                cache_folder = try allocator.dupe(u8, val.string);
             } else {
-                config.cache_folder = try allocator.dupe(u8, config.cache_folder);
+                cache_folder = try allocator.dupe(u8, config.cache_folder);
             }
         } else {
-            config.cache_folder = try allocator.dupe(u8, config.cache_folder);
+            cache_folder = try allocator.dupe(u8, config.cache_folder);
         }
+        defer allocator.free(cache_folder);
+        config.cache_folder = try olaf_wrapper_util.expandPath(allocator, cache_folder);
 
         // Array field
         if (obj.get("allowed_audio_file_extensions")) |val| {

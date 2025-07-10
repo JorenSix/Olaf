@@ -64,6 +64,13 @@ const commands = [_]Command{
         .func = cmdStats,
     },
     .{
+        .name = "store_with_id",
+        .description = "Extracts and stores fingerprints into an index.",
+        .help = "audio_file audio_identifier",
+        .needs_audio_files = true,
+        .func = cmdStoreIdentifier,
+    },
+    .{
         .name = "store",
         .description = "Extracts and stores fingerprints into an index.",
         .help = "[--threads n]  audio_files...",
@@ -84,11 +91,8 @@ fn cmdQuery(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Con
         print("No audio files provided to store.\n", .{});
         return;
     }
-    if (args.threads == 0) {
-        args.threads = 1;
-    }
 
-    debug("Storing {d} audio files with {d} threads", .{ args.audio_files.items.len, args.threads });
+    debug("Storing {d} audio files", .{ args.audio_files.items.len, args.threads });
 
     for (args.audio_files.items, 0..) |in_audio_filename, i| {
         const expanded_audio_path = olaf_wrapper_util.expandPath(allocator, in_audio_filename) catch |errr| {
@@ -110,7 +114,7 @@ fn cmdQuery(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Con
     }
 }
 
-fn cmdStore(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Config, args: *Args) !void {
+fn cmdStoreIdentifier(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Config, args: *Args) !void {
     if (args.audio_files.items.len == 0) {
         print("No audio files provided to store.\n", .{});
         return;
@@ -147,14 +151,14 @@ fn cmdStore(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Con
         };
 
         // Compose the temp file path
-        const temp_path = try std.fmt.allocPrint(allocator, "{s}/olaf_audio_{d}.raw", .{ olaf_cache_dir, std.time.milliTimestamp() });
-        defer allocator.free(temp_path);
-        defer fs.cwd().deleteFile(temp_path) catch {};
+        const raw_audio_path = try std.fmt.allocPrint(allocator, "{s}/olaf_audio_{d}.raw", .{ olaf_cache_dir, std.time.milliTimestamp() });
+        defer allocator.free(raw_audio_path);
+        defer fs.cwd().deleteFile(raw_audio_path) catch {};
 
-        try olaf_wrapper_util_audio.convertToRaw(allocator, expanded_audio_path, temp_path, config.target_sample_rate);
+        try olaf_wrapper_util_audio.convertToRaw(allocator, expanded_audio_path, raw_audio_path, config.target_sample_rate);
 
         // Store the audio file
-        try olaf_wrapper_bridge.olaf_store(allocator, temp_path, expanded_audio_path, args.config.?);
+        try olaf_wrapper_bridge.olaf_store(allocator, raw_audio_path, expanded_audio_path, args.config.?);
     }
 }
 
