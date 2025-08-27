@@ -72,6 +72,13 @@ const commands = [_]Command{
         .func = cmdStore,
     },
     .{
+        .name = "config",
+        .description = "Prints the current configuration in use.",
+        .help = "[audio_file...] | --with-ids [audio_file audio_identifier]",
+        .needs_audio_files = false,
+        .func = cmdConfig,
+    },
+    .{
         .name = "query",
         .description = "Query for fingerprint matches.",
         .help = "[--threads n]  [audio_file...] | --with-ids [audio_file audio_identifier]",
@@ -135,6 +142,15 @@ fn cmdQuery(allocator: std.mem.Allocator, args: *Args) !void {
     }
 }
 
+fn cmdConfig(_: std.mem.Allocator, args: *Args) !void {
+    if (args.config) |config| {
+        print("Current Olaf Configuration:\n", .{});
+        try config.infoPrint();
+    } else {
+        print("No configuration loaded.\n", .{});
+    }
+}
+
 fn cmdStore(allocator: std.mem.Allocator, args: *Args) !void {
     if (args.audio_files.items.len == 0) {
         print("No audio files provided to store.\n", .{});
@@ -185,19 +201,32 @@ fn cmdToWav(allocator: std.mem.Allocator, args: *Args) !void {
     }
 }
 
-fn printHelp(exe_path: []const u8) !void {
-    const date = try olaf_wrapper_util.getFileModificationDate(exe_path);
-    const year = date.year;
-    const month = date.month;
-    const day = date.day;
-
-    print("Olaf {d}.{d:0>2}.{d:0>2} - Overly Lightweight Audio Fingerprinting\n", .{ year, month, day });
+fn printCommandList() void {
     print("No such command, the following commands are valid:\n", .{});
-
     for (commands) |cmd| {
         print("\n{s}\t{s}\n", .{ cmd.name, cmd.description });
         print("\tolaf {s} {s}\n", .{ cmd.name, cmd.help });
     }
+}
+
+fn printHelp() !void {
+    // Try to get version from executable modification date
+    var exe_path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const exe_path = std.fs.selfExePath(&exe_path_buf) catch {
+        print("Olaf - Overly Lightweight Audio Fingerprinting\n", .{});
+        printCommandList();
+        return;
+    };
+
+    const date = olaf_wrapper_util.getFileModificationDate(exe_path) catch {
+        print("Olaf - Overly Lightweight Audio Fingerprinting\n", .{});
+        printCommandList();
+        return;
+    };
+
+    // If we successfully got the date, print versioned header
+    print("Olaf {d}.{d:0>2}.{d:0>2} - Overly Lightweight Audio Fingerprinting\n", .{ date.year, date.month, date.day });
+    printCommandList();
 }
 
 pub fn main() !void {
@@ -223,7 +252,7 @@ pub fn main() !void {
     }
 
     if (args_list.len < 2) {
-        try printHelp(args_list[0]);
+        try printHelp();
         return;
     }
 
@@ -306,5 +335,5 @@ pub fn main() !void {
     }
 
     // Command not found
-    try printHelp(args_list[0]);
+    try printHelp();
 }

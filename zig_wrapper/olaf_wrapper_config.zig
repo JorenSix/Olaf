@@ -73,6 +73,46 @@ pub const Config = struct {
         allocator.free(self.allowed_audio_file_extensions);
     }
 
+    fn printConfigToWriter(self: *const Config, writer: anytype) !void {
+        try writer.print("Current Config:\n", .{});
+        try writer.print("  db_folder: {s}\n", .{self.db_folder});
+        try writer.print("  cache_folder: {s}\n", .{self.cache_folder});
+        try writer.print("  check_incoming_audio: {}\n", .{self.check_incoming_audio});
+        try writer.print("  skip_duplicates: {}\n", .{self.skip_duplicates});
+        try writer.print("  fragment_duration_in_seconds: {}\n", .{self.fragment_duration_in_seconds});
+        try writer.print("  target_sample_rate: {}\n", .{self.target_sample_rate});
+        try writer.print("  allowed_audio_file_extensions:\n", .{});
+        for (self.allowed_audio_file_extensions) |ext| {
+            try writer.print("    {s}\n", .{ext});
+        }
+        try writer.print("  audio_block_size: {}\n", .{self.audio_block_size});
+        try writer.print("  audio_step_size: {}\n", .{self.audio_step_size});
+        try writer.print("  bytes_per_audio_sample: {}\n", .{self.bytes_per_audio_sample});
+        try writer.print("  max_event_points: {}\n", .{self.max_event_points});
+        try writer.print("  event_point_threshold: {}\n", .{self.event_point_threshold});
+        try writer.print("  sqrt_magnitude: {}\n", .{self.sqrt_magnitude});
+        try writer.print("  filter_size_frequency: {}\n", .{self.filter_size_frequency});
+        try writer.print("  filter_size_time: {}\n", .{self.filter_size_time});
+        try writer.print("  min_event_point_magnitude: {d}\n", .{self.min_event_point_magnitude});
+        try writer.print("  max_event_point_usages: {}\n", .{self.max_event_point_usages});
+        try writer.print("  min_frequency_bin: {}\n", .{self.min_frequency_bin});
+        try writer.print("  verbose: {}\n", .{self.verbose});
+        try writer.print("  number_of_eps_per_fp: {}\n", .{self.number_of_eps_per_fp});
+        try writer.print("  use_magnitude_info: {}\n", .{self.use_magnitude_info});
+        try writer.print("  min_time_distance: {}\n", .{self.min_time_distance});
+        try writer.print("  max_time_distance: {}\n", .{self.max_time_distance});
+        try writer.print("  min_freq_distance: {}\n", .{self.min_freq_distance});
+        try writer.print("  max_freq_distance: {}\n", .{self.max_freq_distance});
+        try writer.print("  max_fingerprints: {}\n", .{self.max_fingerprints});
+        try writer.print("  max_results: {}\n", .{self.max_results});
+        try writer.print("  search_range: {}\n", .{self.search_range});
+        try writer.print("  min_match_count: {}\n", .{self.min_match_count});
+        try writer.print("  min_match_time_diff: {d}\n", .{self.min_match_time_diff});
+        try writer.print("  keep_matches_for: {d}\n", .{self.keep_matches_for});
+        try writer.print("  print_result_every: {d}\n", .{self.print_result_every});
+        try writer.print("  max_db_collisions: {}\n", .{self.max_db_collisions});
+    }
+
     pub fn debugPrint(self: *const Config) void {
         debug("Current Config:", .{});
         debug("  db_folder: {s}", .{self.db_folder});
@@ -81,11 +121,10 @@ pub const Config = struct {
         debug("  skip_duplicates: {}", .{self.skip_duplicates});
         debug("  fragment_duration_in_seconds: {}", .{self.fragment_duration_in_seconds});
         debug("  target_sample_rate: {}", .{self.target_sample_rate});
-        debug("  allowed_audio_file_extensions: ", .{});
+        debug("  allowed_audio_file_extensions:", .{});
         for (self.allowed_audio_file_extensions) |ext| {
             debug("    {s}", .{ext});
         }
-
         debug("  audio_block_size: {}", .{self.audio_block_size});
         debug("  audio_step_size: {}", .{self.audio_step_size});
         debug("  bytes_per_audio_sample: {}", .{self.bytes_per_audio_sample});
@@ -112,6 +151,11 @@ pub const Config = struct {
         debug("  keep_matches_for: {d}", .{self.keep_matches_for});
         debug("  print_result_every: {d}", .{self.print_result_every});
         debug("  max_db_collisions: {}", .{self.max_db_collisions});
+    }
+
+    pub fn infoPrint(self: *const Config) !void {
+        const stdout = std.io.getStdOut().writer();
+        try self.printConfigToWriter(stdout);
     }
 };
 
@@ -320,7 +364,7 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !
     return config;
 }
 
-/// Attempts to load config from ~/.olaf/olaf_wrapper_config.json, then from olaf_config.json in the executable's directory.
+/// Attempts to load config from ~/.olaf/olaf_config.json, then from olaf_config.json in the executable's directory.
 /// Returns the config and the path used, or an error if neither is found.
 pub fn olafWrapperConfig(allocator: std.mem.Allocator) !Config {
     // 1. Try ~/.olaf/olaf_config.json
@@ -329,7 +373,7 @@ pub fn olafWrapperConfig(allocator: std.mem.Allocator) !Config {
 
     if (home) |h| {
         defer allocator.free(h);
-        const config_home_dir = try std.fmt.bufPrint(&home_buf, "{s}/.olaf/olaf_wrapper_config.json", .{h});
+        const config_home_dir = try std.fmt.bufPrint(&home_buf, "{s}/.olaf/olaf_config.json", .{h});
 
         if (std.fs.cwd().openFile(config_home_dir, .{})) |file| {
             file.close();
@@ -349,7 +393,7 @@ pub fn olafWrapperConfig(allocator: std.mem.Allocator) !Config {
     const exe_path = try std.fs.selfExePath(&exe_path_buf);
     const exe_dir = std.fs.path.dirname(exe_path) orelse ".";
     var config_path2_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const config_exe_dir = try std.fmt.bufPrint(&config_path2_buf, "{s}/olaf_wrapper_config.json", .{exe_dir});
+    const config_exe_dir = try std.fmt.bufPrint(&config_path2_buf, "{s}/olaf_config.json", .{exe_dir});
     debug("Try reading config at: {s}", .{config_exe_dir});
     return try readJsonConfigOrDefault(allocator, config_exe_dir);
 }

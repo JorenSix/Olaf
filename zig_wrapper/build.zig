@@ -14,7 +14,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
-        .name = "olaf_wrapper",
+        .name = "olaf",
         .target = target,
         .optimize = optimize,
         .root_source_file = b.path("olaf_wrapper.zig"),
@@ -45,6 +45,25 @@ pub fn build(b: *std.Build) void {
     exe.linkLibC();
 
     b.installArtifact(exe);
+
+    // install step
+    // Custom install step to system location
+    const install_system_step = b.step("install-system", "Install olaf to system location with config files");
+
+    const builtin = @import("builtin");
+    const install_system_run = switch (builtin.os.tag) {
+        .windows => b.addSystemCommand(&[_][]const u8{ "cmd", "/c", "copy zig-out\\bin\\olaf.exe olaf.exe\" && " ++
+            "if not exist \"%USERPROFILE%\\.olaf\\db\" mkdir \"%USERPROFILE%\\.olaf\\db\" && " ++
+            "if not exist \"%USERPROFILE%\\.olaf\\cache\" mkdir \"%USERPROFILE%\\.olaf\\cache\" " }),
+        else => b.addSystemCommand(&[_][]const u8{ "sh", "-c", "sudo cp zig-out/bin/olaf /usr/local/bin/olaf && " ++
+            "sudo cp olaf_config.json /usr/local/bin/olaf_config.json && " ++
+            "sudo cp olaf_config.schema.json /usr/local/bin/olaf_config.schema.json && " ++
+            "mkdir -p ~/.olaf/db ~/.olaf/cache" }),
+    };
+    install_system_run.step.dependOn(b.getInstallStep());
+    install_system_step.dependOn(&install_system_run.step);
+
+    // run step
 
     const run_step = b.addRunArtifact(exe);
     run_step.setCwd(b.path(".")); // Set working directory to project root

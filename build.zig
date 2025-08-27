@@ -20,7 +20,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
         });
-        
+
         lib.addCSourceFile(.{ .file = b.path("src/hash-table.c"), .flags = &cflagslib });
         lib.addCSourceFile(.{ .file = b.path("src/pffft.c"), .flags = &cflagslib });
         lib.addCSourceFile(.{ .file = b.path("src/queue.c"), .flags = &cflagslib });
@@ -69,14 +69,14 @@ pub fn build(b: *std.Build) void {
 
         b.installArtifact(exe);
 
-         // Add the Zig wrapper executable (non-WASM only)
-        const wrapper = b.addExecutable(.{
-            .name = "olaf",
-            .root_source_file = b.path("src/olaf_wrapper.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
+        // Add the Zig wrapper executable (non-WASM only)
+        // const wrapper = b.addExecutable(.{
+        //     .name = "olaf",
+        //     .root_source_file = b.path("src/olaf_wrapper.zig"),
+        //     .target = target,
+        //     .optimize = optimize,
+        // });
 
-        b.installArtifact(wrapper);
+        // b.installArtifact(wrapper);
     }
 }
