@@ -56,11 +56,11 @@ jobs:
             os_name: windows-aarch64
             working_dir: "zig_wrapper"
           - project: wrapper
-            target: x86_64-macos-gnu
+            target: x86_64-macos-none
             os_name: macos-x86_64
             working_dir: "zig_wrapper"
           - project: wrapper
-            target: aarch64-macos-gnu
+            target: aarch64-macos-none
             os_name: macos-aarch64
             working_dir: "zig_wrapper"
     
@@ -74,7 +74,18 @@ jobs:
       
       - name: Build for ${{ matrix.target }}
         run: |
-          zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSmall
+          echo "Building for target: ${{ matrix.target }}"
+          echo "Working directory: ${{ matrix.working_dir }}"
+          
+          # Build with explicit target and optimization
+          if ! zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSmall; then
+            echo "Build failed for ${{ matrix.target }}"
+            echo "Available targets:"
+            zig targets | head -20
+            exit 1
+          fi
+          
+          echo "Build completed successfully"
         working-directory: ${{ matrix.working_dir }}
       
       - name: Package artifacts
@@ -175,49 +186,23 @@ jobs:
         id: release_notes
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}
-          
-          # Get the previous tag
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           
           echo "# Release $TAG_NAME" > release_notes.md
           echo "" >> release_notes.md
           
           if [ -n "$PREV_TAG" ]; then
-            echo "## Changes since $PREV_TAG" >> release_notes.md
-            echo "" >> release_notes.md
-            
-            # Generate changelog from commits
-            git log --oneline --no-merges $PREV_TAG..HEAD | while read line; do
+            echo "## What's Changed" >> release_notes.md
+            git log --oneline --no-merges $PREV_TAG..HEAD | head -10 | while read line; do
               echo "- $line" >> release_notes.md
             done
           else
-            echo "## Initial Release" >> release_notes.md
-            echo "" >> release_notes.md
-            echo "This is the first release of Olaf." >> release_notes.md
+            echo "Initial release of Olaf wrapper." >> release_notes.md
           fi
           
           echo "" >> release_notes.md
-          echo "## Assets" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Wrapper Application" >> release_notes.md
-          echo "- **Linux x86_64**: \`wrapper-linux-x86_64.tar.gz\`" >> release_notes.md
-          echo "- **Linux ARM64**: \`wrapper-linux-aarch64.tar.gz\`" >> release_notes.md
-          echo "- **macOS x86_64**: \`wrapper-macos-x86_64.tar.gz\`" >> release_notes.md
-          echo "- **macOS ARM64**: \`wrapper-macos-aarch64.tar.gz\`" >> release_notes.md
-          echo "- **Windows x86_64**: \`wrapper-windows-x86_64.zip\`" >> release_notes.md
-          echo "- **Windows ARM64**: \`wrapper-windows-aarch64.zip\`" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "### Source Code" >> release_notes.md
-          echo "- **Source (ZIP)**: \`olaf-$TAG_NAME-source.zip\`" >> release_notes.md
-          echo "- **Source (TAR.GZ)**: \`olaf-$TAG_NAME-source.tar.gz\`" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## Installation" >> release_notes.md
-          echo "" >> release_notes.md
-          echo "1. Download the appropriate archive for your platform" >> release_notes.md
-          echo "2. Extract the archive" >> release_notes.md
-          echo "3. Run the binary" >> release_notes.md
+          echo "**Supported Platforms:** Linux (x64/ARM64), macOS (Intel/Apple Silicon), Windows (x64/ARM64)" >> release_notes.md
           
-          # Set output for GitHub Actions
           {
             echo 'RELEASE_NOTES<<EOF'
             cat release_notes.md
