@@ -96,8 +96,10 @@ jobs:
           # Determine file extension based on target
           if [[ "${{ matrix.target }}" == *"windows"* ]]; then
             EXT=".exe"
+            BINARY_NAME="olaf.exe"
           else
             EXT=""
+            BINARY_NAME="olaf"
           fi
           
           # Debug: Show build output structure
@@ -114,8 +116,8 @@ jobs:
             for binary in *; do
               if [ -f "$binary" ]; then
                 echo "Processing binary: $binary"
-                # Use absolute path for copying
-                cp "$binary" "$GITHUB_WORKSPACE/release/${{ matrix.project }}-${{ matrix.os_name }}-${binary}"
+                # Rename binary to simply 'olaf' or 'olaf.exe'
+                cp "$binary" "$GITHUB_WORKSPACE/release/$BINARY_NAME"
                 FOUND_FILES=true
               fi
             done
@@ -123,8 +125,24 @@ jobs:
           else
             echo "=== No zig-out/bin directory found ==="
             echo "Creating dummy file for testing..."
-            echo "Dummy binary for ${{ matrix.project }}-${{ matrix.os_name }}" > "release/${{ matrix.project }}-${{ matrix.os_name }}-dummy${EXT}"
+            echo "Dummy binary for olaf_cli-${{ matrix.os_name }}" > "release/$BINARY_NAME"
             FOUND_FILES=true
+          fi
+          
+          # Copy config files
+          echo "=== Adding config files ==="
+          if [ -f "${{ matrix.working_dir }}/olaf_config.json" ]; then
+            cp "${{ matrix.working_dir }}/olaf_config.json" "release/"
+            echo "Added olaf_config.json"
+          else
+            echo "Warning: olaf_config.json not found in ${{ matrix.working_dir }}"
+          fi
+          
+          if [ -f "${{ matrix.working_dir }}/olaf_config.schema.json" ]; then
+            cp "${{ matrix.working_dir }}/olaf_config.schema.json" "release/"
+            echo "Added olaf_config.schema.json"
+          else
+            echo "Warning: olaf_config.schema.json not found in ${{ matrix.working_dir }}"
           fi
           
           # Check if we have files to archive
@@ -135,9 +153,9 @@ jobs:
           if [ "$FOUND_FILES" = true ] && [ "$(ls -A release/)" ]; then
             cd release
             if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-              zip -r "${{ matrix.project }}-${{ matrix.os_name }}.zip" ${{ matrix.project }}-${{ matrix.os_name }}-*
+              zip -r "olaf_cli-${{ matrix.os_name }}.zip" olaf.exe olaf_config.json olaf_config.schema.json
             else
-              tar -czf "${{ matrix.project }}-${{ matrix.os_name }}.tar.gz" ${{ matrix.project }}-${{ matrix.os_name }}-*
+              tar -czf "olaf_cli-${{ matrix.os_name }}.tar.gz" olaf olaf_config.json olaf_config.schema.json
             fi
             cd ..
             echo "=== Created archives ==="
@@ -150,10 +168,10 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.project }}-${{ matrix.os_name }}
+          name: olaf_cli-${{ matrix.os_name }}
           path: |
-            release/${{ matrix.project }}-${{ matrix.os_name }}.tar.gz
-            release/${{ matrix.project }}-${{ matrix.os_name }}.zip
+            release/olaf_cli-${{ matrix.os_name }}.tar.gz
+            release/olaf_cli-${{ matrix.os_name }}.zip
           if-no-files-found: ignore
 
   create-release:
@@ -221,3 +239,4 @@ jobs:
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
