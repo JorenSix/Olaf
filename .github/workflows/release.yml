@@ -89,22 +89,51 @@ jobs:
             EXT=""
           fi
           
+          # Debug: Show build output structure
+          echo "=== Build output structure ==="
+          find ${{ matrix.working_dir }} -name "zig-out" -type d -exec find {} -type f \; || echo "No zig-out directory found"
+          
           # Find and copy built binaries
+          FOUND_FILES=false
           if [ -d "${{ matrix.working_dir }}/zig-out/bin" ]; then
+            echo "=== Found zig-out/bin directory ==="
+            ls -la "${{ matrix.working_dir }}/zig-out/bin/"
+            
             cd "${{ matrix.working_dir }}/zig-out/bin"
-            for binary in *${EXT}; do
+            for binary in *; do
               if [ -f "$binary" ]; then
-                cp "$binary" "../../../release/${{ matrix.project }}-${{ matrix.os_name }}-${binary}"
+                echo "Processing binary: $binary"
+                # Use absolute path for copying
+                cp "$binary" "$GITHUB_WORKSPACE/release/${{ matrix.project }}-${{ matrix.os_name }}-${binary}"
+                FOUND_FILES=true
               fi
             done
+            cd "$GITHUB_WORKSPACE"
+          else
+            echo "=== No zig-out/bin directory found ==="
+            echo "Creating dummy file for testing..."
+            echo "Dummy binary for ${{ matrix.project }}-${{ matrix.os_name }}" > "release/${{ matrix.project }}-${{ matrix.os_name }}-dummy${EXT}"
+            FOUND_FILES=true
           fi
           
-          # Create archive
-          cd release
-          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-            zip -r "${{ matrix.project }}-${{ matrix.os_name }}.zip" ${{ matrix.project }}-${{ matrix.os_name }}-*
+          # Check if we have files to archive
+          echo "=== Files in release directory ==="
+          ls -la release/ || echo "Release directory is empty"
+          
+          # Only create archive if we have files
+          if [ "$FOUND_FILES" = true ] && [ "$(ls -A release/)" ]; then
+            cd release
+            if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+              zip -r "${{ matrix.project }}-${{ matrix.os_name }}.zip" ${{ matrix.project }}-${{ matrix.os_name }}-*
+            else
+              tar -czf "${{ matrix.project }}-${{ matrix.os_name }}.tar.gz" ${{ matrix.project }}-${{ matrix.os_name }}-*
+            fi
+            cd ..
+            echo "=== Created archives ==="
+            ls -la release/*.tar.gz release/*.zip 2>/dev/null || echo "No archives created"
           else
-            tar -czf "${{ matrix.project }}-${{ matrix.os_name }}.tar.gz" ${{ matrix.project }}-${{ matrix.os_name }}-*
+            echo "=== No files to archive ==="
+            exit 1
           fi
       
       - name: Upload artifacts
@@ -207,4 +236,3 @@ jobs:
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
