@@ -7,6 +7,8 @@ on:
 permissions:
   contents: read
 
+name: Olaf Zig builds
+
 jobs:
   core:
     runs-on: ubuntu-latest

@@ -1,0 +1,210 @@
+name: Olaf Zig Release
+
+on:
+  push:
+    branches: [ "master" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: write  # Required for creating releases
+
+jobs:
+  # Regular CI builds for pushes and PRs
+  ci:
+    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [core, wrapper]
+    name: Olaf Zig Build ${{ matrix.project }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: '0.14.1'
+      - name: Build default target
+        run: zig build
+        working-directory: ${{ matrix.project == 'wrapper' && 'zig_wrapper' || '.' }}
+      - name: Build Windows target
+        run: zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSmall
+        working-directory: ${{ matrix.project == 'wrapper' && 'zig_wrapper' || '.' }}
+
+  # Release builds for tags (zig_wrapper only)
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Wrapper builds only
+          - project: wrapper
+            target: x86_64-linux-gnu
+            os_name: linux-x86_64
+            working_dir: "zig_wrapper"
+          - project: wrapper
+            target: aarch64-linux-gnu
+            os_name: linux-aarch64
+            working_dir: "zig_wrapper"
+          - project: wrapper
+            target: x86_64-windows-gnu
+            os_name: windows-x86_64
+            working_dir: "zig_wrapper"
+          - project: wrapper
+            target: aarch64-windows-gnu
+            os_name: windows-aarch64
+            working_dir: "zig_wrapper"
+          - project: wrapper
+            target: x86_64-macos-gnu
+            os_name: macos-x86_64
+            working_dir: "zig_wrapper"
+          - project: wrapper
+            target: aarch64-macos-gnu
+            os_name: macos-aarch64
+            working_dir: "zig_wrapper"
+    
+    name: Build ${{ matrix.project }} for ${{ matrix.os_name }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: '0.14.1'
+      
+      - name: Build for ${{ matrix.target }}
+        run: |
+          zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSmall
+        working-directory: ${{ matrix.working_dir }}
+      
+      - name: Package artifacts
+        run: |
+          # Create release directory
+          mkdir -p release
+          
+          # Determine file extension based on target
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            EXT=".exe"
+          else
+            EXT=""
+          fi
+          
+          # Find and copy built binaries
+          if [ -d "${{ matrix.working_dir }}/zig-out/bin" ]; then
+            cd "${{ matrix.working_dir }}/zig-out/bin"
+            for binary in *${EXT}; do
+              if [ -f "$binary" ]; then
+                cp "$binary" "../../../release/${{ matrix.project }}-${{ matrix.os_name }}-${binary}"
+              fi
+            done
+          fi
+          
+          # Create archive
+          cd release
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            zip -r "${{ matrix.project }}-${{ matrix.os_name }}.zip" ${{ matrix.project }}-${{ matrix.os_name }}-*
+          else
+            tar -czf "${{ matrix.project }}-${{ matrix.os_name }}.tar.gz" ${{ matrix.project }}-${{ matrix.os_name }}-*
+          fi
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.project }}-${{ matrix.os_name }}
+          path: |
+            release/${{ matrix.project }}-${{ matrix.os_name }}.tar.gz
+            release/${{ matrix.project }}-${{ matrix.os_name }}.zip
+          if-no-files-found: ignore
+
+  create-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: release
+    runs-on: ubuntu-latest
+    name: Create GitHub Release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for changelog generation
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts -name "*.tar.gz" -o -name "*.zip" | while read file; do
+            cp "$file" release-assets/
+          done
+          
+          # Create source archives
+          git archive --format=zip --prefix=olaf-${GITHUB_REF#refs/tags/}/ HEAD > release-assets/olaf-${GITHUB_REF#refs/tags/}-source.zip
+          git archive --format=tar.gz --prefix=olaf-${GITHUB_REF#refs/tags/}/ HEAD > release-assets/olaf-${GITHUB_REF#refs/tags/}-source.tar.gz
+      
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          
+          # Get the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          echo "# Release $TAG_NAME" > release_notes.md
+          echo "" >> release_notes.md
+          
+          if [ -n "$PREV_TAG" ]; then
+            echo "## Changes since $PREV_TAG" >> release_notes.md
+            echo "" >> release_notes.md
+            
+            # Generate changelog from commits
+            git log --oneline --no-merges $PREV_TAG..HEAD | while read line; do
+              echo "- $line" >> release_notes.md
+            done
+          else
+            echo "## Initial Release" >> release_notes.md
+            echo "" >> release_notes.md
+            echo "This is the first release of Olaf." >> release_notes.md
+          fi
+          
+          echo "" >> release_notes.md
+          echo "## Assets" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Wrapper Application" >> release_notes.md
+          echo "- **Linux x86_64**: \`wrapper-linux-x86_64.tar.gz\`" >> release_notes.md
+          echo "- **Linux ARM64**: \`wrapper-linux-aarch64.tar.gz\`" >> release_notes.md
+          echo "- **macOS x86_64**: \`wrapper-macos-x86_64.tar.gz\`" >> release_notes.md
+          echo "- **macOS ARM64**: \`wrapper-macos-aarch64.tar.gz\`" >> release_notes.md
+          echo "- **Windows x86_64**: \`wrapper-windows-x86_64.zip\`" >> release_notes.md
+          echo "- **Windows ARM64**: \`wrapper-windows-aarch64.zip\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### Source Code" >> release_notes.md
+          echo "- **Source (ZIP)**: \`olaf-$TAG_NAME-source.zip\`" >> release_notes.md
+          echo "- **Source (TAR.GZ)**: \`olaf-$TAG_NAME-source.tar.gz\`" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "## Installation" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "1. Download the appropriate archive for your platform" >> release_notes.md
+          echo "2. Extract the archive" >> release_notes.md
+          echo "3. Run the binary" >> release_notes.md
+          
+          # Set output for GitHub Actions
+          {
+            echo 'RELEASE_NOTES<<EOF'
+            cat release_notes.md
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
+          files: release-assets/*
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
