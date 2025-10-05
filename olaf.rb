@@ -423,7 +423,7 @@ if threads > 1 and ! require("threach")
   exit(-10)
 end
 
-arg_index = ARGV.find_index("--no-identiy-match")
+arg_index = ARGV.find_index("--no-identity-match")
 if arg_index
   allow_identity_match = false
   ARGV.delete_at(arg_index) #delete --fragmented from argument list
