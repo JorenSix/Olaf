@@ -1,6 +1,9 @@
 const std = @import("std");
 const fs = std.fs;
 const process = std.process;
+const Thread = std.Thread;
+const Mutex = Thread.Mutex;
+const WaitGroup = Thread.WaitGroup;
 
 const olaf_wrapper_config = @import("olaf_wrapper_config.zig");
 const olaf_wrapper_util = @import("olaf_wrapper_util.zig");
@@ -91,6 +94,9 @@ const commands = [_]Command{
     },
 };
 
+// Shared action enum type
+const ProcessAction = enum { Query, Store };
+
 // Helper function to create a temporary raw audio file path
 fn createTempRawPath(allocator: std.mem.Allocator) ![]u8 {
     // Get the system temp directory
@@ -117,7 +123,7 @@ fn processAudioFile(
     config: *const olaf_wrapper_config.Config,
     index: usize,
     total: usize,
-    comptime action: enum { Query, Store },
+    action: ProcessAction,
 ) !void {
     debug("Processing audio file {d}/{d}: {s}", .{ index + 1, total, audio_file_with_id.path });
 
@@ -133,16 +139,93 @@ fn processAudioFile(
     }
 }
 
+// Worker task structure for processing audio files
+const AudioProcessTask = struct {
+    allocator: std.mem.Allocator,
+    audio_file: olaf_wrapper_util.AudioFileWithId,
+    config: *const olaf_wrapper_config.Config,
+    index: usize,
+    total: usize,
+    action: ProcessAction,
+    error_mutex: *Mutex,
+    error_list: *std.ArrayList([]const u8),
+};
+
+fn processAudioFileThreaded(task: AudioProcessTask) void {
+    processAudioFile(
+        task.allocator,
+        task.audio_file,
+        task.config,
+        task.index,
+        task.total,
+        task.action,
+    ) catch |process_err| {
+        task.error_mutex.lock();
+        defer task.error_mutex.unlock();
+
+        const err_msg = std.fmt.allocPrint(task.allocator, "Failed to process {s}: {}", .{ task.audio_file.path, process_err }) catch "Out of memory";
+        task.error_list.append(task.allocator, err_msg) catch {};
+        std.log.err("{s}", .{err_msg});
+    };
+}
+
 fn cmdQuery(allocator: std.mem.Allocator, args: *Args) !void {
     if (args.audio_files.items.len == 0) {
         print("No audio files provided to query.\n", .{});
         return;
     }
 
-    debug("Querying {d} audio files", .{args.audio_files.items.len});
+    const num_threads = @min(args.threads, args.audio_files.items.len);
+    
+    if (num_threads <= 1) {
+        // Single-threaded execution
+        debug("Querying {d} audio files (single-threaded)", .{args.audio_files.items.len});
+        for (args.audio_files.items, 0..) |audio_file_with_id, i| {
+            try processAudioFile(allocator, audio_file_with_id, args.config.?, i, args.audio_files.items.len, .Query);
+        }
+    } else {
+        // Multi-threaded execution
+        debug("Querying {d} audio files with {d} threads", .{ args.audio_files.items.len, num_threads });
 
-    for (args.audio_files.items, 0..) |audio_file_with_id, i| {
-        try processAudioFile(allocator, audio_file_with_id, args.config.?, i, args.audio_files.items.len, .Query);
+        var pool: Thread.Pool = undefined;
+        try pool.init(.{ .allocator = allocator, .n_jobs = num_threads });
+        defer pool.deinit();
+
+        var wait_group: WaitGroup = undefined;
+        wait_group.reset();
+
+        var error_mutex = Mutex{};
+        var error_list = std.ArrayList([]const u8){};
+        defer {
+            for (error_list.items) |err_msg| {
+                allocator.free(err_msg);
+            }
+            error_list.deinit(allocator);
+        }
+
+        for (args.audio_files.items, 0..) |audio_file_with_id, i| {
+            const task = AudioProcessTask{
+                .allocator = allocator,
+                .audio_file = audio_file_with_id,
+                .config = args.config.?,
+                .index = i,
+                .total = args.audio_files.items.len,
+                .action = .Query,
+                .error_mutex = &error_mutex,
+                .error_list = &error_list,
+            };
+
+            pool.spawnWg(&wait_group, processAudioFileThreaded, .{task});
+        }
+
+        // Wait for all tasks to complete
+        pool.waitAndWork(&wait_group);
+
+        // Check for errors
+        if (error_list.items.len > 0) {
+            print("Query completed with {d} error(s)\n", .{error_list.items.len});
+            return error.ProcessingFailed;
+        }
     }
 }
 
@@ -161,10 +244,57 @@ fn cmdStore(allocator: std.mem.Allocator, args: *Args) !void {
         return;
     }
 
-    debug("Storing {d} audio files", .{args.audio_files.items.len});
+    const num_threads = @min(args.threads, args.audio_files.items.len);
 
-    for (args.audio_files.items, 0..) |audio_file_with_id, i| {
-        try processAudioFile(allocator, audio_file_with_id, args.config.?, i, args.audio_files.items.len, .Store);
+    if (num_threads <= 1) {
+        // Single-threaded execution
+        debug("Storing {d} audio files (single-threaded)", .{args.audio_files.items.len});
+        for (args.audio_files.items, 0..) |audio_file_with_id, i| {
+            try processAudioFile(allocator, audio_file_with_id, args.config.?, i, args.audio_files.items.len, .Store);
+        }
+    } else {
+        // Multi-threaded execution
+        debug("Storing {d} audio files with {d} threads", .{ args.audio_files.items.len, num_threads });
+
+        var pool: Thread.Pool = undefined;
+        try pool.init(.{ .allocator = allocator, .n_jobs = num_threads });
+        defer pool.deinit();
+
+        var wait_group: WaitGroup = undefined;
+        wait_group.reset();
+
+        var error_mutex = Mutex{};
+        var error_list = std.ArrayList([]const u8){};
+        defer {
+            for (error_list.items) |err_msg| {
+                allocator.free(err_msg);
+            }
+            error_list.deinit(allocator);
+        }
+
+        for (args.audio_files.items, 0..) |audio_file_with_id, i| {
+            const task = AudioProcessTask{
+                .allocator = allocator,
+                .audio_file = audio_file_with_id,
+                .config = args.config.?,
+                .index = i,
+                .total = args.audio_files.items.len,
+                .action = .Store,
+                .error_mutex = &error_mutex,
+                .error_list = &error_list,
+            };
+
+            pool.spawnWg(&wait_group, processAudioFileThreaded, .{task});
+        }
+
+        // Wait for all tasks to complete
+        pool.waitAndWork(&wait_group);
+
+        // Check for errors
+        if (error_list.items.len > 0) {
+            print("Store completed with {d} error(s)\n", .{error_list.items.len});
+            return error.ProcessingFailed;
+        }
     }
 }
 
@@ -184,24 +314,123 @@ fn generateWavFilename(allocator: std.mem.Allocator, audio_path: []const u8) !st
     return .{ .basename = full_basename, .wav_filename = wav_filename };
 }
 
+// Worker task for WAV conversion
+const WavConversionTask = struct {
+    allocator: std.mem.Allocator,
+    audio_file: olaf_wrapper_util.AudioFileWithId,
+    config: *const olaf_wrapper_config.Config,
+    index: usize,
+    total: usize,
+    error_mutex: *Mutex,
+    error_list: *std.ArrayList([]const u8),
+    output_mutex: *Mutex,
+};
+
+fn processWavConversionThreaded(task: WavConversionTask) void {
+    const names = generateWavFilename(task.allocator, task.audio_file.path) catch |gen_err| {
+        task.error_mutex.lock();
+        defer task.error_mutex.unlock();
+        const err_msg = std.fmt.allocPrint(task.allocator, "Failed to generate filename for {s}: {}", .{ task.audio_file.path, gen_err }) catch "Out of memory";
+        task.error_list.append(task.allocator, err_msg) catch {};
+        std.log.err("{s}", .{err_msg});
+        return;
+    };
+    defer {
+        task.allocator.free(names.basename);
+        task.allocator.free(names.wav_filename);
+    }
+
+    // Check if file already exists
+    if (fs.cwd().statFile(names.wav_filename)) |_| {
+        debug("Wav file already exists: {s}, skipping", .{names.wav_filename});
+    } else |_| {
+        olaf_wrapper_util_audio.convertToWav(
+            task.allocator,
+            task.audio_file.path,
+            names.wav_filename,
+            task.config.target_sample_rate,
+        ) catch |conv_err| {
+            task.error_mutex.lock();
+            defer task.error_mutex.unlock();
+            const err_msg = std.fmt.allocPrint(task.allocator, "Failed to convert {s}: {}", .{ task.audio_file.path, conv_err }) catch "Out of memory";
+            task.error_list.append(task.allocator, err_msg) catch {};
+            std.log.err("{s}", .{err_msg});
+            return;
+        };
+    }
+
+    // Thread-safe output
+    task.output_mutex.lock();
+    defer task.output_mutex.unlock();
+    print("{d}/{d},{s},{s}\n", .{ task.index + 1, task.total, names.basename, names.wav_filename });
+}
+
 fn cmdToWav(allocator: std.mem.Allocator, args: *Args) !void {
-    // TODO: Implement parallel processing when threads > 1
-    for (args.audio_files.items, 0..) |audio_file_with_id, i| {
-        const names = try generateWavFilename(allocator, audio_file_with_id.path);
+    const num_threads = @min(args.threads, args.audio_files.items.len);
+
+    if (num_threads <= 1) {
+        // Single-threaded execution (original behavior)
+        for (args.audio_files.items, 0..) |audio_file_with_id, i| {
+            const names = try generateWavFilename(allocator, audio_file_with_id.path);
+            defer {
+                debug("Defer basename and wav_filename cleanup", .{});
+                allocator.free(names.basename);
+                allocator.free(names.wav_filename);
+            }
+
+            // Check if file already exists
+            if (fs.cwd().statFile(names.wav_filename)) |_| {
+                debug("Wav file already exists: {s}, skipping", .{names.wav_filename});
+            } else |_| {
+                try olaf_wrapper_util_audio.convertToWav(allocator, audio_file_with_id.path, names.wav_filename, args.config.?.target_sample_rate);
+            }
+
+            print("{d}/{d},{s},{s}\n", .{ i + 1, args.audio_files.items.len, names.basename, names.wav_filename });
+        }
+    } else {
+        // Multi-threaded execution
+        debug("Converting {d} audio files to WAV with {d} threads", .{ args.audio_files.items.len, num_threads });
+
+        var pool: Thread.Pool = undefined;
+        try pool.init(.{ .allocator = allocator, .n_jobs = num_threads });
+        defer pool.deinit();
+
+        var wait_group: WaitGroup = undefined;
+        wait_group.reset();
+
+        var error_mutex = Mutex{};
+        var output_mutex = Mutex{};
+        var error_list = std.ArrayList([]const u8){};
         defer {
-            debug("Defer basename and wav_filename cleanup", .{});
-            allocator.free(names.basename);
-            allocator.free(names.wav_filename);
+            for (error_list.items) |err_msg| {
+                allocator.free(err_msg);
+            }
+            error_list.deinit(allocator);
         }
 
-        // Check if file already exists
-        if (fs.cwd().statFile(names.wav_filename)) |_| {
-            debug("Wav file already exists: {s}, skipping", .{names.wav_filename});
-        } else |_| {
-            try olaf_wrapper_util_audio.convertToWav(allocator, audio_file_with_id.path, names.wav_filename, args.config.?.target_sample_rate);
+        for (args.audio_files.items, 0..) |audio_file_with_id, i| {
+            const task = WavConversionTask{
+                .allocator = allocator,
+                .audio_file = audio_file_with_id,
+                .config = args.config.?,
+                .index = i,
+                .total = args.audio_files.items.len,
+                .error_mutex = &error_mutex,
+                .error_list = &error_list,
+                .output_mutex = &output_mutex,
+            };
+
+            pool.spawnWg(&wait_group, processWavConversionThreaded, .{task});
         }
 
-        print("{d}/{d},{s},{s}\n", .{ i + 1, args.audio_files.items.len, names.basename, names.wav_filename });
+        // Wait for all tasks to complete
+        pool.waitAndWork(&wait_group);
+
+        // Check for errors
+        if (error_list.items.len > 0) {
+            print("WAV conversion completed with {d} error(s)\n", .{error_list.items.len});
+            return error.ProcessingFailed;
+        }
     }
 }
 
