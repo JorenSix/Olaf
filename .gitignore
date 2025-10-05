@@ -28,3 +28,8 @@ wasm/js/olaf_processor.js
 
 .zig-cache/
 .olaf
+
+zig-out/
+zig-cache/
+
+zig_wrapper/zig_out/

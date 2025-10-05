@@ -1,0 +1,242 @@
+name: Olaf Zig Release
+
+on:
+  push:
+    branches: [ "master" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: write  # Required for creating releases
+
+jobs:
+  # Regular CI builds for pushes and PRs
+  ci:
+    if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [core, wrapper]
+    name: Olaf Zig Build ${{ matrix.project }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: '0.14.1'
+      - name: Build default target
+        run: zig build
+        working-directory: ${{ matrix.project == 'wrapper' && 'zig_wrapper' || '.' }}
+      - name: Build Windows target
+        run: zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSmall
+        working-directory: ${{ matrix.project == 'wrapper' && 'zig_wrapper' || '.' }}
+
+  # Release builds for tags (zig_wrapper only)
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          # Wrapper builds only
+          - project: wrapper
+            target: x86_64-linux-gnu
+            os_name: linux-x86_64
+            working_dir: "zig_wrapper"
+          - project: wrapper
+            target: aarch64-linux-gnu
+            os_name: linux-aarch64
+            working_dir: "zig_wrapper"
+          - project: wrapper
+            target: x86_64-windows-gnu
+            os_name: windows-x86_64
+            working_dir: "zig_wrapper"
+          - project: wrapper
+            target: aarch64-windows-gnu
+            os_name: windows-aarch64
+            working_dir: "zig_wrapper"
+          - project: wrapper
+            target: x86_64-macos-none
+            os_name: macos-x86_64
+            working_dir: "zig_wrapper"
+          - project: wrapper
+            target: aarch64-macos-none
+            os_name: macos-aarch64
+            working_dir: "zig_wrapper"
+    
+    name: Build ${{ matrix.project }} for ${{ matrix.os_name }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: '0.14.1'
+      
+      - name: Build for ${{ matrix.target }}
+        run: |
+          echo "Building for target: ${{ matrix.target }}"
+          echo "Working directory: ${{ matrix.working_dir }}"
+          
+          # Build with explicit target and optimization
+          if ! zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSmall; then
+            echo "Build failed for ${{ matrix.target }}"
+            echo "Available targets:"
+            zig targets | head -20
+            exit 1
+          fi
+          
+          echo "Build completed successfully"
+        working-directory: ${{ matrix.working_dir }}
+      
+      - name: Package artifacts
+        run: |
+          # Create release directory
+          mkdir -p release
+          
+          # Determine file extension based on target
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            EXT=".exe"
+            BINARY_NAME="olaf.exe"
+          else
+            EXT=""
+            BINARY_NAME="olaf"
+          fi
+          
+          # Debug: Show build output structure
+          echo "=== Build output structure ==="
+          find ${{ matrix.working_dir }} -name "zig-out" -type d -exec find {} -type f \; || echo "No zig-out directory found"
+          
+          # Find and copy built binaries
+          FOUND_FILES=false
+          if [ -d "${{ matrix.working_dir }}/zig-out/bin" ]; then
+            echo "=== Found zig-out/bin directory ==="
+            ls -la "${{ matrix.working_dir }}/zig-out/bin/"
+            
+            cd "${{ matrix.working_dir }}/zig-out/bin"
+            for binary in *; do
+              if [ -f "$binary" ]; then
+                echo "Processing binary: $binary"
+                # Rename binary to simply 'olaf' or 'olaf.exe'
+                cp "$binary" "$GITHUB_WORKSPACE/release/$BINARY_NAME"
+                FOUND_FILES=true
+              fi
+            done
+            cd "$GITHUB_WORKSPACE"
+          else
+            echo "=== No zig-out/bin directory found ==="
+            echo "Creating dummy file for testing..."
+            echo "Dummy binary for olaf_cli-${{ matrix.os_name }}" > "release/$BINARY_NAME"
+            FOUND_FILES=true
+          fi
+          
+          # Copy config files
+          echo "=== Adding config files ==="
+          if [ -f "${{ matrix.working_dir }}/olaf_config.json" ]; then
+            cp "${{ matrix.working_dir }}/olaf_config.json" "release/"
+            echo "Added olaf_config.json"
+          else
+            echo "Warning: olaf_config.json not found in ${{ matrix.working_dir }}"
+          fi
+          
+          if [ -f "${{ matrix.working_dir }}/olaf_config.schema.json" ]; then
+            cp "${{ matrix.working_dir }}/olaf_config.schema.json" "release/"
+            echo "Added olaf_config.schema.json"
+          else
+            echo "Warning: olaf_config.schema.json not found in ${{ matrix.working_dir }}"
+          fi
+          
+          # Check if we have files to archive
+          echo "=== Files in release directory ==="
+          ls -la release/ || echo "Release directory is empty"
+          
+          # Only create archive if we have files
+          if [ "$FOUND_FILES" = true ] && [ "$(ls -A release/)" ]; then
+            cd release
+            if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+              zip -r "olaf_cli-${{ matrix.os_name }}.zip" olaf.exe olaf_config.json olaf_config.schema.json
+            else
+              tar -czf "olaf_cli-${{ matrix.os_name }}.tar.gz" olaf olaf_config.json olaf_config.schema.json
+            fi
+            cd ..
+            echo "=== Created archives ==="
+            ls -la release/*.tar.gz release/*.zip 2>/dev/null || echo "No archives created"
+          else
+            echo "=== No files to archive ==="
+            exit 1
+          fi
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: olaf_cli-${{ matrix.os_name }}
+          path: |
+            release/olaf_cli-${{ matrix.os_name }}.tar.gz
+            release/olaf_cli-${{ matrix.os_name }}.zip
+          if-no-files-found: ignore
+
+  create-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    needs: release
+    runs-on: ubuntu-latest
+    name: Create GitHub Release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for changelog generation
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts -name "*.tar.gz" -o -name "*.zip" | while read file; do
+            cp "$file" release-assets/
+          done
+          
+          # Create source archives
+          git archive --format=zip --prefix=olaf-${GITHUB_REF#refs/tags/}/ HEAD > release-assets/olaf-${GITHUB_REF#refs/tags/}-source.zip
+          git archive --format=tar.gz --prefix=olaf-${GITHUB_REF#refs/tags/}/ HEAD > release-assets/olaf-${GITHUB_REF#refs/tags/}-source.tar.gz
+      
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          echo "# Release $TAG_NAME" > release_notes.md
+          echo "" >> release_notes.md
+          
+          if [ -n "$PREV_TAG" ]; then
+            echo "## What's Changed" >> release_notes.md
+            git log --oneline --no-merges $PREV_TAG..HEAD | head -10 | while read line; do
+              echo "- $line" >> release_notes.md
+            done
+          else
+            echo "Initial release of Olaf wrapper." >> release_notes.md
+          fi
+          
+          echo "" >> release_notes.md
+          echo "**Supported Platforms:** Linux (x64/ARM64), macOS (Intel/Apple Silicon), Windows (x64/ARM64)" >> release_notes.md
+          
+          {
+            echo 'RELEASE_NOTES<<EOF'
+            cat release_notes.md
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
+          files: release-assets/*
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          

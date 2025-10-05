@@ -1,0 +1,9 @@
+{
+  "db_folder": "/tmp/mydb",
+  "cache_folder": "/tmp/mycache",
+  "fragment_duration_in_seconds": 45,
+  "allowed_audio_file_extensions": [".mp3", ".wav"],
+
+  "target_sample_rate": 2000
+
+}
