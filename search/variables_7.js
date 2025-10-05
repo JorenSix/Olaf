@@ -12,6 +12,6 @@ var searchData=
   ['minfreqdistance_9',['minFreqDistance',['../struct_olaf___config.html#ac0ea3411e107056cf1e9b1f14c941394',1,'Olaf_Config']]],
   ['minfrequencybin_10',['minFrequencyBin',['../struct_olaf___config.html#aefb9971b4dd01648e04c2d852ece5cba',1,'Olaf_Config']]],
   ['minmatchcount_11',['minMatchCount',['../struct_olaf___config.html#ac15d2531237a445f5b8a82b80c8a797d',1,'Olaf_Config']]],
-  ['minmatchtimediff_12',['minMatchTimeDiff',['../struct_olaf___config.html#ae50a4f8bd972eac3d35b317c57ecfee9',1,'Olaf_Config']]],
+  ['minmatchtimediff_12',['minMatchTimeDiff',['../struct_olaf___config.html#aa22dadf05649f2dbcbea2b9514bbc81f',1,'Olaf_Config']]],
   ['mintimedistance_13',['minTimeDistance',['../struct_olaf___config.html#ac482434302f3ca4f05ca94350142aa1b',1,'Olaf_Config']]]
 ];

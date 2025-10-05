@@ -1,7 +1,7 @@
 var searchData=
 [
-  ['filtersizefrequency_0',['filterSizeFrequency',['../struct_olaf___config.html#a9a99739a19d46df95b6acb527a5d03a6',1,'Olaf_Config']]],
-  ['filtersizetime_1',['filterSizeTime',['../struct_olaf___config.html#a91dfb023eff9c8c0690cfa99fd140efb',1,'Olaf_Config']]],
-  ['fingerprint_2',['fingerprint',['../structfingerprint.html',1,'']]],
-  ['fingerprints_3',['fingerprints',['../struct_olaf___resource___meta__data.html#ac0664880398e9a3ff12c70157ff36d1d',1,'Olaf_Resource_Meta_data']]]
+  ['eventpoint_0',['eventpoint',['../structeventpoint.html',1,'']]],
+  ['eventpointthreshold_1',['eventPointThreshold',['../struct_olaf___config.html#aee0c822b98e3db30eb0b166905343c7b',1,'Olaf_Config']]],
+  ['extracted_5fevent_5fpoints_2',['extracted_event_points',['../structextracted__event__points.html',1,'']]],
+  ['extracted_5ffingerprints_3',['extracted_fingerprints',['../structextracted__fingerprints.html',1,'']]]
 ];

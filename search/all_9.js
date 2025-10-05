@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['numberofepsperfp_0',['numberOfEPsPerFP',['../struct_olaf___config.html#ad41d2504d68cfbdb70ba9fb27f1d3dd2',1,'Olaf_Config']]]
+  ['keepmatchesfor_0',['keepMatchesFor',['../struct_olaf___config.html#a05e5fe6f82de570bfccd5d1e42ca109c',1,'Olaf_Config']]]
 ];

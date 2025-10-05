@@ -1,6 +1,7 @@
 var searchData=
 [
-  ['setdsz_0',['SETDSZ',['../group__internal.html#ga737db862c118cd893ac8d6a87f6175fe',1,'mdb.c']]],
-  ['setpgno_1',['SETPGNO',['../group__internal.html#ga220e51ef0d2da4d4ff58e94065eaa095',1,'mdb.c']]],
-  ['sizeleft_2',['SIZELEFT',['../group__internal.html#gadec51e874501c53388b820f27a937654',1,'mdb.c']]]
+  ['s_20configuration_0',['Olaf&apos;s configuration',['../index.html#configuration',1,'']]],
+  ['s_20design_1',['Olaf&apos;s design',['../index.html#design',1,'']]],
+  ['searchrange_2',['searchRange',['../struct_olaf___config.html#af06994a7fd41623b206781b4aa973548',1,'Olaf_Config']]],
+  ['sqrtmagnitude_3',['sqrtMagnitude',['../struct_olaf___config.html#a1cdb27595afaa7c3544a8bcb4e95e428',1,'Olaf_Config']]]
 ];

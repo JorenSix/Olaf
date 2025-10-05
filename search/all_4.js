@@ -1,7 +1,5 @@
 var searchData=
 [
-  ['eventpoint_0',['eventpoint',['../structeventpoint.html',1,'']]],
-  ['eventpointthreshold_1',['eventPointThreshold',['../struct_olaf___config.html#aee0c822b98e3db30eb0b166905343c7b',1,'Olaf_Config']]],
-  ['extracted_5fevent_5fpoints_2',['extracted_event_points',['../structextracted__event__points.html',1,'']]],
-  ['extracted_5ffingerprints_3',['extracted_fingerprints',['../structextracted__fingerprints.html',1,'']]]
+  ['design_0',['Olaf&apos;s design',['../index.html#design',1,'']]],
+  ['duration_1',['duration',['../struct_olaf___resource___meta__data.html#aafa703c1090ad53166c82b98f8b11c54',1,'Olaf_Resource_Meta_data']]]
 ];

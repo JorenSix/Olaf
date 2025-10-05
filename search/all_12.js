@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['unlock_5fmutex_0',['UNLOCK_MUTEX',['../group__compat.html#ga67b430e471d24d8f4f2b35e2357c306b',1,'mdb.c']]]
+  ['verbose_0',['verbose',['../struct_olaf___config.html#afa53b6db98435c080ffbfff7056129d4',1,'Olaf_Config']]]
 ];
