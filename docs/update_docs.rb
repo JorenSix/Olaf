@@ -5,6 +5,12 @@ require 'tmpdir'
 html_files = "docs/api/html/"
 
 #Call doxygen to generate the new html docs
+unless system("which doxygen > /dev/null 2>&1")
+	puts "Error: doxygen not found"
+	puts "Please install it with for example\nbrew install doxygen"
+	exit(1)
+end
+
 system("doxygen")
 
 #In a temp dir do the following

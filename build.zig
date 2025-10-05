@@ -17,8 +17,10 @@ pub fn build(b: *std.Build) void {
         const cflagslib = [_][]const u8{ "-Wall", "-Wextra", "-Werror=return-type", "-std=gnu11", "-O2", "-fPIC" };
         const lib = b.addExecutable(.{
             .name = "olaf_c",
-            .target = target,
-            .optimize = optimize,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
         });
 
         lib.addCSourceFile(.{ .file = b.path("src/hash-table.c"), .flags = &cflagslib });
@@ -43,8 +45,10 @@ pub fn build(b: *std.Build) void {
     } else {
         const exe = b.addExecutable(.{
             .name = "olaf_c",
-            .target = target,
-            .optimize = optimize,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
         });
 
         exe.addCSourceFile(.{ .file = b.path("src/hash-table.c"), .flags = &cflags });

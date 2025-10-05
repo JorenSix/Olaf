@@ -17,17 +17,17 @@ pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struc
     child.stderr_behavior = .Pipe;
 
     // Log the command being run (with proper quoting for clarity)
-    var command_str = std.ArrayList(u8).init(allocator);
-    defer command_str.deinit();
+    var command_str = std.ArrayList(u8){};
+    defer command_str.deinit(allocator);
 
-    try command_str.appendSlice("Running command:");
+    try command_str.appendSlice(allocator, "Running command:");
 
     for (argv) |arg| {
         // Quote arguments that contain spaces or special characters
         if (std.mem.indexOfAny(u8, arg, " &'\"()[]{}$") != null) {
-            try command_str.writer().print(" '{s}'", .{arg});
+            try command_str.writer(allocator).print(" '{s}'", .{arg});
         } else {
-            try command_str.writer().print(" {s}", .{arg});
+            try command_str.writer(allocator).print(" {s}", .{arg});
         }
     }
 
@@ -36,16 +36,19 @@ pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struc
     try child.spawn();
 
     // Use ArrayList to collect output as it streams in
-    var stdout_list = std.ArrayList(u8).init(allocator);
-    defer stdout_list.deinit();
-    var stderr_list = std.ArrayList(u8).init(allocator);
-    defer stderr_list.deinit();
-
-    var stdout_reader = child.stdout.?.reader();
-    var stderr_reader = child.stderr.?.reader();
+    var stdout_list = std.ArrayList(u8){};
+    defer stdout_list.deinit(allocator);
+    var stderr_list = std.ArrayList(u8){};
+    defer stderr_list.deinit(allocator);
 
     var stdout_buf: [4096]u8 = undefined;
     var stderr_buf: [4096]u8 = undefined;
+
+    var stdout_reader_buf: [4096]u8 = undefined;
+    var stderr_reader_buf: [4096]u8 = undefined;
+
+    var stdout_reader = child.stdout.?.reader(&stdout_reader_buf);
+    var stderr_reader = child.stderr.?.reader(&stderr_reader_buf);
 
     // Read both streams until EOF
     var stdout_done = false;
@@ -58,7 +61,7 @@ pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struc
             } else {
                 //print the output to stdout
                 debug("{s}", .{stdout_buf[0..n]}); // Uncomment to print stdout in real-time
-                try stdout_list.appendSlice(stdout_buf[0..n]);
+                try stdout_list.appendSlice(allocator, stdout_buf[0..n]);
             }
         }
         if (!stderr_done) {
@@ -67,7 +70,7 @@ pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struc
                 stderr_done = true;
             } else {
                 debug("{s}", .{stderr_buf[0..n]}); // Uncomment to print stdout in real-time
-                try stderr_list.appendSlice(stderr_buf[0..n]);
+                try stderr_list.appendSlice(allocator, stderr_buf[0..n]);
             }
         }
     }
@@ -76,8 +79,8 @@ pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struc
 
     return .{
         .term = term,
-        .stdout = try stdout_list.toOwnedSlice(),
-        .stderr = try stderr_list.toOwnedSlice(),
+        .stdout = try stdout_list.toOwnedSlice(allocator),
+        .stderr = try stderr_list.toOwnedSlice(allocator),
     };
 }
 
@@ -174,70 +177,70 @@ pub fn convertAudioWithOptions(
     output_file: []const u8,
     options: AudioOptions,
 ) !void {
-    var args = std.ArrayList([]const u8).init(allocator);
-    defer args.deinit();
+    var args = std.ArrayList([]const u8){};
+    defer args.deinit(allocator);
 
     // Keep track of allocated strings to free them later
-    var allocated_strings = std.ArrayList([]u8).init(allocator);
+    var allocated_strings = std.ArrayList([]u8){};
     defer {
         for (allocated_strings.items) |str| {
             allocator.free(str);
         }
-        allocated_strings.deinit();
+        allocated_strings.deinit(allocator);
     }
 
     // Base ffmpeg args
-    try args.appendSlice(&.{ "ffmpeg", "-hide_banner", "-y", "-loglevel", "panic" });
+    try args.appendSlice(allocator, &.{ "ffmpeg", "-hide_banner", "-y", "-loglevel", "panic" });
 
     // Add input format options if specified (before input file)
     if (options.input_format) |format| {
-        try args.appendSlice(&.{ "-f", format });
+        try args.appendSlice(allocator, &.{ "-f", format });
     }
 
     if (options.input_codec) |codec| {
-        try args.appendSlice(&.{ "-acodec", codec });
+        try args.appendSlice(allocator, &.{ "-acodec", codec });
     }
 
     if (options.input_channels) |channels| {
         const channels_str = try std.fmt.allocPrint(allocator, "{d}", .{channels});
-        try allocated_strings.append(channels_str);
-        try args.appendSlice(&.{ "-ac", channels_str });
+        try allocated_strings.append(allocator, channels_str);
+        try args.appendSlice(allocator, &.{ "-ac", channels_str });
     }
 
     // Add start time if specified (before input file)
     if (options.start) |start| {
         const start_str = try std.fmt.allocPrint(allocator, "{d:.3}", .{start});
-        try allocated_strings.append(start_str);
-        try args.appendSlice(&.{ "-ss", start_str });
+        try allocated_strings.append(allocator, start_str);
+        try args.appendSlice(allocator, &.{ "-ss", start_str });
     }
 
     // Sample rate for input (needed for raw formats)
     if (options.input_format) |format| {
         if (std.mem.eql(u8, format, "f32le") or std.mem.eql(u8, format, "s16le") or std.mem.eql(u8, format, "s32le")) {
             const sample_rate_str = try std.fmt.allocPrint(allocator, "{d}", .{options.sample_rate});
-            try allocated_strings.append(sample_rate_str);
-            try args.appendSlice(&.{ "-ar", sample_rate_str });
+            try allocated_strings.append(allocator, sample_rate_str);
+            try args.appendSlice(allocator, &.{ "-ar", sample_rate_str });
         }
     }
 
     // Input file
-    try args.appendSlice(&.{ "-i", input_file });
+    try args.appendSlice(allocator, &.{ "-i", input_file });
 
     // Add duration if specified (after input file)
     if (options.duration) |duration| {
         const duration_str = try std.fmt.allocPrint(allocator, "{d:.3}", .{duration});
-        try allocated_strings.append(duration_str);
-        try args.appendSlice(&.{ "-t", duration_str });
+        try allocated_strings.append(allocator, duration_str);
+        try args.appendSlice(allocator, &.{ "-t", duration_str });
     }
 
     // Output audio settings
     const output_channels_str = try std.fmt.allocPrint(allocator, "{d}", .{options.output_channels});
-    try allocated_strings.append(output_channels_str);
+    try allocated_strings.append(allocator, output_channels_str);
 
     const sample_rate_str = try std.fmt.allocPrint(allocator, "{d}", .{options.sample_rate});
-    try allocated_strings.append(sample_rate_str);
+    try allocated_strings.append(allocator, sample_rate_str);
 
-    try args.appendSlice(&.{
+    try args.appendSlice(allocator, &.{
         "-ac",       output_channels_str,
         "-ar",       sample_rate_str,
         "-f",        options.output_format,

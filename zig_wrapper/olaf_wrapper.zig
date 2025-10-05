@@ -14,7 +14,11 @@ const err = std.log.scoped(.olaf_wrapper).err;
 
 fn print(comptime fmt: []const u8, args: anytype) void {
     // Ignore any error from printing
-    _ = std.io.getStdOut().writer().print(fmt, args) catch {};
+    var stdout_buffer: [4096]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
+    _ = stdout.print(fmt, args) catch {};
+    _ = stdout.flush() catch {};
 }
 
 pub const std_options: std.Options = .{
@@ -37,7 +41,7 @@ const Args = struct {
             debug("Freeing audio_files item {s} {s}.", .{ item.path, item.identifier });
             item.deinit(allocator); // Do not free items, they are owned by the ArrayList
         }
-        self.audio_files.deinit();
+        self.audio_files.deinit(allocator);
     }
 };
 
@@ -275,7 +279,7 @@ pub fn main() !void {
     debug("Command name: {s}", .{command_name});
 
     var args = Args{
-        .audio_files = std.ArrayList(olaf_wrapper_util.AudioFileWithId).init(allocator),
+        .audio_files = std.ArrayList(olaf_wrapper_util.AudioFileWithId){},
     };
 
     args.config = &config;

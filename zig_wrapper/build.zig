@@ -15,9 +15,11 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "olaf",
-        .target = target,
-        .optimize = optimize,
-        .root_source_file = b.path("olaf_wrapper.zig"),
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .root_source_file = b.path("olaf_wrapper.zig"),
+        }),
     });
 
     exe.addCSourceFile(.{ .file = b.path("../src/hash-table.c"), .flags = &cflags });

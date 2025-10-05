@@ -96,7 +96,7 @@ pub fn audioFileListWithId(
                     .identifier = try allocator.dupe(u8, audio_file_identifier),
                 };
                 debug("Found audio file: {s} with identifier: {s}", .{ audio_file.path, audio_file.identifier });
-                try files.append(audio_file);
+                try files.append(allocator, audio_file);
             } else {
                 l_err("File is not an audio file: {s}\n", .{expanded});
                 return error.NotAudioFile;
@@ -164,7 +164,7 @@ pub fn audioFileList(
                             .path = full_path,
                             .identifier = try allocator.dupe(u8, full_path),
                         };
-                        try files.append(audio_file);
+                        try files.append(allocator, audio_file);
                     }
                 }
             }
@@ -184,7 +184,7 @@ pub fn audioFileList(
                             .path = audio_path,
                             .identifier = try allocator.dupe(u8, audio_path),
                         };
-                        try files.append(audio_file);
+                        try files.append(allocator, audio_file);
                     }
                 }
             } else {
@@ -195,7 +195,7 @@ pub fn audioFileList(
                         .path = path_copy,
                         .identifier = try allocator.dupe(u8, path_copy),
                     };
-                    try files.append(audio_file);
+                    try files.append(allocator, audio_file);
                 } else {
                     l_err("File is not an audio file: {s}\n", .{expanded});
                     return error.NotAudioFile;
@@ -224,16 +224,19 @@ pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struc
     try child.spawn();
 
     // Use ArrayList to collect output as it streams in
-    var stdout_list = std.ArrayList(u8).init(allocator);
-    defer stdout_list.deinit();
-    var stderr_list = std.ArrayList(u8).init(allocator);
-    defer stderr_list.deinit();
-
-    var stdout_reader = child.stdout.?.reader();
-    var stderr_reader = child.stderr.?.reader();
+    var stdout_list = std.ArrayList(u8){};
+    defer stdout_list.deinit(allocator);
+    var stderr_list = std.ArrayList(u8){};
+    defer stderr_list.deinit(allocator);
 
     var stdout_buf: [4096]u8 = undefined;
     var stderr_buf: [4096]u8 = undefined;
+
+    var stdout_reader_buf: [4096]u8 = undefined;
+    var stderr_reader_buf: [4096]u8 = undefined;
+
+    var stdout_reader = child.stdout.?.reader(&stdout_reader_buf);
+    var stderr_reader = child.stderr.?.reader(&stderr_reader_buf);
 
     // Read both streams until EOF
     var stdout_done = false;
@@ -246,7 +249,7 @@ pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struc
             } else {
                 //print the output to stdout
                 debug("{s}", .{stdout_buf[0..n]}); // Uncomment to print stdout in real-time
-                try stdout_list.appendSlice(stdout_buf[0..n]);
+                try stdout_list.appendSlice(allocator, stdout_buf[0..n]);
             }
         }
         if (!stderr_done) {
@@ -255,7 +258,7 @@ pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struc
                 stderr_done = true;
             } else {
                 debug("{s}", .{stderr_buf[0..n]}); // Uncomment to print stdout in real-time
-                try stderr_list.appendSlice(stderr_buf[0..n]);
+                try stderr_list.appendSlice(allocator, stderr_buf[0..n]);
             }
         }
     }
@@ -264,7 +267,7 @@ pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struc
 
     return .{
         .term = term,
-        .stdout = try stdout_list.toOwnedSlice(),
-        .stderr = try stderr_list.toOwnedSlice(),
+        .stdout = try stdout_list.toOwnedSlice(allocator),
+        .stderr = try stderr_list.toOwnedSlice(allocator),
     };
 }
