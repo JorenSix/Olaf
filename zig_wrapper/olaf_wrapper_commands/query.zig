@@ -14,8 +14,8 @@ fn print(comptime fmt: []const u8, args: anytype) void {
 
 pub const CommandInfo = struct {
     pub const name = "query";
-    pub const description = "Query for fingerprint matches.";
-    pub const help = "[--threads n]  [audio_file...] | --with-ids [audio_file audio_identifier]";
+    pub const description = "Query for fingerprint matches.\n\t\t--threads n\t The number of threads to use.\n\t\t--fragmented\t Chop queries into 30s fragments and match each fragment.\n\t\t--no-identity-match\t Identity matches are not reported.";
+    pub const help = "[--fragmented] [--threads n] [audio_file...] | --with-ids [audio_file audio_identifier]";
     pub const needs_audio_files = true;
 };
 
@@ -25,11 +25,25 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         return;
     }
 
-    try olaf_wrapper_threading.executeParallel(
-        allocator,
-        args.audio_files.items,
-        args.config.?,
-        .Query,
-        args.threads,
-    );
+    debug("Executing query with fragmented={}, threads={}", .{ args.fragmented, args.threads });
+
+    if (args.fragmented) {
+        try olaf_wrapper_threading.executeFragmentedParallel(
+            allocator,
+            args.audio_files.items,
+            args.config.?,
+            .Query,
+            args.threads,
+            args.fragment_duration,
+            args.allow_identity_match,
+        );
+    } else {
+        try olaf_wrapper_threading.executeParallel(
+            allocator,
+            args.audio_files.items,
+            args.config.?,
+            .Query,
+            args.threads,
+        );
+    }
 }

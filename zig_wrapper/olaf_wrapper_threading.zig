@@ -140,3 +140,109 @@ pub fn executeParallel(
         }
     }
 }
+
+/// Process a single fragment of an audio file
+fn processAudioFragment(
+    allocator: std.mem.Allocator,
+    audio_file_with_id: olaf_wrapper_util.AudioFileWithId,
+    config: *const olaf_wrapper_config.Config,
+    index: usize,
+    total: usize,
+    fragment_start: f32,
+    fragment_duration: u32,
+    action: ProcessAction,
+) !void {
+    _ = index;
+    _ = total;
+    debug("Processing fragment at {d}s for {d}s from {s}", .{ fragment_start, fragment_duration, audio_file_with_id.path });
+
+    const raw_audio_path = try createTempRawPath(allocator);
+    defer allocator.free(raw_audio_path);
+    defer fs.cwd().deleteFile(raw_audio_path) catch {};
+
+    // Convert the fragment to raw audio
+    const options = olaf_wrapper_util_audio.AudioOptions{
+        .sample_rate = config.target_sample_rate,
+        .output_channels = 1,
+        .output_format = "f32le",
+        .output_codec = "pcm_f32le",
+        .start = fragment_start,
+        .duration = @floatFromInt(fragment_duration),
+    };
+
+    try olaf_wrapper_util_audio.convertAudioWithOptions(
+        allocator,
+        audio_file_with_id.path,
+        raw_audio_path,
+        options,
+    );
+
+    // Create identifier with fragment offset
+    const fragment_identifier = try std.fmt.allocPrint(
+        allocator,
+        "{s}@{d}",
+        .{ audio_file_with_id.identifier, fragment_start },
+    );
+    defer allocator.free(fragment_identifier);
+
+    switch (action) {
+        .Query => try olaf_wrapper_bridge.olaf_query(allocator, raw_audio_path, fragment_identifier, config),
+        .Store => try olaf_wrapper_bridge.olaf_store(allocator, raw_audio_path, fragment_identifier, config),
+    }
+}
+
+/// Execute fragmented audio processing in parallel
+pub fn executeFragmentedParallel(
+    allocator: std.mem.Allocator,
+    audio_files: []const olaf_wrapper_util.AudioFileWithId,
+    config: *const olaf_wrapper_config.Config,
+    action: ProcessAction,
+    num_threads: u32,
+    fragment_duration: u32,
+    allow_identity_match: bool,
+) !void {
+    _ = allow_identity_match; // TODO: Implement identity match filtering
+
+    debug("Processing {d} audio files in fragments of {d}s with {d} threads", .{ audio_files.len, fragment_duration, num_threads });
+
+    for (audio_files, 0..) |audio_file, file_index| {
+        // Get the total duration of the audio file
+        const total_duration = try olaf_wrapper_util_audio.getAudioDuration(allocator, audio_file.path);
+
+        var fragment_start: f32 = 0.0;
+        var fragment_index: usize = 0;
+
+        while (fragment_start < total_duration) {
+            const remaining = total_duration - fragment_start;
+            const current_duration = @min(@as(f32, @floatFromInt(fragment_duration)), remaining);
+
+            if (num_threads <= 1) {
+                try processAudioFragment(
+                    allocator,
+                    audio_file,
+                    config,
+                    file_index,
+                    audio_files.len,
+                    fragment_start,
+                    fragment_duration,
+                    action,
+                );
+            } else {
+                // TODO: Implement parallel fragment processing with thread pool
+                try processAudioFragment(
+                    allocator,
+                    audio_file,
+                    config,
+                    file_index,
+                    audio_files.len,
+                    fragment_start,
+                    fragment_duration,
+                    action,
+                );
+            }
+
+            fragment_start += current_duration;
+            fragment_index += 1;
+        }
+    }
+}
