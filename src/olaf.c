@@ -152,6 +152,13 @@ int main(int argc, const char* argv[]){
 		olaf_print_help("No filename given\n");
 	}
 
+	#ifdef mem
+		fprintf(stderr,"Info: using the mem configuration\n");
+		Olaf_Config* config = olaf_config_mem();
+	#else
+		Olaf_Config* config = olaf_config_default();
+	#endif
+
 	const char* command = argv[1];
 	int runner_mode = OLAF_RUNNER_MODE_QUERY; 
 	
@@ -179,7 +186,7 @@ int main(int argc, const char* argv[]){
 		olaf_print_help("Unknown command\n");
 	}
 
-	Olaf_Runner * runner = olaf_runner_new(runner_mode);
+	Olaf_Runner * runner = olaf_runner_new(runner_mode, config);
 
 	if(runner_mode == OLAF_RUNNER_MODE_QUERY && argc == 2){
 		//read audio samples from standard input
@@ -205,6 +212,7 @@ int main(int argc, const char* argv[]){
 	}
 
 	olaf_runner_destroy(runner);
+	olaf_config_destroy(config);
 
 	return 0;
 }

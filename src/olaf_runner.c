@@ -4,17 +4,11 @@
 #include "pffft.h"
 #include "assert.h"
 
-Olaf_Runner * olaf_runner_new(int mode){
+Olaf_Runner * olaf_runner_new(int mode, const Olaf_Config * config){
 	Olaf_Runner *runner = (Olaf_Runner *) malloc(sizeof(Olaf_Runner));
 
 	runner->mode = mode;
-	//Get the default configuration
-	#ifdef mem
-		fprintf(stderr,"Info: using the mem configuration\n");
-		runner->config = olaf_config_mem();
-	#else
-		runner->config = olaf_config_default();
-	#endif
+	runner->config =  config;
 	
 	//The raw format and size of float should be 32 bits
 	assert(runner->config->bytesPerAudioSample == sizeof(float));
@@ -60,7 +54,7 @@ void olaf_runner_destroy(Olaf_Runner * runner){
 		olaf_db_destroy(runner->db);
 	}
 
-	olaf_config_destroy(runner->config);
+	//olaf_config_destroy(runner->config);
 
 	free(runner);
 }

@@ -33,3 +33,5 @@ zig-out/
 zig-cache/
 
 zig_wrapper/zig_out/
+
+libolaf_wrapper_translation.a

@@ -1,5 +1,6 @@
 const std = @import("std");
 const olaf_wrapper_bridge = @import("../olaf_wrapper_bridge.zig");
+const olaf_wrapper_config = @import("../olaf_wrapper_config.zig");
 const types = @import("../olaf_wrapper_types.zig");
 
 pub const CommandInfo = struct {
@@ -10,5 +11,8 @@ pub const CommandInfo = struct {
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
+
+    //config: *const olaf_wrapper_config.Config = args.config;
+
     try olaf_wrapper_bridge.olaf_stats(allocator, args.config.?);
 }

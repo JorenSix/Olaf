@@ -23,6 +23,8 @@ compile:
 	mkdir -p bin
 	gcc -o bin/olaf_c *.o 			-lc -lm -ffast-math -pthread
 
+
+
 lib:
 	gcc -c src/pffft.c 					-W -Wall -fPIC -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
 	gcc -c src/midl.c 					-W -Wall -fPIC -std=c11 -pedantic -O2
@@ -184,6 +186,11 @@ test:
 #Generate doxygen API documentation
 docs:
 	doxygen
+
+test_zig_wrapper:
+	cd zig_wrapper && zig build -Doptimize=ReleaseSmall && zig build install-system
+	cd .. 
+	ruby eval/olaf_functional_test_zig_wrapper.rb
 
 #Compile a windows exe using Zig
 zig_win:

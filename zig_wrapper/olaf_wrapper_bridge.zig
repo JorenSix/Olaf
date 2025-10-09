@@ -113,5 +113,38 @@ pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_wrapper_conf
     defer {
         allocator.free(c_db_folder);
     }
+
+    std.debug.print("Fetching statistics from database in folder: {s}\n", .{config.db_folder});
+
+    // Check if database file exists
+    const db_file_path = try std.fmt.allocPrint(allocator, "{s}data.mdb", .{config.db_folder});
+    defer allocator.free(db_file_path);
+
+    const file_exists = blk: {
+        std.fs.cwd().access(db_file_path, .{}) catch {
+            break :blk false;
+        };
+        break :blk true;
+    };
+
+    if (!file_exists) {
+        // Print empty stats when database doesn't exist
+        var stdout_buffer: [4096]u8 = undefined;
+        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        const stdout = &stdout_writer.interface;
+        _ = try stdout.print("Number of songs (#):\t0\n", .{});
+        _ = try stdout.flush();
+        _ = try stdout.print("Total duration (s):\t0.0\n", .{});
+        _ = try stdout.flush();
+        _ = try stdout.print("Avg prints/s (fp/s):\t0.0\n", .{});
+        _ = try stdout.flush();
+
+        std.debug.print("File does not exist: {s}\n", .{db_file_path});
+        return;
+    } else {
+        std.debug.print("File exists: {s}\n", .{db_file_path});
+    }
+
+    // Call the C stats function
     _ = olaf.olaf_stats(c_config);
 }

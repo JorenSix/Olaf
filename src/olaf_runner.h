@@ -65,7 +65,7 @@
 	 *
 	 * @return     The state of the runner
 	 */
-	Olaf_Runner * olaf_runner_new(int mode);
+	Olaf_Runner * olaf_runner_new(int mode, const Olaf_Config * config);
 
 	/**
 	 * @brief      Delete the resources related to the runner.

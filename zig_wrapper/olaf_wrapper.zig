@@ -13,6 +13,7 @@ const cmd_stats = @import("olaf_wrapper_commands/stats.zig");
 const cmd_config = @import("olaf_wrapper_commands/config.zig");
 const cmd_to_wav = @import("olaf_wrapper_commands/to_wav.zig");
 const cmd_to_raw = @import("olaf_wrapper_commands/to_raw.zig");
+const cmd_clear = @import("olaf_wrapper_commands/clear.zig");
 
 const debug = std.log.scoped(.olaf_wrapper).debug;
 
@@ -78,6 +79,13 @@ const commands = [_]Command{
         .help = cmd_query.CommandInfo.help,
         .needs_audio_files = cmd_query.CommandInfo.needs_audio_files,
         .func = cmd_query.execute,
+    },
+    .{
+        .name = cmd_clear.CommandInfo.name,
+        .description = cmd_clear.CommandInfo.description,
+        .help = cmd_clear.CommandInfo.help,
+        .needs_audio_files = cmd_clear.CommandInfo.needs_audio_files,
+        .func = cmd_clear.execute,
     },
 };
 
