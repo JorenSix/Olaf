@@ -50,10 +50,10 @@ pub fn build(b: *std.Build) void {
                 .root_module = b.createModule(.{
                     .target = target,
                     .optimize = optimize,
-                    .root_source_file = b.path("zig_wrapper/olaf_wrapper.zig"),
+                    .root_source_file = b.path("./cli/olaf_wrapper.zig"),
                 }),
             });
-            exe.addIncludePath(b.path("zig_wrapper"));
+            exe.addIncludePath(b.path("cli"));
             exe.addIncludePath(b.path("src"));
             addCoreSources(exe, b, &cflags, true, false, true); // true = include LMDB sources
             exe.linkLibC();
@@ -150,6 +150,6 @@ fn addCoreSources(
 
     // Optionally add wrapper bridge
     if (include_cli_wrapper) {
-        exe.addCSourceFile(.{ .file = b.path("./zig_wrapper/olaf_wrapper_bridge.c"), .flags = cflags });
+        exe.addCSourceFile(.{ .file = b.path("./cli/olaf_wrapper_bridge.c"), .flags = cflags });
     }
 }
