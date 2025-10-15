@@ -3,11 +3,13 @@ require_relative('olaf_result_line.rb')
 #This script executes functional tests which should always work correctly
 #They are checked during CI
 
+CMD = "zig build run -- "
+
 class OlafStats
     attr_reader :number_of_songs, :total_duration
 
     def initialize
-        res = `olaf stats 2>/dev/null`
+        res = `#{CMD} stats 2>/dev/null`
         res =~ /.*.songs.+?:\t?(\d+).*/m
         @number_of_songs = $1.to_i
         res =~ /.*.otal.dura.+?:\t?(\d+.\d+).*/m
@@ -48,7 +50,7 @@ QUERY_FILES = Dir.glob(File.join(QUERY_TARGET_FOLDER,"*mp3")).sort
 assert("Test dataset check: If not found, download it first! call e.g. 'ruby eval/olaf_download_dataset.rb'") { REF_FILES.size > 0 && QUERY_FILES.size > 0 }
 
 REF_FILES.each do |file|
-    cmd = "olaf store '#{file}'"
+    cmd = "#{CMD} store '#{file}'"
     assert("Command : #{cmd}") { system(cmd) }
 end
 
@@ -56,16 +58,16 @@ end
 assert("Expected #{REF_FILES.size} stored, was #{OlafStats.new.number_of_songs}"){ OlafStats.new.number_of_songs == REF_FILES.size }
 
 #Delete one file
-cmd = "olaf delete '#{REF_FILES.last}'"
+cmd = "#{CMD} delete '#{REF_FILES.last}'"
 assert("Command : #{cmd}") { system(cmd) }
 #Check the number of stored files
 assert("Expected #{REF_FILES.size-1} stored, was #{OlafStats.new.number_of_songs}"){ (OlafStats.new.number_of_songs == (REF_FILES.size - 1)) }
 #add it again
-cmd = "olaf store '#{REF_FILES.last}'"
+cmd = "#{CMD} store '#{REF_FILES.last}'"
 assert("Command : #{cmd}") { system(cmd) }
 
 QUERY_FILES.each do |file|
-    cmd = `olaf query '#{file}'`
+    cmd = `#{CMD} query '#{file}'`
     
     lines = cmd.split("\n").map{|l| OlafResultLine.new(l) }.delete_if{|l| !l.valid}
     
@@ -96,13 +98,13 @@ QUERY_FILES.each do |file|
 end
 
 #convert the dataset to raw
-system("olaf to_raw #{REF_TARGET_FOLDER}")
+system("#{CMD} to_raw #{REF_TARGET_FOLDER}")
 system("mkdir -p dataset/raw/ref")
 system("mv olaf_audio* dataset/raw/ref")
 REF_FILES_RAW = Dir.glob(File.join("dataset/raw/ref","*raw")).sort
 assert("Conversion of audio to raw"){REF_FILES_RAW.size == REF_FILES.size}
 
-system("olaf to_raw #{QUERY_TARGET_FOLDER}")
+system("#{CMD} to_raw #{QUERY_TARGET_FOLDER}")
 system("mkdir -p dataset/raw/queries")
 system("mv olaf_audio* dataset/raw/queries")
 QUERY_FILES_RAW = Dir.glob(File.join("dataset/raw/queries","*raw")).sort

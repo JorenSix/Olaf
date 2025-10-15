@@ -73,11 +73,13 @@ Olaf_DB * olaf_db_new(const char * mdb_folder,bool readonly){
 		resource_flags |= MDB_CREATE;
 	}
 
+	olaf_db->mdb_folder = mdb_folder;
+
 	//open the database with flags sets
 	e(mdb_dbi_open(olaf_db->txn, "olaf_fingerprints",fingerprint_flags , &olaf_db->dbi_fps));
 	e(mdb_dbi_open(olaf_db->txn, "olaf_resource_map",resource_flags , &olaf_db->dbi_resource_map));
 
-	olaf_db->mdb_folder = mdb_folder;
+	
 
 	return olaf_db;
 }

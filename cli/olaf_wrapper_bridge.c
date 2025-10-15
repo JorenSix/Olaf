@@ -107,6 +107,8 @@ Olaf_Config* olaf_default_config(){
 
 int olaf_stats(const Olaf_Config* config){
 	size_t folder_len = strlen(config->dbFolder);
+
+	//TODO fix for Windows
 	if(folder_len > 0 && config->dbFolder[folder_len - 1] != '/'){
 		fprintf(stderr, "Error printing stats: Database folder '%s' must end with '/'\n", config->dbFolder);
 		return -1;
@@ -195,7 +197,7 @@ void olaf_query(const Olaf_Config* config, const char* raw_audio_path, const cha
 
 void olaf_store(const Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier){
 	//store the fingerprints in the database
-	Olaf_DB* db = olaf_db_new(config->dbFolder,true);
+	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
 	if(db == NULL){
 		fprintf(stderr,"Error: Could not open database %s.\n",config->dbFolder);
 		//close the database
