@@ -46,7 +46,7 @@ class OlafResultLine
     def initialize(line)
         data = line.split(",").map(&:strip)
 
-        @valid = (data.size == 11 and data[3] =~/\d+/)
+        @valid = (data.size == 11 )
         if(@valid)
             @index = data[0].to_i
             @total = data[1].to_i

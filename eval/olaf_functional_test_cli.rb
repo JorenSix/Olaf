@@ -32,7 +32,7 @@ def assert(message, &block)
 end
 
 
-assert("Database should be empty, before running tests run 'olaf clear'") { OlafStats.new.number_of_songs == 0 }
+assert("Database should be empty, before running tests run '#{CMD} clear'") { OlafStats.new.number_of_songs == 0 }
 
 REF_TARGET_FOLDER = "dataset/ref"
 #check dataset, if not available, download
@@ -68,11 +68,19 @@ assert("Command : #{cmd}") { system(cmd) }
 
 QUERY_FILES.each do |file|
     cmd = `#{CMD} query '#{file}'`
+
+    puts "#{CMD} query '#{file}'"
+
+    puts cmd
     
     lines = cmd.split("\n").map{|l| OlafResultLine.new(l) }.delete_if{|l| !l.valid}
+
+      puts lines.join("\n")
     
     #remove header
     lines.shift
+
+  
 
     first_match = lines.first
 

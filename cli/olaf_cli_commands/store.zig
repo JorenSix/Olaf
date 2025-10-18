@@ -15,7 +15,7 @@ fn print(comptime fmt: []const u8, args: anytype) void {
 pub const CommandInfo = struct {
     pub const name = "store";
     pub const description = "Extracts and stores fingerprints into an index. If --with-ids is provided, it will store audio with user provided identifiers.";
-    pub const help = "[audio_file...] | --with-ids [audio_file audio_identifier]";
+    pub const help = "[audio_file...] | --with-ids [[audio_file audio_identifier] ...]";
     pub const needs_audio_files = true;
 };
 

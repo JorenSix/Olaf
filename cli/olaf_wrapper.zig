@@ -7,13 +7,14 @@ const olaf_wrapper_config = @import("olaf_wrapper_config.zig");
 const olaf_wrapper_util = @import("olaf_wrapper_util.zig");
 
 // Import command modules
-const cmd_query = @import("olaf_wrapper_commands/query.zig");
-const cmd_store = @import("olaf_wrapper_commands/store.zig");
-const cmd_stats = @import("olaf_wrapper_commands/stats.zig");
-const cmd_config = @import("olaf_wrapper_commands/config.zig");
-const cmd_to_wav = @import("olaf_wrapper_commands/to_wav.zig");
-const cmd_to_raw = @import("olaf_wrapper_commands/to_raw.zig");
-const cmd_clear = @import("olaf_wrapper_commands/clear.zig");
+const cmd_query = @import("olaf_cli_commands/query.zig");
+const cmd_store = @import("olaf_cli_commands/store.zig");
+const cmd_stats = @import("olaf_cli_commands/stats.zig");
+const cmd_config = @import("olaf_cli_commands/config.zig");
+const cmd_to_wav = @import("olaf_cli_commands/to_wav.zig");
+const cmd_to_raw = @import("olaf_cli_commands/to_raw.zig");
+const cmd_clear = @import("olaf_cli_commands/clear.zig");
+const cmd_delete = @import("olaf_cli_commands/delete.zig");
 
 const debug = std.log.scoped(.olaf_wrapper).debug;
 
@@ -86,6 +87,13 @@ const commands = [_]Command{
         .help = cmd_clear.CommandInfo.help,
         .needs_audio_files = cmd_clear.CommandInfo.needs_audio_files,
         .func = cmd_clear.execute,
+    },
+    .{
+        .name = cmd_delete.CommandInfo.name,
+        .description = cmd_delete.CommandInfo.description,
+        .help = cmd_delete.CommandInfo.help,
+        .needs_audio_files = cmd_delete.CommandInfo.needs_audio_files,
+        .func = cmd_delete.execute,
     },
 };
 

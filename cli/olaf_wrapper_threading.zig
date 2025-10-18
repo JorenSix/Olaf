@@ -12,7 +12,7 @@ const debug = std.log.scoped(.olaf_wrapper_threading).debug;
 const fs = std.fs;
 
 // Shared action enum type
-pub const ProcessAction = enum { Query, Store };
+pub const ProcessAction = enum { Query, Store, Delete };
 
 // Worker task structure for processing audio files
 pub const AudioProcessTask = struct {
@@ -42,7 +42,7 @@ fn createTempRawPath(allocator: std.mem.Allocator) ![]u8 {
 }
 
 // Helper function to process an audio file and convert it to raw format
-fn processAudioFile(
+pub fn processAudioFile(
     allocator: std.mem.Allocator,
     audio_file_with_id: olaf_wrapper_util.AudioFileWithId,
     config: *const olaf_wrapper_config.Config,
@@ -61,6 +61,7 @@ fn processAudioFile(
     switch (action) {
         .Query => try olaf_wrapper_bridge.olaf_query(allocator, raw_audio_path, audio_file_with_id.identifier, config),
         .Store => try olaf_wrapper_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, config),
+        .Delete => try olaf_wrapper_bridge.olaf_delete(allocator, raw_audio_path, audio_file_with_id.identifier, config),
     }
 }
 
@@ -188,6 +189,7 @@ fn processAudioFragment(
     switch (action) {
         .Query => try olaf_wrapper_bridge.olaf_query(allocator, raw_audio_path, fragment_identifier, config),
         .Store => try olaf_wrapper_bridge.olaf_store(allocator, raw_audio_path, fragment_identifier, config),
+        .Delete => try olaf_wrapper_bridge.olaf_delete(allocator, raw_audio_path, fragment_identifier, config),
     }
 }
 

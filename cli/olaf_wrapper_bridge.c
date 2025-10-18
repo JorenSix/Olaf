@@ -178,7 +178,6 @@ void olaf_query(const Olaf_Config* config, const char* raw_audio_path, const cha
 
 	//create a new runner
 	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_QUERY, config);
-	runner->config = config;
 	
 	//create a new stream processor
 	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
@@ -191,9 +190,38 @@ void olaf_query(const Olaf_Config* config, const char* raw_audio_path, const cha
 
 	//destroy the runner
 	olaf_runner_destroy(runner);
-	
-	
 }
+
+void olaf_delete(const Olaf_Config* config,const char* raw_audio_path, const char* audio_identifier){
+	//store the fingerprints in the database
+	Olaf_DB* db = olaf_db_new(config->dbFolder,true);
+	if(db == NULL){
+		fprintf(stderr,"Error: Could not open database %s.\n",config->dbFolder);
+		exit(-1);
+		//close the database
+		olaf_db_destroy(db);
+		return;
+	}
+	//close the database
+	olaf_db_destroy(db);
+	
+
+	//create a new runner
+	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_DELETE, config);
+	
+	//create a new stream processor
+	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
+	
+	//process the audio file
+	olaf_stream_processor_process(processor);
+	
+	//destroy the stream processor
+	olaf_stream_processor_destroy(processor);
+
+	//destroy the runner
+	olaf_runner_destroy(runner);
+}
+
 
 void olaf_store(const Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier){
 	//store the fingerprints in the database
