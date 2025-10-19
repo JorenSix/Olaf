@@ -1,6 +1,6 @@
 const std = @import("std");
-const types = @import("../olaf_wrapper_types.zig");
-const util = @import("../olaf_wrapper_util.zig");
+const types = @import("../olaf_cli_types.zig");
+const util = @import("../olaf_cli_util.zig");
 
 pub const CommandInfo = struct {
     pub const name = "clear";

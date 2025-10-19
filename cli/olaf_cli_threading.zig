@@ -3,12 +3,12 @@ const Thread = std.Thread;
 const Mutex = Thread.Mutex;
 const WaitGroup = Thread.WaitGroup;
 
-const olaf_wrapper_config = @import("olaf_wrapper_config.zig");
-const olaf_wrapper_util = @import("olaf_wrapper_util.zig");
-const olaf_wrapper_util_audio = @import("olaf_wrapper_util_audio.zig");
-const olaf_wrapper_bridge = @import("olaf_wrapper_bridge.zig");
+const olaf_cli_config = @import("olaf_cli_config.zig");
+const olaf_cli_util = @import("olaf_cli_util.zig");
+const olaf_cli_util_audio = @import("olaf_cli_util_audio.zig");
+const olaf_cli_bridge = @import("olaf_cli_bridge.zig");
 
-const debug = std.log.scoped(.olaf_wrapper_threading).debug;
+const debug = std.log.scoped(.olaf_cli_threading).debug;
 const fs = std.fs;
 
 // Shared action enum type
@@ -17,8 +17,8 @@ pub const ProcessAction = enum { Query, Store, Delete };
 // Worker task structure for processing audio files
 pub const AudioProcessTask = struct {
     allocator: std.mem.Allocator,
-    audio_file: olaf_wrapper_util.AudioFileWithId,
-    config: *const olaf_wrapper_config.Config,
+    audio_file: olaf_cli_util.AudioFileWithId,
+    config: *const olaf_cli_config.Config,
     index: usize,
     total: usize,
     action: ProcessAction,
@@ -44,8 +44,8 @@ fn createTempRawPath(allocator: std.mem.Allocator) ![]u8 {
 // Helper function to process an audio file and convert it to raw format
 pub fn processAudioFile(
     allocator: std.mem.Allocator,
-    audio_file_with_id: olaf_wrapper_util.AudioFileWithId,
-    config: *const olaf_wrapper_config.Config,
+    audio_file_with_id: olaf_cli_util.AudioFileWithId,
+    config: *const olaf_cli_config.Config,
     index: usize,
     total: usize,
     action: ProcessAction,
@@ -56,12 +56,12 @@ pub fn processAudioFile(
     defer allocator.free(raw_audio_path);
     defer fs.cwd().deleteFile(raw_audio_path) catch {};
 
-    try olaf_wrapper_util_audio.convertToRaw(allocator, audio_file_with_id.path, raw_audio_path, config.target_sample_rate);
+    try olaf_cli_util_audio.convertToRaw(allocator, audio_file_with_id.path, raw_audio_path, config.target_sample_rate);
 
     switch (action) {
-        .Query => try olaf_wrapper_bridge.olaf_query(allocator, raw_audio_path, audio_file_with_id.identifier, config),
-        .Store => try olaf_wrapper_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, config),
-        .Delete => try olaf_wrapper_bridge.olaf_delete(allocator, raw_audio_path, audio_file_with_id.identifier, config),
+        .Query => try olaf_cli_bridge.olaf_query(allocator, raw_audio_path, audio_file_with_id.identifier, config),
+        .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, config),
+        .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, audio_file_with_id.identifier, config),
     }
 }
 
@@ -86,8 +86,8 @@ pub fn processAudioFileThreaded(task: AudioProcessTask) void {
 /// Execute audio processing in parallel using thread pool
 pub fn executeParallel(
     allocator: std.mem.Allocator,
-    audio_files: []const olaf_wrapper_util.AudioFileWithId,
-    config: *const olaf_wrapper_config.Config,
+    audio_files: []const olaf_cli_util.AudioFileWithId,
+    config: *const olaf_cli_config.Config,
     action: ProcessAction,
     num_threads: u32,
 ) !void {
@@ -145,8 +145,8 @@ pub fn executeParallel(
 /// Process a single fragment of an audio file
 fn processAudioFragment(
     allocator: std.mem.Allocator,
-    audio_file_with_id: olaf_wrapper_util.AudioFileWithId,
-    config: *const olaf_wrapper_config.Config,
+    audio_file_with_id: olaf_cli_util.AudioFileWithId,
+    config: *const olaf_cli_config.Config,
     index: usize,
     total: usize,
     fragment_start: f32,
@@ -162,7 +162,7 @@ fn processAudioFragment(
     defer fs.cwd().deleteFile(raw_audio_path) catch {};
 
     // Convert the fragment to raw audio
-    const options = olaf_wrapper_util_audio.AudioOptions{
+    const options = olaf_cli_util_audio.AudioOptions{
         .sample_rate = config.target_sample_rate,
         .output_channels = 1,
         .output_format = "f32le",
@@ -171,7 +171,7 @@ fn processAudioFragment(
         .duration = @floatFromInt(fragment_duration),
     };
 
-    try olaf_wrapper_util_audio.convertAudioWithOptions(
+    try olaf_cli_util_audio.convertAudioWithOptions(
         allocator,
         audio_file_with_id.path,
         raw_audio_path,
@@ -187,17 +187,17 @@ fn processAudioFragment(
     defer allocator.free(fragment_identifier);
 
     switch (action) {
-        .Query => try olaf_wrapper_bridge.olaf_query(allocator, raw_audio_path, fragment_identifier, config),
-        .Store => try olaf_wrapper_bridge.olaf_store(allocator, raw_audio_path, fragment_identifier, config),
-        .Delete => try olaf_wrapper_bridge.olaf_delete(allocator, raw_audio_path, fragment_identifier, config),
+        .Query => try olaf_cli_bridge.olaf_query(allocator, raw_audio_path, fragment_identifier, config),
+        .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, fragment_identifier, config),
+        .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, fragment_identifier, config),
     }
 }
 
 /// Execute fragmented audio processing in parallel
 pub fn executeFragmentedParallel(
     allocator: std.mem.Allocator,
-    audio_files: []const olaf_wrapper_util.AudioFileWithId,
-    config: *const olaf_wrapper_config.Config,
+    audio_files: []const olaf_cli_util.AudioFileWithId,
+    config: *const olaf_cli_config.Config,
     action: ProcessAction,
     num_threads: u32,
     fragment_duration: u32,
@@ -209,7 +209,7 @@ pub fn executeFragmentedParallel(
 
     for (audio_files, 0..) |audio_file, file_index| {
         // Get the total duration of the audio file
-        const total_duration = try olaf_wrapper_util_audio.getAudioDuration(allocator, audio_file.path);
+        const total_duration = try olaf_cli_util_audio.getAudioDuration(allocator, audio_file.path);
 
         var fragment_start: f32 = 0.0;
         var fragment_index: usize = 0;

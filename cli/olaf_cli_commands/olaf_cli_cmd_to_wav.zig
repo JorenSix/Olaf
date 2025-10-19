@@ -4,11 +4,12 @@ const Mutex = Thread.Mutex;
 const WaitGroup = Thread.WaitGroup;
 const fs = std.fs;
 
-const types = @import("../olaf_wrapper_types.zig");
-const olaf_wrapper_util = @import("../olaf_wrapper_util.zig");
-const olaf_wrapper_util_audio = @import("../olaf_wrapper_util_audio.zig");
+const types = @import("../olaf_cli_types.zig");
+const olaf_cli_config = @import("../olaf_cli_config.zig");
+const olaf_cli_util = @import("../olaf_cli_util.zig");
+const olaf_cli_util_audio = @import("../olaf_cli_util_audio.zig");
 
-const debug = std.log.scoped(.olaf_wrapper_to_raw).debug;
+const debug = std.log.scoped(.olaf_cli_to_wav).debug;
 
 fn print(comptime fmt: []const u8, args: anytype) void {
     var stdout_buffer: [4096]u8 = undefined;
@@ -19,17 +20,17 @@ fn print(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub const CommandInfo = struct {
-    pub const name = "to_raw";
-    pub const description = "Converts audio to RAW format (f32le, mono, 16kHz) for debugging.\n\t--threads n\t The number of threads to use.";
+    pub const name = "to_wav";
+    pub const description = "Converts audio from to single channel wav.\n\t--threads n\t The number of threads to use.";
     pub const help = "[--threads n] audio_files...";
     pub const needs_audio_files = true;
 };
 
-// Worker task for RAW conversion
-const RawConversionTask = struct {
+// Worker task for WAV conversion
+const WavConversionTask = struct {
     allocator: std.mem.Allocator,
-    audio_file: olaf_wrapper_util.AudioFileWithId,
-    sample_rate: u32,
+    audio_file: olaf_cli_util.AudioFileWithId,
+    config: *const olaf_cli_config.Config,
     index: usize,
     total: usize,
     error_mutex: *Mutex,
@@ -37,24 +38,20 @@ const RawConversionTask = struct {
     output_mutex: *Mutex,
 };
 
-// Helper function to generate output filename for raw conversion
-fn generateRawFilename(allocator: std.mem.Allocator, audio_path: []const u8) !struct { basename: []u8, raw_filename: []u8 } {
+// Helper function to generate output filename for wav conversion
+fn generateWavFilename(allocator: std.mem.Allocator, audio_path: []const u8) !struct { basename: []u8, wav_filename: []u8 } {
     const full_basename = try fs.cwd().realpathAlloc(allocator, audio_path);
 
     const ext_start = std.mem.lastIndexOf(u8, full_basename, ".");
     const basename = if (ext_start) |idx| full_basename[0..idx] else full_basename;
 
-    // Extract just the filename without directory path for the output
-    const filename_start = std.mem.lastIndexOf(u8, basename, "/") orelse std.mem.lastIndexOf(u8, basename, "\\");
-    const just_basename = if (filename_start) |idx| basename[idx + 1 ..] else basename;
+    const wav_filename = try std.fmt.allocPrint(allocator, "{s}.wav", .{basename});
 
-    const raw_filename = try std.fmt.allocPrint(allocator, "olaf_audio_{s}.raw", .{just_basename});
-
-    return .{ .basename = full_basename, .raw_filename = raw_filename };
+    return .{ .basename = full_basename, .wav_filename = wav_filename };
 }
 
-fn processRawConversionThreaded(task: RawConversionTask) void {
-    const names = generateRawFilename(task.allocator, task.audio_file.path) catch |gen_err| {
+fn processWavConversionThreaded(task: WavConversionTask) void {
+    const names = generateWavFilename(task.allocator, task.audio_file.path) catch |gen_err| {
         task.error_mutex.lock();
         defer task.error_mutex.unlock();
         const err_msg = std.fmt.allocPrint(task.allocator, "Failed to generate filename for {s}: {}", .{ task.audio_file.path, gen_err }) catch "Out of memory";
@@ -64,25 +61,18 @@ fn processRawConversionThreaded(task: RawConversionTask) void {
     };
     defer {
         task.allocator.free(names.basename);
-        task.allocator.free(names.raw_filename);
+        task.allocator.free(names.wav_filename);
     }
 
     // Check if file already exists
-    if (fs.cwd().statFile(names.raw_filename)) |_| {
-        debug("Raw file already exists: {s}, skipping", .{names.raw_filename});
-        
-        // Thread-safe output even for skipped files
-        task.output_mutex.lock();
-        defer task.output_mutex.unlock();
-        print("{d}/{d},{s},{s}\n", .{ task.index + 1, task.total, task.audio_file.path, names.raw_filename });
-        return;
+    if (fs.cwd().statFile(names.wav_filename)) |_| {
+        debug("Wav file already exists: {s}, skipping", .{names.wav_filename});
     } else |_| {
-        // File doesn't exist, proceed with conversion
-        olaf_wrapper_util_audio.convertToRaw(
+        olaf_cli_util_audio.convertToWav(
             task.allocator,
             task.audio_file.path,
-            names.raw_filename,
-            task.sample_rate,
+            names.wav_filename,
+            task.config.target_sample_rate,
         ) catch |conv_err| {
             task.error_mutex.lock();
             defer task.error_mutex.unlock();
@@ -96,34 +86,34 @@ fn processRawConversionThreaded(task: RawConversionTask) void {
     // Thread-safe output
     task.output_mutex.lock();
     defer task.output_mutex.unlock();
-    print("{d}/{d},{s},{s}\n", .{ task.index + 1, task.total, task.audio_file.path, names.raw_filename });
+    print("{d}/{d},{s},{s}\n", .{ task.index + 1, task.total, names.basename, names.wav_filename });
 }
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     const num_threads = @min(args.threads, args.audio_files.items.len);
 
     if (num_threads <= 1) {
-        // Single-threaded execution
+        // Single-threaded execution (original behavior)
         for (args.audio_files.items, 0..) |audio_file_with_id, i| {
-            const names = try generateRawFilename(allocator, audio_file_with_id.path);
+            const names = try generateWavFilename(allocator, audio_file_with_id.path);
             defer {
-                debug("Defer basename and raw_filename cleanup", .{});
+                debug("Defer basename and wav_filename cleanup", .{});
                 allocator.free(names.basename);
-                allocator.free(names.raw_filename);
+                allocator.free(names.wav_filename);
             }
 
             // Check if file already exists
-            if (fs.cwd().statFile(names.raw_filename)) |_| {
-                debug("Raw file already exists: {s}, skipping", .{names.raw_filename});
+            if (fs.cwd().statFile(names.wav_filename)) |_| {
+                debug("Wav file already exists: {s}, skipping", .{names.wav_filename});
             } else |_| {
-                try olaf_wrapper_util_audio.convertToRaw(allocator, audio_file_with_id.path, names.raw_filename, args.config.?.target_sample_rate);
+                try olaf_cli_util_audio.convertToWav(allocator, audio_file_with_id.path, names.wav_filename, args.config.?.target_sample_rate);
             }
 
-            print("{d}/{d},{s},{s}\n", .{ i + 1, args.audio_files.items.len, audio_file_with_id.path, names.raw_filename });
+            print("{d}/{d},{s},{s}\n", .{ i + 1, args.audio_files.items.len, names.basename, names.wav_filename });
         }
     } else {
         // Multi-threaded execution
-        debug("Converting {d} audio files to RAW with {d} threads", .{ args.audio_files.items.len, num_threads });
+        debug("Converting {d} audio files to WAV with {d} threads", .{ args.audio_files.items.len, num_threads });
 
         var pool: Thread.Pool = undefined;
         try pool.init(.{ .allocator = allocator, .n_jobs = num_threads });
@@ -143,10 +133,10 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         }
 
         for (args.audio_files.items, 0..) |audio_file_with_id, i| {
-            const task = RawConversionTask{
+            const task = WavConversionTask{
                 .allocator = allocator,
                 .audio_file = audio_file_with_id,
-                .sample_rate = args.config.?.target_sample_rate,
+                .config = args.config.?,
                 .index = i,
                 .total = args.audio_files.items.len,
                 .error_mutex = &error_mutex,
@@ -154,7 +144,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
                 .output_mutex = &output_mutex,
             };
 
-            pool.spawnWg(&wait_group, processRawConversionThreaded, .{task});
+            pool.spawnWg(&wait_group, processWavConversionThreaded, .{task});
         }
 
         // Wait for all tasks to complete
@@ -162,7 +152,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
 
         // Check for errors
         if (error_list.items.len > 0) {
-            print("RAW conversion completed with {d} error(s)\n", .{error_list.items.len});
+            print("WAV conversion completed with {d} error(s)\n", .{error_list.items.len});
             return error.ProcessingFailed;
         }
     }

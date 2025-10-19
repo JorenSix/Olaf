@@ -1,10 +1,10 @@
 const std = @import("std");
-const olaf_wrapper_util = @import("olaf_wrapper_util.zig");
-const olaf_wrapper_config = @import("olaf_wrapper_config.zig");
+const olaf_cli_util = @import("olaf_cli_util.zig");
+const olaf_cli_config = @import("olaf_cli_config.zig");
 
 /// Shared Args type for all commands
 pub const Args = struct {
-    audio_files: std.ArrayList(olaf_wrapper_util.AudioFileWithId),
+    audio_files: std.ArrayList(olaf_cli_util.AudioFileWithId),
     threads: u32 = 1,
     fragmented: bool = false,
     fragment_duration: u32 = 30,
@@ -12,7 +12,7 @@ pub const Args = struct {
     allow_identity_match: bool = true,
     skip_store: bool = false,
     force: bool = false,
-    config: ?*const olaf_wrapper_config.Config = null,
+    config: ?*const olaf_cli_config.Config = null,
 
     pub fn deinit(self: *Args, allocator: std.mem.Allocator) void {
         for (self.audio_files.items) |item| {

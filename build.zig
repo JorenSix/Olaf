@@ -50,7 +50,7 @@ pub fn build(b: *std.Build) void {
                 .root_module = b.createModule(.{
                     .target = target,
                     .optimize = optimize,
-                    .root_source_file = b.path("./cli/olaf_wrapper.zig"),
+                    .root_source_file = b.path("./cli/olaf_cli.zig"),
                 }),
             });
             exe.addIncludePath(b.path("cli"));
@@ -94,7 +94,7 @@ fn addCoreSources(
     cflags: []const []const u8,
     include_lmdb: bool,
     include_olaf_main: bool,
-    include_cli_wrapper: bool,
+    include_cli: bool,
 ) void {
     // Common sources used by all builds
     const common_sources = [_][]const u8{
@@ -149,7 +149,7 @@ fn addCoreSources(
     }
 
     // Optionally add wrapper bridge
-    if (include_cli_wrapper) {
-        exe.addCSourceFile(.{ .file = b.path("./cli/olaf_wrapper_bridge.c"), .flags = cflags });
+    if (include_cli) {
+        exe.addCSourceFile(.{ .file = b.path("./cli/olaf_cli_bridge.c"), .flags = cflags });
     }
 }

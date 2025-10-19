@@ -16,7 +16,7 @@ zig build
 zig build -Doptimize=ReleaseSmall
 zig build run -- config
 
-#to install the cli wrapper
+#to install the cli 
 zig build install-system
 
 ````

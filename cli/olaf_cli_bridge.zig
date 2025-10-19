@@ -1,11 +1,11 @@
 const std = @import("std");
 const process = std.process;
-const debug = std.log.scoped(.olaf_wrapper_bridge).debug;
+const debug = std.log.scoped(.olaf_cli_bridge).debug;
 
-const olaf_wrapper_config = @import("olaf_wrapper_config.zig");
+const olaf_cli_config = @import("olaf_cli_config.zig");
 
 const olaf = @cImport({
-    @cInclude("olaf_wrapper_bridge.h");
+    @cInclude("olaf_cli_bridge.h");
 });
 
 fn olaf_main(allocator: std.mem.Allocator, args_list: []const []const u8) !void {
@@ -18,7 +18,7 @@ fn olaf_main(allocator: std.mem.Allocator, args_list: []const []const u8) !void 
     debug("olaf main with custom args\n", .{});
 }
 
-fn copy_to_c_config(config: *const olaf_wrapper_config.Config, c_config: *olaf.Olaf_Config) !void {
+fn copy_to_c_config(config: *const olaf_cli_config.Config, c_config: *olaf.Olaf_Config) !void {
     debug("Copying configuration to C struct", .{});
 
     // Audio configurations
@@ -63,7 +63,7 @@ fn copy_to_c_config(config: *const olaf_wrapper_config.Config, c_config: *olaf.O
     debug("Configuration copy complete", .{});
 }
 
-pub fn olaf_store(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_wrapper_config.Config) !void {
+pub fn olaf_store(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {
     const c_config = olaf.olaf_default_config(); // Ensure the default config is set
     try copy_to_c_config(config, c_config);
 
@@ -83,7 +83,7 @@ pub fn olaf_store(allocator: std.mem.Allocator, raw_audio_path: []const u8, audi
     olaf.olaf_store(c_config, c_raw_audio_path, c_audio_identifier);
 }
 
-pub fn olaf_query(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_wrapper_config.Config) !void {
+pub fn olaf_query(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {
     const c_config = olaf.olaf_default_config(); // Ensure the default config is set
     try copy_to_c_config(config, c_config);
 
@@ -103,7 +103,7 @@ pub fn olaf_query(allocator: std.mem.Allocator, raw_audio_path: []const u8, audi
     olaf.olaf_query(c_config, c_raw_audio_path, c_audio_identifier);
 }
 
-pub fn olaf_delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_wrapper_config.Config) !void {
+pub fn olaf_delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {
     const c_config = olaf.olaf_default_config(); // Ensure the default config is set
     try copy_to_c_config(config, c_config);
 
@@ -123,7 +123,7 @@ pub fn olaf_delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, aud
     olaf.olaf_delete(c_config, c_raw_audio_path, c_audio_identifier);
 }
 
-pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_wrapper_config.Config) !void {
+pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_cli_config.Config) !void {
     const c_config = olaf.olaf_default_config(); // Ensure the default config is set
     try copy_to_c_config(config, c_config);
 

@@ -187,9 +187,7 @@ test:
 docs:
 	doxygen
 
-test_zig_wrapper:
-	cd zig_wrapper && zig build -Doptimize=ReleaseSmall && zig build install-system
-	cd .. 
+test_cli:
 	ruby eval/olaf_functional_test_zig_wrapper.rb
 
 #Compile a windows exe using Zig

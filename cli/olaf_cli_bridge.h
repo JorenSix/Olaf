@@ -1,5 +1,5 @@
-#ifndef OLAF_WRAPPER_BRIDGE_H
-#define OLAF_WRAPPER_BRIDGE_H
+#ifndef OLAF_CLI_BRIDGE_H
+#define OLAF_CLI_BRIDGE_H
 
 #include <stdint.h>
 
@@ -33,4 +33,4 @@ int olaf_store_cached(int argc, const char* argv[]);
 int olaf_main(int argc, const char* argv[]);
 
 
-#endif // OLAF_WRAPPER_BRIDGE_H
+#endif // OLAF_CLI_BRIDGE_H

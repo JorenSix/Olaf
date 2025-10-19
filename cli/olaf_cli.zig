@@ -2,21 +2,21 @@ const std = @import("std");
 const fs = std.fs;
 const process = std.process;
 
-const types = @import("olaf_wrapper_types.zig");
-const olaf_wrapper_config = @import("olaf_wrapper_config.zig");
-const olaf_wrapper_util = @import("olaf_wrapper_util.zig");
+const types = @import("olaf_cli_types.zig");
+const olaf_cli_config = @import("olaf_cli_config.zig");
+const olaf_cli_util = @import("olaf_cli_util.zig");
 
 // Import command modules
-const cmd_query = @import("olaf_cli_commands/query.zig");
-const cmd_store = @import("olaf_cli_commands/store.zig");
-const cmd_stats = @import("olaf_cli_commands/stats.zig");
-const cmd_config = @import("olaf_cli_commands/config.zig");
-const cmd_to_wav = @import("olaf_cli_commands/to_wav.zig");
-const cmd_to_raw = @import("olaf_cli_commands/to_raw.zig");
-const cmd_clear = @import("olaf_cli_commands/clear.zig");
-const cmd_delete = @import("olaf_cli_commands/delete.zig");
+const cmd_query = @import("olaf_cli_commands/olaf_cli_cmd_query.zig");
+const cmd_store = @import("olaf_cli_commands/olaf_cli_cmd_store.zig");
+const cmd_stats = @import("olaf_cli_commands/olaf_cli_cmd_stats.zig");
+const cmd_config = @import("olaf_cli_commands/olaf_cli_cmd_config.zig");
+const cmd_to_wav = @import("olaf_cli_commands/olaf_cli_cmd_to_wav.zig");
+const cmd_to_raw = @import("olaf_cli_commands/olaf_cli_cmd_to_raw.zig");
+const cmd_clear = @import("olaf_cli_commands/olaf_cli_cmd_clear.zig");
+const cmd_delete = @import("olaf_cli_commands/olaf_cli_cmd_delete.zig");
 
-const debug = std.log.scoped(.olaf_wrapper).debug;
+const debug = std.log.scoped(.olaf_cli).debug;
 
 fn print(comptime fmt: []const u8, args: anytype) void {
     var stdout_buffer: [4096]u8 = undefined;
@@ -113,7 +113,7 @@ fn printHelp() !void {
         return;
     };
 
-    const date = olaf_wrapper_util.getFileModificationDate(exe_path) catch {
+    const date = olaf_cli_util.getFileModificationDate(exe_path) catch {
         print("Olaf - Overly Lightweight Audio Fingerprinting\n", .{});
         printCommandList();
         return;
@@ -128,7 +128,7 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    var config = try olaf_wrapper_config.olafWrapperConfig(allocator);
+    var config = try olaf_cli_config.olafWrapperConfig(allocator);
     defer {
         debug("Defer config cleanup", .{});
         config.deinit(allocator);
@@ -149,14 +149,14 @@ pub fn main() !void {
     }
 
     // Create directories if they don't exist
-    const db_path = try olaf_wrapper_util.expandPath(allocator, config.db_folder);
+    const db_path = try olaf_cli_util.expandPath(allocator, config.db_folder);
     debug("DB path: {s}", .{db_path});
     defer allocator.free(db_path);
     fs.cwd().makePath(db_path) catch |errr| {
         if (errr != error.PathAlreadyExists) return errr;
     };
 
-    const cache_path = try olaf_wrapper_util.expandPath(allocator, config.cache_folder);
+    const cache_path = try olaf_cli_util.expandPath(allocator, config.cache_folder);
     defer allocator.free(cache_path);
     debug("Cache path: {s}", .{cache_path});
     fs.cwd().makePath(cache_path) catch |errr| {
@@ -167,7 +167,7 @@ pub fn main() !void {
     debug("Command name: {s}", .{command_name});
 
     var args = types.Args{
-        .audio_files = std.ArrayList(olaf_wrapper_util.AudioFileWithId){},
+        .audio_files = std.ArrayList(olaf_cli_util.AudioFileWithId){},
     };
 
     args.config = &config;
@@ -202,10 +202,10 @@ pub fn main() !void {
         } else {
             // It's an unrecognized argument, a file?
             if (args.use_audio_ids) {
-                try olaf_wrapper_util.audioFileListWithId(allocator, arg, args_list[i + 1], &args.audio_files, config.allowed_audio_file_extensions);
+                try olaf_cli_util.audioFileListWithId(allocator, arg, args_list[i + 1], &args.audio_files, config.allowed_audio_file_extensions);
                 i += 1; // Skip the next argument as it is the audio identifier
             } else {
-                try olaf_wrapper_util.audioFileList(allocator, arg, &args.audio_files, config.allowed_audio_file_extensions);
+                try olaf_cli_util.audioFileList(allocator, arg, &args.audio_files, config.allowed_audio_file_extensions);
             }
         }
     }

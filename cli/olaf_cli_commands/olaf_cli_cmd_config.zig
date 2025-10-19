@@ -1,5 +1,5 @@
 const std = @import("std");
-const types = @import("../olaf_wrapper_types.zig");
+const types = @import("../olaf_cli_types.zig");
 
 fn print(comptime fmt: []const u8, args: anytype) void {
     var stdout_buffer: [4096]u8 = undefined;

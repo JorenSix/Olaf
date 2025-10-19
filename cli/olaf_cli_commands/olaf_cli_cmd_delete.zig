@@ -1,10 +1,10 @@
 const std = @import("std");
-const olaf_wrapper_bridge = @import("../olaf_wrapper_bridge.zig");
-const olaf_wrapper_threading = @import("../olaf_wrapper_threading.zig");
-const types = @import("../olaf_wrapper_types.zig");
-const util = @import("../olaf_wrapper_util.zig");
+const olaf_cli_bridge = @import("../olaf_cli_bridge.zig");
+const olaf_cli_threading = @import("../olaf_cli_threading.zig");
+const types = @import("../olaf_cli_types.zig");
+const util = @import("../olaf_cli_util.zig");
 
-const debug = std.log.scoped(.olaf_wrapper_delete).debug;
+const debug = std.log.scoped(.olaf_cli_delete).debug;
 
 fn print(comptime fmt: []const u8, args: anytype) void {
     var stdout_buffer: [4096]u8 = undefined;
@@ -38,7 +38,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
 
     for (args.audio_files.items, 0..) |audio_file, index| {
         debug("Delete audio file: {s} with identifier: {s}", .{ audio_file.path, audio_file.identifier });
-        olaf_wrapper_threading.processAudioFile(
+        olaf_cli_threading.processAudioFile(
             allocator,
             audio_file,
             args.config.?,

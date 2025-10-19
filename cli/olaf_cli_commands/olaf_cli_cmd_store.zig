@@ -1,8 +1,8 @@
 const std = @import("std");
-const olaf_wrapper_threading = @import("../olaf_wrapper_threading.zig");
-const types = @import("../olaf_wrapper_types.zig");
+const olaf_cli_threading = @import("../olaf_cli_threading.zig");
+const types = @import("../olaf_cli_types.zig");
 
-const debug = std.log.scoped(.olaf_wrapper_store).debug;
+const debug = std.log.scoped(.olaf_cli_store).debug;
 
 fn print(comptime fmt: []const u8, args: anytype) void {
     var stdout_buffer: [4096]u8 = undefined;
@@ -25,7 +25,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         return;
     }
 
-    try olaf_wrapper_threading.executeParallel(
+    try olaf_cli_threading.executeParallel(
         allocator,
         args.audio_files.items,
         args.config.?,

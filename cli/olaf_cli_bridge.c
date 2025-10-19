@@ -86,7 +86,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "olaf_wrapper_bridge.h"
+#include "olaf_cli_bridge.h"
 
 #include "olaf_stream_processor.h"
 #include "olaf_runner.h"
