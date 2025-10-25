@@ -168,6 +168,7 @@ typedef struct {
     size_t q_index;
     size_t q_total;
     const char *query_path;
+	float q_offset;
 } Olaf_Query_Print_Context;
 
 static _Thread_local Olaf_Query_Print_Context olaf_query_print_context = {0};
@@ -179,18 +180,26 @@ static void olaf_cli_print_match(int matchCount,
                                  uint32_t matchIdentifier,
                                  float referenceStart,
                                  float referenceStop) {
-    printf("[%d  %d  %s -> %u (%d hits) "
-           "query %.2f–%.2f s ref %.2f %s –%.2f s\n",
-           (uint32_t)(olaf_query_print_context.q_index + 1),
-           (uint32_t)olaf_query_print_context.q_total,
-           olaf_query_print_context.query_path,
-           matchIdentifier,
-           matchCount,
-           queryStart,
-           queryStop,
-           referenceStart,
+	// query info
+	// "#{index} , #{total} , #{query} , #{query_offset} ,
+    printf("%d ,%d ,%s, %.3f, ",
+			(uint32_t)(olaf_query_print_context.q_index + 1),
+			(uint32_t) olaf_query_print_context.q_total,
+			olaf_query_print_context.query_path,
+			olaf_query_print_context.q_offset);
+	
+	// match info
+	// #{match_count} , #{query_start} , #{query_stop}, 
+	printf("%d ,%.3f ,%.3f, ",
+		   matchCount,
+		   queryStart,
+		   queryStop);
+	
+	printf("%s, %d, %.3f, %.3f\n",
 		   path,
-           referenceStop);
+		   matchIdentifier,
+		   referenceStart,
+		   referenceStop);
 }
 
 
@@ -206,7 +215,6 @@ void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char 
 	}
 	//close the database
 	olaf_db_destroy(db);
-	
 
 	//create a new runner
 	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_QUERY, config);
@@ -214,15 +222,14 @@ void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char 
 	//create a new stream processor
 	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
 
-	
-
 	olaf_query_print_context.q_index = q_index;
     olaf_query_print_context.q_total = q_total;
     olaf_query_print_context.query_path = query_path;
+	olaf_query_print_context.q_offset = 0.0f;
 
 	Olaf_FP_Matcher_Result_Callback result_callback = olaf_cli_print_match;
-
 	olaf_stream_processor_set_result_callback(processor, result_callback);
+	olaf_stream_processor_set_result_header(processor, "query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop\n");
 
 
 	//process the audio file
@@ -266,7 +273,7 @@ void olaf_delete(Olaf_Config* config,const char* raw_audio_path, const char* aud
 }
 
 
-void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier){
+void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* orig_audio_path){
 	//store the fingerprints in the database
 	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
 	if(db == NULL){
@@ -277,13 +284,15 @@ void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* aud
 	}
 	//close the database
 	olaf_db_destroy(db);
+
+	printf("Storing audio file '%s' with original path '%s' in database '%s'\n",raw_audio_path,orig_audio_path,config->dbFolder);
 	
 	
 	//create a new runner
 	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_STORE, config);
 	
 	//create a new stream processor
-	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
+	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,orig_audio_path);
 	
 	//process the audio file
 	olaf_stream_processor_process(processor);

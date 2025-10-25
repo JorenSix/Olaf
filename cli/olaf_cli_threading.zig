@@ -186,7 +186,7 @@ fn processAudioFragment(
 
     switch (action) {
         .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, fragment_identifier, config),
-        .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, fragment_identifier, config),
+        .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.path, config),
         .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, fragment_identifier, config),
     }
 }

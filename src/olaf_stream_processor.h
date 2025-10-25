@@ -28,6 +28,7 @@
 
     #include "olaf_config.h"
     #include "olaf_runner.h"
+    #include "olaf_fp_matcher.h"
     
     /**
      * @struct Olaf_Stream_Processor
@@ -64,10 +65,18 @@
     /**
 	 * @brief      Set the result callback function.
 	 *
-	 * @param      fp_matcher  The fp matcher
+	 * @param      olaf_stream_processor  The stream processor
 	 * @param      callback    The callback function
 	 */
 	void olaf_stream_processor_set_result_callback(Olaf_Stream_Processor * olaf_stream_processor,Olaf_FP_Matcher_Result_Callback callback);
+
+
+    /** 
+     * @brief      Set the result header for the stream processor.
+     * @param      processor   The stream processor
+     * @param      result_header  The result header string
+     */
+    void olaf_stream_processor_set_result_header(Olaf_Stream_Processor * processor,const char * result_header);
 
 
 #endif // OLAF_STREAM_PROCESSOR_H

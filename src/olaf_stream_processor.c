@@ -27,6 +27,7 @@ struct Olaf_Stream_Processor{
 	uint32_t audio_identifier;
 	const char* orig_path;
 
+	const char* result_header;
 	Olaf_FP_Matcher_Result_Callback result_callback;
 
 	//Input audio samples
@@ -44,6 +45,7 @@ Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner * runner,const cha
 		processor->audio_identifier = olaf_db_string_hash(orig_path,strlen(orig_path));
 
 	processor->result_callback = olaf_fp_matcher_callback_print_result;
+	processor->result_header = NULL;
 
 	processor->runner = runner;
 	processor->config = runner->config;
@@ -68,6 +70,10 @@ void olaf_stream_processor_set_result_callback(Olaf_Stream_Processor * processor
 	processor->result_callback = callback;
 }
 
+void olaf_stream_processor_set_result_header(Olaf_Stream_Processor * processor,const char * result_header){
+	processor->result_header = result_header;
+}
+
 void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 	
 	int audioBlockIndex = 0;
@@ -78,6 +84,10 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 
 	if(processor->runner->mode == OLAF_RUNNER_MODE_QUERY ){
 		fp_matcher = olaf_fp_matcher_new(processor->config,processor->runner->db,processor->result_callback);
+
+		if(processor->result_header != NULL){
+			olaf_fp_matcher_set_header(fp_matcher, processor->result_header);
+		}
 	} else if(processor->runner->mode == OLAF_RUNNER_MODE_STORE || processor->runner->mode == OLAF_RUNNER_MODE_DELETE){
 		fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,processor->audio_identifier);
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT ){
@@ -164,7 +174,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		//use the fingerprints to match with the reference database
 		//report matches if found
 		olaf_fp_matcher_match(fp_matcher,fingerprints);
-		olaf_fp_matcher_callback_print_header();
+		olaf_fp_matcher_print_header(fp_matcher);
 		olaf_fp_matcher_print_results(fp_matcher);
 		olaf_fp_matcher_destroy(fp_matcher);
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_STORE){

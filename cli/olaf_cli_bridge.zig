@@ -100,7 +100,10 @@ pub fn olaf_query(allocator: std.mem.Allocator, q_index: usize, q_total: usize, 
     const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
     defer allocator.free(c_audio_identifier);
 
-    olaf.olaf_query(c_config, q_index, q_total, query_path, c_raw_audio_path, c_audio_identifier);
+    const c_query_path = try allocator.dupeZ(u8, query_path);
+    defer allocator.free(c_query_path);
+
+    olaf.olaf_query(c_config, q_index, q_total, c_query_path, c_raw_audio_path, c_audio_identifier);
 }
 
 pub fn olaf_delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {

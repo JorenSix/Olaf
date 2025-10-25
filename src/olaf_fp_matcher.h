@@ -74,7 +74,7 @@
 	/**
 	 * @brief      Print a header for the CSV output.
 	 */
-	void olaf_fp_matcher_callback_print_header(void);
+	void olaf_fp_matcher_print_header(Olaf_FP_Matcher * fp_matcher);
 
 	/**
 	 * @brief Prints a match result using the specified format.
@@ -106,6 +106,15 @@
 	 * @param      olaf_fp_matcher  The olaf fp matcher
 	 */
 	void olaf_fp_matcher_destroy(Olaf_FP_Matcher * olaf_fp_matcher);
+
+
+	/**
+	 * @brief      Set the result header for the matcher.
+	 *
+	 * @param      fp_matcher  The fingerprint matcher
+	 * @param      header      The header string
+	 */
+	void olaf_fp_matcher_set_header(Olaf_FP_Matcher * fp_matcher, const char * header);
 
 
 #endif // OLAF_FP_MATCHER_H

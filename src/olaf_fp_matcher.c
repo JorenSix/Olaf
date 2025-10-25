@@ -72,6 +72,8 @@ struct Olaf_FP_Matcher{
 
 	Olaf_FP_Matcher_Result_Callback result_callback;
 
+	const char * header;
+
 	int last_print_at;
 };
 
@@ -227,6 +229,14 @@ void olaf_fp_matcher_match_single_fingerprint(Olaf_FP_Matcher * fp_matcher,uint3
 	}
 }
 
+void olaf_fp_matcher_set_header(Olaf_FP_Matcher * fp_matcher, const char * header){
+	fp_matcher->header = header;
+}
+
+void olaf_fp_matcher_print_header(Olaf_FP_Matcher * fp_matcher){
+	printf("%s", fp_matcher->header);
+}
+
 void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_fingerprints *  fingerprints ){
 	
 	for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
@@ -240,7 +250,7 @@ void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_finger
 		int current_query_time = fingerprints->fingerprints[fingerprints->fingerprintIndex-1].timeIndex3;
 		//printf("Current time: %d, Last print at: %d \n", current_query_time,fp_matcher->last_print_at );
 		if( current_query_time - fp_matcher->last_print_at > printResultEvery){
-			olaf_fp_matcher_callback_print_header();
+			olaf_fp_matcher_print_header(fp_matcher);
 			olaf_fp_matcher_print_results(fp_matcher);
 			fp_matcher->last_print_at = current_query_time;
 		}
@@ -269,9 +279,6 @@ int olaf_fp_sort_results_by_match_count(const void * a, const void * b) {
 	return diff;
 }
 
-void olaf_fp_matcher_callback_print_header(void){
-	printf("match count (#), q start (s) , q stop (s), ref path, ref ID, ref start (s), ref stop (s)\n");
-}
 void olaf_fp_matcher_callback_print_result(int matchCount, float queryStart, float queryStop, const char* path, uint32_t matchIdentifier, float referenceStart, float referenceStop) {
     printf("%d, %.2f, %.2f, %s, %u, %.2f, %.2f\n", matchCount, queryStart, queryStop, path, matchIdentifier, referenceStart, referenceStop);
 }
@@ -308,8 +315,6 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 			}
 		}
 	}
-
-    
 
 	if(match_results_index > 0){
 
@@ -353,6 +358,5 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 void olaf_fp_matcher_destroy(Olaf_FP_Matcher * fp_matcher){
 	hash_table_free(fp_matcher->result_hash_table);
 	free(fp_matcher->db_results);
-
 	free(fp_matcher);
 }

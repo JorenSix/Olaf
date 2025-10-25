@@ -15,7 +15,7 @@ fn print(comptime fmt: []const u8, args: anytype) void {
 pub const CommandInfo = struct {
     pub const name = "query";
     pub const description = "Query for fingerprint matches.\n\t\t--threads n\t The number of threads to use.\n\t\t--fragmented\t Chop queries into 30s fragments and match each fragment.\n\t\t--no-identity-match\t Identity matches are not reported.";
-    pub const help = "[--fragmented] [--threads n] [audio_file...] | --with-ids [audio_file audio_identifier]";
+    pub const help = "[--fragmented] [--threads n] [audio_file...] | --with-ids [[audio_file audio_identifier]...]";
     pub const needs_audio_files = true;
 };
 
