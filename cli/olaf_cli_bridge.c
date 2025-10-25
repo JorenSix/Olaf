@@ -93,6 +93,7 @@
 #include "olaf_config.h"
 #include "olaf_db.h"
 #include "olaf_fp_db_writer_cache.h"
+#include "olaf_fp_matcher.h"
 
 
 Olaf_Config* olaf_default_config(){
@@ -120,7 +121,7 @@ int olaf_stats(const Olaf_Config* config){
 	return 0;
 }
 
-void olaf_has(const Olaf_Config* config,size_t audio_identifiers_len,const char* audio_identifiers[], bool * has_audio_identifier){
+void olaf_has(Olaf_Config* config,size_t audio_identifiers_len,const char* audio_identifiers[], bool * has_audio_identifier){
 	
 	Olaf_DB* db = olaf_db_new(config->dbFolder,true);
 
@@ -162,7 +163,38 @@ int olaf_store_cached(int argc, const char* argv[]){
 	return 0;
 }
 
-void olaf_query(const Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier){
+
+typedef struct {
+    size_t q_index;
+    size_t q_total;
+    const char *query_path;
+} Olaf_Query_Print_Context;
+
+static _Thread_local Olaf_Query_Print_Context olaf_query_print_context = {0};
+
+static void olaf_cli_print_match(int matchCount,
+                                 float queryStart,
+                                 float queryStop,
+                                 const char *path,
+                                 uint32_t matchIdentifier,
+                                 float referenceStart,
+                                 float referenceStop) {
+    printf("[%d  %d  %s -> %u (%d hits) "
+           "query %.2f–%.2f s ref %.2f %s –%.2f s\n",
+           (uint32_t)(olaf_query_print_context.q_index + 1),
+           (uint32_t)olaf_query_print_context.q_total,
+           olaf_query_print_context.query_path,
+           matchIdentifier,
+           matchCount,
+           queryStart,
+           queryStop,
+           referenceStart,
+		   path,
+           referenceStop);
+}
+
+
+void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, const char* raw_audio_path, const char* audio_identifier){
 	//store the fingerprints in the database
 	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
 	if(db == NULL){
@@ -181,7 +213,18 @@ void olaf_query(const Olaf_Config* config, const char* raw_audio_path, const cha
 	
 	//create a new stream processor
 	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
+
 	
+
+	olaf_query_print_context.q_index = q_index;
+    olaf_query_print_context.q_total = q_total;
+    olaf_query_print_context.query_path = query_path;
+
+	Olaf_FP_Matcher_Result_Callback result_callback = olaf_cli_print_match;
+
+	olaf_stream_processor_set_result_callback(processor, result_callback);
+
+
 	//process the audio file
 	olaf_stream_processor_process(processor);
 	
@@ -192,7 +235,7 @@ void olaf_query(const Olaf_Config* config, const char* raw_audio_path, const cha
 	olaf_runner_destroy(runner);
 }
 
-void olaf_delete(const Olaf_Config* config,const char* raw_audio_path, const char* audio_identifier){
+void olaf_delete(Olaf_Config* config,const char* raw_audio_path, const char* audio_identifier){
 	//store the fingerprints in the database
 	Olaf_DB* db = olaf_db_new(config->dbFolder,true);
 	if(db == NULL){
@@ -223,7 +266,7 @@ void olaf_delete(const Olaf_Config* config,const char* raw_audio_path, const cha
 }
 
 
-void olaf_store(const Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier){
+void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier){
 	//store the fingerprints in the database
 	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
 	if(db == NULL){
@@ -256,7 +299,7 @@ void olaf_store(const Olaf_Config* config, const char* raw_audio_path, const cha
 
 int olaf_main(int argc, const char* argv[]){
 
-	const Olaf_Config* config = olaf_config_default();
+	Olaf_Config* config = olaf_config_default();
 
 	const char* command = argv[1];
 	int runner_mode = OLAF_RUNNER_MODE_QUERY; 

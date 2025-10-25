@@ -107,4 +107,5 @@
 	 */
 	void olaf_fp_matcher_destroy(Olaf_FP_Matcher * olaf_fp_matcher);
 
+
 #endif // OLAF_FP_MATCHER_H

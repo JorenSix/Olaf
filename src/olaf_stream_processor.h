@@ -61,4 +61,13 @@
      */
     void olaf_stream_processor_destroy(Olaf_Stream_Processor * olaf_stream_processor);
 
+    /**
+	 * @brief      Set the result callback function.
+	 *
+	 * @param      fp_matcher  The fp matcher
+	 * @param      callback    The callback function
+	 */
+	void olaf_stream_processor_set_result_callback(Olaf_Stream_Processor * olaf_stream_processor,Olaf_FP_Matcher_Result_Callback callback);
+
+
 #endif // OLAF_STREAM_PROCESSOR_H

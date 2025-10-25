@@ -59,7 +59,7 @@ pub fn processAudioFile(
     try olaf_cli_util_audio.convertToRaw(allocator, audio_file_with_id.path, raw_audio_path, config.target_sample_rate);
 
     switch (action) {
-        .Query => try olaf_cli_bridge.olaf_query(allocator, raw_audio_path, audio_file_with_id.identifier, config),
+        .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, audio_file_with_id.identifier, config),
         .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, config),
         .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, audio_file_with_id.identifier, config),
     }
@@ -153,8 +153,6 @@ fn processAudioFragment(
     fragment_duration: u32,
     action: ProcessAction,
 ) !void {
-    _ = index;
-    _ = total;
     debug("Processing fragment at {d}s for {d}s from {s}", .{ fragment_start, fragment_duration, audio_file_with_id.path });
 
     const raw_audio_path = try createTempRawPath(allocator);
@@ -187,7 +185,7 @@ fn processAudioFragment(
     defer allocator.free(fragment_identifier);
 
     switch (action) {
-        .Query => try olaf_cli_bridge.olaf_query(allocator, raw_audio_path, fragment_identifier, config),
+        .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, fragment_identifier, config),
         .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, fragment_identifier, config),
         .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, fragment_identifier, config),
     }

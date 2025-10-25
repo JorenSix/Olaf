@@ -27,6 +27,8 @@ struct Olaf_Stream_Processor{
 	uint32_t audio_identifier;
 	const char* orig_path;
 
+	Olaf_FP_Matcher_Result_Callback result_callback;
+
 	//Input audio samples
 	float *audio_data;
 };
@@ -40,6 +42,8 @@ Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner * runner,const cha
 	processor->audio_identifier = 0;
 	if(orig_path!=NULL)
 		processor->audio_identifier = olaf_db_string_hash(orig_path,strlen(orig_path));
+
+	processor->result_callback = olaf_fp_matcher_callback_print_result;
 
 	processor->runner = runner;
 	processor->config = runner->config;
@@ -60,6 +64,10 @@ void olaf_stream_processor_destroy(Olaf_Stream_Processor * processor){
 	free(processor);
 }
 
+void olaf_stream_processor_set_result_callback(Olaf_Stream_Processor * processor,Olaf_FP_Matcher_Result_Callback callback){
+	processor->result_callback = callback;
+}
+
 void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 	
 	int audioBlockIndex = 0;
@@ -69,7 +77,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 
 
 	if(processor->runner->mode == OLAF_RUNNER_MODE_QUERY ){
-		fp_matcher = olaf_fp_matcher_new(processor->config,processor->runner->db,olaf_fp_matcher_callback_print_result);
+		fp_matcher = olaf_fp_matcher_new(processor->config,processor->runner->db,processor->result_callback);
 	} else if(processor->runner->mode == OLAF_RUNNER_MODE_STORE || processor->runner->mode == OLAF_RUNNER_MODE_DELETE){
 		fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,processor->audio_identifier);
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT ){

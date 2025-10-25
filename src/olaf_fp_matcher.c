@@ -72,7 +72,6 @@ struct Olaf_FP_Matcher{
 
 	Olaf_FP_Matcher_Result_Callback result_callback;
 
-
 	int last_print_at;
 };
 

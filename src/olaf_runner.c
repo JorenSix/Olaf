@@ -4,7 +4,7 @@
 #include "pffft.h"
 #include "assert.h"
 
-Olaf_Runner * olaf_runner_new(int mode, const Olaf_Config * config){
+Olaf_Runner * olaf_runner_new(int mode, Olaf_Config * config){
 	Olaf_Runner *runner = (Olaf_Runner *) malloc(sizeof(Olaf_Runner));
 
 	runner->mode = mode;
