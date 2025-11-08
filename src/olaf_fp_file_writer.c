@@ -107,9 +107,9 @@ void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * file_writer){
 		char tdb_file_name[50];
 		snprintf(tdb_file_name, 50, "%u.tdb", file_writer->audio_file_identifier);
 
-		char * full_tdb_name = (char *) malloc(strlen(file_writer->config->dbFolder) +  strlen(tdb_file_name));
-		strcpy(full_tdb_name,file_writer->config->dbFolder);
-		strcat(full_tdb_name,tdb_file_name);
+		size_t total_len = strlen(file_writer->config->dbFolder) + strlen(tdb_file_name) + 1;
+		char * full_tdb_name = (char *) malloc(total_len);
+		snprintf(full_tdb_name, total_len, "%s%s", file_writer->config->dbFolder, tdb_file_name);
 
 		FILE *temp_db_file;
 		if ((temp_db_file = fopen(full_tdb_name,"w")) == NULL){

@@ -56,7 +56,7 @@ int olaf_fp_db_writer_cache_parse_csv_line(Olaf_FP_DB_Writer_Cache * db_writer_c
     while (token != NULL && column_counter < 4) {
 
     	if(column_counter == 1 && db_writer_cache->audio_file_identifier == 0){
-    		db_writer_cache->audio_filename = token;
+    		db_writer_cache->audio_filename = strdup(token);
     		db_writer_cache->audio_file_identifier = (uint64_t) olaf_db_string_hash(token,strlen(token));
     		//printf("%llu %s \n",db_writer_cache->audio_file_identifier ,token);
     	}
@@ -152,7 +152,7 @@ void olaf_fp_db_writer_cache_store( Olaf_FP_DB_Writer_Cache * db_writer_cache){
 
 void olaf_fp_db_writer_cache_destroy(Olaf_FP_DB_Writer_Cache * db_writer_cache){
 	if(db_writer_cache->audio_filename !=NULL){
-		//free(db_writer_cache->audio_filename);
+		free((void*)db_writer_cache->audio_filename);
 	}
 	//store or delete remaining hashes
 	free(db_writer_cache);

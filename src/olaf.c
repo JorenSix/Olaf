@@ -173,6 +173,7 @@ int main(int argc, const char* argv[]){
 	} else if(strcmp(command,"name_to_id") == 0){
 		//print the hash and exit
 		printf("%u\n",olaf_db_string_hash(argv[2],strlen(argv[2])));
+		olaf_config_destroy(config);
 		exit(0);
 		return 0;
 	} else if(strcmp(command,"stats") == 0){
@@ -199,7 +200,9 @@ int main(int argc, const char* argv[]){
 	}else{
 		if(argc % 2 == 1 ){
 			fprintf(stderr,"Error: You need to provide converted raw audio and the original file name, for example:\n\tolaf query audio.raw original_filename.mp3\n");
-			exit(-3);	
+			olaf_runner_destroy(runner);
+			olaf_config_destroy(config);
+			exit(-3);
 		}
 		//for each audio file
 		for(int arg_index = 2 ; arg_index + 1 < argc ; arg_index+=2){
