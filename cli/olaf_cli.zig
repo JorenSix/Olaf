@@ -15,6 +15,8 @@ const cmd_to_wav = @import("olaf_cli_commands/olaf_cli_cmd_to_wav.zig");
 const cmd_to_raw = @import("olaf_cli_commands/olaf_cli_cmd_to_raw.zig");
 const cmd_clear = @import("olaf_cli_commands/olaf_cli_cmd_clear.zig");
 const cmd_delete = @import("olaf_cli_commands/olaf_cli_cmd_delete.zig");
+const cmd_cache = @import("olaf_cli_commands/olaf_cli_cmd_cache.zig");
+const cmd_store_cached = @import("olaf_cli_commands/olaf_cli_cmd_store_cached.zig");
 
 const debug = std.log.scoped(.olaf_cli).debug;
 
@@ -94,6 +96,20 @@ const commands = [_]Command{
         .help = cmd_delete.CommandInfo.help,
         .needs_audio_files = cmd_delete.CommandInfo.needs_audio_files,
         .func = cmd_delete.execute,
+    },
+    .{
+        .name = cmd_cache.CommandInfo.name,
+        .description = cmd_cache.CommandInfo.description,
+        .help = cmd_cache.CommandInfo.help,
+        .needs_audio_files = cmd_cache.CommandInfo.needs_audio_files,
+        .func = cmd_cache.execute,
+    },
+    .{
+        .name = cmd_store_cached.CommandInfo.name,
+        .description = cmd_store_cached.CommandInfo.description,
+        .help = cmd_store_cached.CommandInfo.help,
+        .needs_audio_files = cmd_store_cached.CommandInfo.needs_audio_files,
+        .func = cmd_store_cached.execute,
     },
 };
 

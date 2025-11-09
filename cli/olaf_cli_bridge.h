@@ -23,6 +23,12 @@ void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char 
 // Delete fingerprints from the database by audio identifier
 void olaf_delete(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
 
+// Print fingerprints to stdout (for caching)
+void olaf_print(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
+
+// Get audio identifier hash from filename
+uint32_t olaf_name_to_id(const char* audio_identifier);
+
 // Check if audio files exist in the database and print metadata
 void olaf_has(Olaf_Config* config,size_t audio_identifiers_len,const char* audio_identifiers[],bool * has_audio_identifier);
 
