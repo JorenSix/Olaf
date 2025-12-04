@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+title: "Olaf: a lightweight, portable audio search system"
+abstract: "Olaf stands for Overly Lightweight Acoustic Fingerprinting and solves the problem of finding short audio fragments in large digital audio archives. The content-based audio search algorithm implemented in Olaf can identify a short audio query in a large database of thousands of hours of audio using an acoustic fingerprinting technique."
+type: software
+authors:
+  - family-names: Six
+    given-names: Joren
+    orcid: "https://orcid.org/0000-0001-7671-1907"
+    affiliation: "IPEM, Ghent University, Belgium"
+keywords:
+  - "acoustic fingerprinting"
+  - "music information retrieval"
+  - "ANSI C"
+  - "Ruby"
+  - "audio search"
+  - "digital audio archives"
+repository-code: "https://github.com/JorenSix/Olaf"
+url: "https://github.com/JorenSix/Olaf"
+date-released: "2023-03-13"
