@@ -16,9 +16,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <string.h>
 
 #include "olaf_fp_file_writer.h"
 #include "olaf_fp_extractor.h"
+#include "olaf_db.h"
 
 struct Olaf_FP_File_Writer{
 	FILE * output_file;
@@ -47,9 +49,20 @@ void olaf_fp_file_writer_write( Olaf_FP_File_Writer * file_writer , struct extra
 	}
 }
 
-void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * file_writer){
-	if(file_writer->output_file != NULL && file_writer->output_file != stdout) {
+void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * file_writer, Olaf_Resource_Meta_data * meta_data, FILE * fp_meta_file){
+
+
+	if(file_writer->output_file != NULL && file_writer->output_file !=stdout) {
 		fclose(file_writer->output_file);
 	}
+
+	fprintf(fp_meta_file, "path=%s\n", meta_data->path);
+	fprintf(fp_meta_file, "duration=%.3f\n", meta_data->duration);
+	fprintf(fp_meta_file, "fingerprints=%ld\n", meta_data->fingerprints);
+
+	if(fp_meta_file != NULL && file_writer->output_file !=stdout) {
+		fclose(fp_meta_file);
+	}
+	
 	free(file_writer);
 }

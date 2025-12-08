@@ -24,7 +24,7 @@ WORKDIR /usr/src/olaf
 COPY . .
 
 #compile and install Olaf
-RUN make && make install-su
+RUN make && make install-su && make clean
 RUN echo "Olaf compiled and installed!"
 
 #Make and switch to the audio directory

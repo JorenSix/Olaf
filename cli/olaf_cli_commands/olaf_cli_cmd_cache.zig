@@ -99,6 +99,9 @@ fn cacheAudioFile(
         return;
     } else |_| {}
 
+    const meta_file_path = try std.fmt.allocPrint(allocator, "{s}/{d}.meta", .{ cache_folder_expanded, audio_id });
+    defer allocator.free(meta_file_path);
+
     // olaf_has needs the database to check against, which we don't want to access here.
     // So this part is commented out for now.
 
@@ -129,7 +132,7 @@ fn cacheAudioFile(
     defer temp_file.close();
 
     // Call olaf_print (this will write to the file)
-    try olaf_cli_bridge.olaf_print_to_file(allocator, raw_audio_path, audio_file.identifier, config, cache_file_path);
+    try olaf_cli_bridge.olaf_print_to_file(allocator, raw_audio_path, audio_file.identifier, config, cache_file_path, meta_file_path);
 
     // Get absolute path for audio f
     print("{d}/{d}, {s}, {s}\n", .{ index + 1, total, audio_file.path, cache_file_path });

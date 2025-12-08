@@ -61,7 +61,8 @@
 		float *fft_out;
 
 		//Cache file for printing fingerprints to if in PRINT or CACHE mode
-		FILE * output_cache_file;
+		FILE * fp_cache_file;
+		FILE * fp_meta_file;
 	};
 
 	/**
@@ -73,7 +74,7 @@
 	 *
 	 * @return     A new runner struct state of the runner
 	 */
-	Olaf_Runner * olaf_runner_new(int mode, Olaf_Config * config, FILE * output_cache_file);
+	Olaf_Runner * olaf_runner_new(int mode, Olaf_Config * config, FILE * fp_cache_file, FILE * fp_meta_file);
 
 	/**
 	 * @brief      Delete the resources related to the runner.

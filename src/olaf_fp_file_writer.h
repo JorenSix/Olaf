@@ -28,6 +28,7 @@
 	#include <stdint.h>
 
 	#include "olaf_fp_extractor.h"
+	#include "olaf_resource_meta_data.h"
 	
 	/**
 	 * @struct Olaf_FP_File_Writer
@@ -66,8 +67,8 @@
 	 * @brief      Close the file and free up memory.
 	 *
 	 * @param      olaf_fp_file_writer  The olaf fp file writer state info.
+	 * @param      meta_data           The meta data related to the audio file.
 	 */
-	void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * olaf_fp_file_writer);
+	void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * olaf_fp_file_writer, Olaf_Resource_Meta_data * meta_data, FILE * fp_meta_file);
 
 #endif //OLAF_FP_FILE_WRITER_H
-	

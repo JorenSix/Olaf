@@ -64,7 +64,8 @@ To install ffmpeg and ruby on a Debian like system: `apt-get install ffmpeg ruby
 To compile the version with a key value store for traditional computers use the following. By default the makefile uses `gcc` set to the C11 standard. Other compilers compliant with the C11 standard work equally well. Make sure `gcc` is installed correctly or modify the Makefile for your compiler of choice. Compilation and installation:
 
 ```bash
-#sudo apt-get install ffmpeg ruby
+#sudo apt-get install ffmpeg
+
 git clone https://github.com/JorenSix/Olaf
 cd Olaf
 make

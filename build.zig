@@ -10,7 +10,7 @@ pub fn build(b: *std.Build) void {
 
     if (target.result.cpu.arch == .wasm32) {
         const lib = b.addExecutable(.{
-            .name = "olaf_c",
+            .name = "olaf_core",
             .root_module = b.createModule(.{
                 .target = target,
                 .optimize = optimize,
@@ -22,10 +22,10 @@ pub fn build(b: *std.Build) void {
         b.installArtifact(lib);
     } else {
 
-        // if only build core c library olaf_c for linking from other languages
+        // if only build core c library olaf_core for linking from other languages
         if (build_core) {
             const exe = b.addExecutable(.{
-                .name = "olaf_c",
+                .name = "olaf_core",
                 .root_module = b.createModule(.{
                     .target = target,
                     .optimize = optimize,

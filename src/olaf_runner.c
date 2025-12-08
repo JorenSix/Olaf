@@ -4,12 +4,13 @@
 #include "pffft.h"
 #include "assert.h"
 
-Olaf_Runner * olaf_runner_new(int mode, Olaf_Config * config, FILE * output_cache_file){
+Olaf_Runner * olaf_runner_new(int mode, Olaf_Config * config, FILE * fp_cache_file, FILE * fp_meta_file){
 	Olaf_Runner *runner = (Olaf_Runner *) malloc(sizeof(Olaf_Runner));
 
 	runner->mode = mode;
 	runner->config =  config;
-	runner->output_cache_file = output_cache_file;
+	runner->fp_cache_file = fp_cache_file;
+	runner->fp_meta_file = fp_meta_file;
 	
 	//The raw format and size of float should be 32 bits
 	assert(runner->config->bytesPerAudioSample == sizeof(float));

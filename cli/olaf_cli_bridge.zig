@@ -236,7 +236,14 @@ pub fn olaf_print(allocator: std.mem.Allocator, raw_audio_path: []const u8, audi
     olaf.olaf_print(c_config, c_raw_audio_path, c_audio_identifier);
 }
 
-pub fn olaf_print_to_file(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config, output_file_path: []const u8) !void {
+pub fn olaf_print_to_file(
+    allocator: std.mem.Allocator,
+    raw_audio_path: []const u8,
+    audio_identifier: []const u8,
+    config: *const olaf_cli_config.Config,
+    fp_cache_file: []const u8,
+    fp_meta_file: []const u8,
+) !void {
     const c_config = olaf.olaf_default_config();
     try copy_to_c_config(config, c_config);
 
@@ -262,15 +269,21 @@ pub fn olaf_print_to_file(allocator: std.mem.Allocator, raw_audio_path: []const 
     const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
     defer allocator.free(c_audio_identifier);
 
-    std.debug.print("Opening FILE* for output file path: {s}\n", .{output_file_path});
+    std.debug.print("Opening FILE* for output file path: {s}\n", .{fp_cache_file});
 
-    const c_output_path = try allocator.dupeZ(u8, output_file_path);
-    defer allocator.free(c_output_path);
+    const c_cache_file = try allocator.dupeZ(u8, fp_cache_file);
+    defer allocator.free(c_cache_file);
 
-    const c_file = olaf.fopen(c_output_path, "w");
-    if (c_file == null) return error.FdopenFailed;
+    const c_cache_fp = olaf.fopen(c_cache_file, "w");
+    if (c_cache_fp == null) return error.FdopenFailed;
 
-    olaf.olaf_print_to_file(c_config, c_raw_audio_path, c_audio_identifier, c_file);
+    const c_meta_file = try allocator.dupeZ(u8, fp_meta_file);
+    defer allocator.free(c_meta_file);
+
+    const c_meta_fp = olaf.fopen(c_meta_file, "w");
+    if (c_meta_fp == null) return error.FdopenFailed;
+
+    olaf.olaf_print_to_file(c_config, c_raw_audio_path, c_audio_identifier, c_cache_fp, c_meta_fp);
 }
 
 pub fn olaf_name_to_id(allocator: std.mem.Allocator, audio_identifier: []const u8) !u32 {

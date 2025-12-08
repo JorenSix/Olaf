@@ -96,7 +96,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		olaf_fp_file_writer_write_header(fp_file_writer);
 	} else if(processor->runner->mode == OLAF_RUNNER_MODE_CACHE ){
 		//create a cache file writer
-		fp_file_writer = olaf_fp_file_writer_new(processor->runner->output_cache_file);
+		fp_file_writer = olaf_fp_file_writer_new(processor->runner->fp_cache_file);
 		olaf_fp_file_writer_write_header(fp_file_writer);
 	}
 
@@ -192,6 +192,15 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		olaf_db_delete_meta_data(processor->runner->db,&processor->audio_identifier);
 	} else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT){
 		
+		Olaf_Resource_Meta_data meta_data;
+		meta_data.duration = (float) audioDuration;
+		if(processor->orig_path == NULL){
+			fprintf(stderr,"Original path is NULL, please add the parameter");
+		}else{
+			strcpy(meta_data.path,processor->orig_path);
+		}
+		meta_data.fingerprints = olaf_fp_extractor_total(processor->fp_extractor);
+		olaf_fp_file_writer_destroy(fp_file_writer,&meta_data,processor->runner->fp_meta_file);
 	}
 
 	//for timing statistics
@@ -206,6 +215,10 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		verb = "Matched";
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_DELETE){
 		verb = "Deleted";
+	}else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT){
+		verb = "Printed";
+	}else if(processor->runner->mode == OLAF_RUNNER_MODE_CACHE){
+		verb = "Cached";
 	}
 	double fingerprintspersecond = olaf_fp_extractor_total(processor->fp_extractor) / audioDuration;
     fprintf(stderr,"%s %lu fp's from %.1fs (%.0f fp/s) in %.3fs (%.0f times realtime)\n",verb,olaf_fp_extractor_total(processor->fp_extractor), audioDuration,fingerprintspersecond,cpu_time_used,ratio);
