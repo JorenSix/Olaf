@@ -23,6 +23,9 @@ void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char 
 // Delete fingerprints from the database by audio identifier
 void olaf_delete(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
 
+// Print fingerprints to a specified file
+void olaf_print_to_file(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier,FILE * output_file);
+
 // Print fingerprints to stdout (for caching)
 void olaf_print(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
 

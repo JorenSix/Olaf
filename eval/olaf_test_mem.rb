@@ -89,4 +89,5 @@ ref_matched = File.basename(first_match.ref_path, File.extname(first_match.ref_p
 assert("Matched file #{ref_matched} should be the reference file #{ref_identifier}") { ref_matched == ref_identifier || ref_matched.to_i.to_s == ref_identifier }
 assert("Match time in ref #{first_match.ref_start} should be close to query time #{first_match.query_start}") { (first_match.ref_start - first_match.query_start).abs < 2.0 }
 
+system("make clean")
 assert("Reached end of tests!") { true}

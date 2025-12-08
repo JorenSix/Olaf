@@ -1,12 +1,15 @@
 const std = @import("std");
 const process = std.process;
 const debug = std.log.scoped(.olaf_cli_bridge).debug;
+const File = std.fs.File;
 
 const olaf_cli_config = @import("olaf_cli_config.zig");
 
 const olaf = @cImport({
     @cInclude("string.h");
     @cInclude("stdlib.h");
+    @cInclude("stdio.h"); // Add this for fdopen
+
     @cInclude("olaf_cli_bridge.h");
     @cInclude("olaf_db.h");
     @cInclude("olaf_fp_db_writer_cache.h");
@@ -231,6 +234,43 @@ pub fn olaf_print(allocator: std.mem.Allocator, raw_audio_path: []const u8, audi
     defer allocator.free(c_audio_identifier);
 
     olaf.olaf_print(c_config, c_raw_audio_path, c_audio_identifier);
+}
+
+pub fn olaf_print_to_file(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config, output_file_path: []const u8) !void {
+    const c_config = olaf.olaf_default_config();
+    try copy_to_c_config(config, c_config);
+
+    // Path configuration - Replace C-allocated dbFolder with Zig-allocated one
+    // Free the original dbFolder allocated by olaf_default_config
+    if (c_config.*.dbFolder) |original_db_folder| {
+        olaf.free(original_db_folder);
+    }
+
+    // Allocate with Zig allocator and store slice for later cleanup
+    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
+    c_config.*.dbFolder = c_db_folder.ptr;
+
+    defer {
+        // Manual cleanup: free dbFolder (with Zig allocator) then config (with C allocator)
+        allocator.free(c_db_folder);
+        olaf.free(c_config);
+    }
+
+    const c_raw_audio_path = try allocator.dupeZ(u8, raw_audio_path);
+    defer allocator.free(c_raw_audio_path);
+
+    const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
+    defer allocator.free(c_audio_identifier);
+
+    std.debug.print("Opening FILE* for output file path: {s}\n", .{output_file_path});
+
+    const c_output_path = try allocator.dupeZ(u8, output_file_path);
+    defer allocator.free(c_output_path);
+
+    const c_file = olaf.fopen(c_output_path, "w");
+    if (c_file == null) return error.FdopenFailed;
+
+    olaf.olaf_print_to_file(c_config, c_raw_audio_path, c_audio_identifier, c_file);
 }
 
 pub fn olaf_name_to_id(allocator: std.mem.Allocator, audio_identifier: []const u8) !u32 {

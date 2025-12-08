@@ -32,6 +32,9 @@
 	#define OLAF_RUNNER_MODE_STORE  434
 	#define OLAF_RUNNER_MODE_DELETE 653
 	#define OLAF_RUNNER_MODE_PRINT  9043
+	#define OLAF_RUNNER_MODE_CACHE  2342
+	
+
 	
 	/**
 	 * @struct Olaf_Runner
@@ -56,16 +59,21 @@
 		//In and output fft data
 		float *fft_in;
 		float *fft_out;
+
+		//Cache file for printing fingerprints to if in PRINT or CACHE mode
+		FILE * output_cache_file;
 	};
 
 	/**
 	 * @brief      Create a new runner
 	 *
 	 * @param[in]  mode  The mode
+	 * @param[in]  config  The configuration
+	 * @param[in]  output_cache_file  The output cache file
 	 *
-	 * @return     The state of the runner
+	 * @return     A new runner struct state of the runner
 	 */
-	Olaf_Runner * olaf_runner_new(int mode, Olaf_Config * config);
+	Olaf_Runner * olaf_runner_new(int mode, Olaf_Config * config, FILE * output_cache_file);
 
 	/**
 	 * @brief      Delete the resources related to the runner.

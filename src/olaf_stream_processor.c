@@ -80,6 +80,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 
 	Olaf_FP_DB_Writer *fp_db_writer = NULL;
 	Olaf_FP_Matcher *fp_matcher = NULL;
+	Olaf_FP_File_Writer *fp_file_writer = NULL;
 
 
 	if(processor->runner->mode == OLAF_RUNNER_MODE_QUERY ){
@@ -91,11 +92,12 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 	} else if(processor->runner->mode == OLAF_RUNNER_MODE_STORE || processor->runner->mode == OLAF_RUNNER_MODE_DELETE){
 		fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,processor->audio_identifier);
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT ){
-		fp_db_writer = NULL;
-		printf("fp_hash, ");
-		printf("t1, f1, m1, ");
-		printf("t2, f2, m2, ");
-		printf("t3, f3, m3\n");
+		fp_file_writer = olaf_fp_file_writer_new(stdout);
+		olaf_fp_file_writer_write_header(fp_file_writer);
+	} else if(processor->runner->mode == OLAF_RUNNER_MODE_CACHE ){
+		//create a cache file writer
+		fp_file_writer = olaf_fp_file_writer_new(processor->runner->output_cache_file);
+		olaf_fp_file_writer_write_header(fp_file_writer);
 	}
 
 	struct extracted_event_points * eventPoints = NULL;
@@ -142,14 +144,8 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 				olaf_fp_db_writer_store(fp_db_writer,fingerprints);
 			} else if(processor->runner->mode == OLAF_RUNNER_MODE_DELETE){
 				olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
-			} else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT){
-				for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
-					struct fingerprint f = fingerprints->fingerprints[i];
-					printf("%" PRIu64 ", ", olaf_fp_extractor_hash(f));
-					printf("%d, %d, %.6f, ", f.timeIndex1,f.frequencyBin1,f.magnitude1);
-					printf("%d, %d, %.6f, ", f.timeIndex2,f.frequencyBin2,f.magnitude2);
-					printf("%d, %d, %.6f\n", f.timeIndex3,f.frequencyBin3,f.magnitude3);
-				}
+			} else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT || processor->runner->mode == OLAF_RUNNER_MODE_CACHE){
+				olaf_fp_file_writer_write(fp_file_writer,fingerprints);
 			}
 
 			//handled all fingerprints set index back to zero
@@ -195,13 +191,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		olaf_fp_db_writer_destroy(fp_db_writer,false);
 		olaf_db_delete_meta_data(processor->runner->db,&processor->audio_identifier);
 	} else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT){
-		for(size_t i = 0 ; i < fingerprints->fingerprintIndex ; i++ ){
-			struct fingerprint f = fingerprints->fingerprints[i];
-			printf("%"PRIu64 ", ", olaf_fp_extractor_hash(f));
-			printf("%d, %d, %.6f, ", f.timeIndex1,f.frequencyBin1,f.magnitude1);
-			printf("%d, %d, %.6f, ", f.timeIndex2,f.frequencyBin2,f.magnitude2);
-			printf("%d, %d, %.6f\n", f.timeIndex3,f.frequencyBin3,f.magnitude3);
-		}
+		
 	}
 
 	//for timing statistics

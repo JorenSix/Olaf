@@ -217,7 +217,7 @@ void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char 
 	olaf_db_destroy(db);
 
 	//create a new runner
-	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_QUERY, config);
+	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_QUERY, config, NULL);
 	
 	//create a new stream processor
 	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
@@ -255,9 +255,8 @@ void olaf_delete(Olaf_Config* config,const char* raw_audio_path, const char* aud
 	//close the database
 	olaf_db_destroy(db);
 
-
 	//create a new runner
-	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_DELETE, config);
+	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_DELETE, config, NULL);
 
 	//create a new stream processor
 	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
@@ -273,11 +272,14 @@ void olaf_delete(Olaf_Config* config,const char* raw_audio_path, const char* aud
 }
 
 void olaf_print(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier){
+	olaf_print_to_file(config, raw_audio_path, audio_identifier,stdout);
+}
+
+void olaf_print_to_file(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier,FILE * output_file){
 	//print fingerprints to stdout (no database needed for PRINT mode)
 
 	//create a new runner in PRINT mode
-	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_PRINT, config);
-
+	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_CACHE, config, output_file);
 	//create a new stream processor
 	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
 
@@ -311,7 +313,7 @@ void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* ori
 	
 	
 	//create a new runner
-	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_STORE, config);
+	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_STORE, config, NULL);
 	
 	//create a new stream processor
 	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,orig_audio_path);
@@ -356,7 +358,7 @@ int olaf_main(int argc, const char* argv[]){
 		fprintf(stderr,"%s Unknown command: \n",command);
 	}
 
-	Olaf_Runner * runner = olaf_runner_new(runner_mode,config);
+	Olaf_Runner * runner = olaf_runner_new(runner_mode,config, NULL);
 
 	if(runner_mode == OLAF_RUNNER_MODE_QUERY && argc == 2){
 		//read audio samples from standard input

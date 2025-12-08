@@ -3,6 +3,10 @@ const Thread = std.Thread;
 const Mutex = Thread.Mutex;
 const WaitGroup = Thread.WaitGroup;
 
+const c = @cImport({
+    @cInclude("stdio.h");
+});
+
 const olaf_cli_config = @import("../olaf_cli_config.zig");
 const olaf_cli_util = @import("../olaf_cli_util.zig");
 const olaf_cli_util_audio = @import("../olaf_cli_util_audio.zig");
@@ -95,16 +99,19 @@ fn cacheAudioFile(
         return;
     } else |_| {}
 
-    // Check if already indexed (if configured to skip duplicates)
-    if (config.skip_duplicates) {
-        const has_results = try olaf_cli_bridge.olaf_has(allocator, &[_][]const u8{audio_file.identifier}, config);
-        defer allocator.free(has_results);
+    // olaf_has needs the database to check against, which we don't want to access here.
+    // So this part is commented out for now.
 
-        if (has_results[0]) {
-            print("{d}/{d}, {s}, SKIPPED: already indexed audio file\n", .{ index + 1, total, audio_file.path });
-            return;
-        }
-    }
+    // Check if already indexed (if configured to skip duplicates)
+    // if (config.skip_duplicates) {
+    //     const has_results = try olaf_cli_bridge.olaf_has(allocator, &[_][]const u8{audio_file.identifier}, config);
+    //     defer allocator.free(has_results);
+
+    //     if (has_results[0]) {
+    //         print("{d}/{d}, {s}, SKIPPED: already indexed audio file\n", .{ index + 1, total, audio_file.path });
+    //         return;
+    //     }
+    // }
 
     // Convert to raw audio
     const raw_audio_path = try createTempRawPath(allocator);
@@ -118,53 +125,14 @@ fn cacheAudioFile(
     defer allocator.free(temp_output_path);
     defer fs.cwd().deleteFile(temp_output_path) catch {};
 
-    // Redirect stdout to temp file and call olaf_print
-    {
-        const temp_file = try fs.cwd().createFile(temp_output_path, .{});
-        defer temp_file.close();
+    const temp_file = try fs.cwd().createFile(temp_output_path, .{});
+    defer temp_file.close();
 
-        // Save original stdout
-        const original_stdout = std.c.dup(std.c.STDOUT_FILENO);
-        defer _ = std.c.close(original_stdout);
+    // Call olaf_print (this will write to the file)
+    try olaf_cli_bridge.olaf_print_to_file(allocator, raw_audio_path, audio_file.identifier, config, cache_file_path);
 
-        // Redirect stdout to temp file
-        _ = std.c.dup2(temp_file.handle, std.c.STDOUT_FILENO);
-
-        // Call olaf_print (this will write to the redirected stdout)
-        try olaf_cli_bridge.olaf_print(allocator, raw_audio_path, audio_file.identifier, config);
-
-        // Restore stdout
-        _ = std.c.dup2(original_stdout, std.c.STDOUT_FILENO);
-    }
-
-    // Read temp file and write to cache file with proper format
-    const temp_content = try fs.cwd().readFileAlloc(allocator, temp_output_path, 100 * 1024 * 1024); // 100MB max
-    defer allocator.free(temp_content);
-
-    const cache_file = try fs.cwd().createFile(cache_file_path, .{});
-    defer cache_file.close();
-
-    var writer_buffer: [4096]u8 = undefined;
-    var cache_writer = cache_file.writer(&writer_buffer);
-    const writer = &cache_writer.interface;
-
-    // Get absolute path for audio file
-    const abs_path = try fs.cwd().realpathAlloc(allocator, audio_file.path);
-    defer allocator.free(abs_path);
-
-    // Parse output and write to cache file with proper format
-    var fp_counter: usize = 0;
-    var lines = std.mem.tokenizeScalar(u8, temp_content, '\n');
-    while (lines.next()) |line| {
-        if (line.len > 0) {
-            // Write in format: index/total,full_path,fingerprint_data
-            _ = try writer.print("{d}/{d},{s},{s}\n", .{ index + 1, total, abs_path, line });
-            _ = try writer.flush();
-            fp_counter += 1;
-        }
-    }
-
-    print("{d}/{d}, {s}, {s}, {d} fingerprints\n", .{ index + 1, total, audio_file.path, cache_file_path, fp_counter });
+    // Get absolute path for audio f
+    print("{d}/{d}, {s}, {s}\n", .{ index + 1, total, audio_file.path, cache_file_path });
 }
 
 fn cacheAudioFileThreaded(task: CacheTask) void {
