@@ -34,14 +34,24 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         const db_size = util.folderSize(db_folder) catch 0.0;
         _ = try stdout.print("Proceed with deleting the olaf db ({d:.0} MB {s})? (yes/no)\n", .{ db_size, db_folder });
         _ = try stdout.flush();
-
+        var stdin = std.fs.File.stdin();
         var stdin_buffer: [4096]u8 = undefined;
-        var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+        var stdin_reader = stdin.reader(&stdin_buffer);
+        const reader: *std.Io.Reader = &stdin_reader.interface; // ← Access the interface!
 
-        var buffer: [100]u8 = undefined;
-        const n = try stdin_reader.read(&buffer);
+        const line = reader.takeDelimiterExclusive('\n') catch |err| switch (err) {
+            error.EndOfStream => {
+                _ = try stdout.print("Nothing deleted\n", .{});
+                _ = try stdout.flush();
+                return;
+            },
+            else => return err,
+        };
+
+        // Use data here
+        const n = line.len;
         if (n > 0) {
-            const trimmed_db = std.mem.trim(u8, buffer[0..n], " \t\r\n");
+            const trimmed_db = std.mem.trim(u8, line, " \t\r\n");
 
             if (std.mem.eql(u8, trimmed_db, "yes")) {
                 delete_db = true;
@@ -56,9 +66,18 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         _ = try stdout.print("Proceed with deleting the olaf cache ({d:.0} MB {s})? (yes/no)\n", .{ cache_size, cache_folder });
         _ = try stdout.flush();
 
-        const n2 = try stdin_reader.read(&buffer);
+        const line2 = reader.takeDelimiterExclusive('\n') catch |err| switch (err) {
+            error.EndOfStream => {
+                _ = try stdout.print("Nothing deleted\n", .{});
+                _ = try stdout.flush();
+                return;
+            },
+            else => return err,
+        };
+        // Use data here
+        const n2 = line2.len;
         if (n2 > 0) {
-            const trimmed_cache = std.mem.trim(u8, buffer[0..n2], " \t\r\n");
+            const trimmed_cache = std.mem.trim(u8, line2, " \t\r\n");
 
             if (std.mem.eql(u8, trimmed_cache, "yes")) {
                 delete_cache = true;
@@ -68,6 +87,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             }
         }
     }
+
     if (delete_db) {
         _ = try stdout.print("Clear the database folder.\n", .{});
         _ = try stdout.flush();
