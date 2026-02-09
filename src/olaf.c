@@ -187,7 +187,7 @@ int main(int argc, const char* argv[]){
 		olaf_print_help("Unknown command\n");
 	}
 
-	Olaf_Runner * runner = olaf_runner_new(runner_mode, config, NULL);
+	Olaf_Runner * runner = olaf_runner_new(runner_mode, config, NULL, NULL);
 
 	if(runner_mode == OLAF_RUNNER_MODE_QUERY && argc == 2){
 		//read audio samples from standard input
