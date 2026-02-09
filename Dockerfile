@@ -1,27 +1,39 @@
 #Use Alpine linux as a base, a small distro
 #The version and architecture is not that relevant
 #The dependencies should be present
-FROM alpine:latest
+FROM alpine:latest as builder
 
 #update the package index
 RUN apk update
 
-#Install dependencies:
-# - ruby to run the Olaf runner script
-# - ffmpeg to convert audio
-# - make, gcc and musl-dev to compile Olaf
-#
-# The version of each dependency is not that critical
-# The interfaces used should be rather stable over time
-RUN apk add ruby ffmpeg gcc make musl-dev
+RUN apk add zig 
 
-#Create a temporary directory for the source files
-#and switch to it
 RUN mkdir -p /usr/src/olaf
 WORKDIR /usr/src/olaf
 
-#copy the source files
+RUN zig build-exe src/olaf.zig -O ReleaseSafe --library c --library m --out-dir .
+
 COPY . .
+
+
+FROM alpine:latest as runner
+
+RUN mkdir -p /usr/src/olaf
+WORKDIR /usr/src/olaf
+COPY --from=builder /usr/src/olaf /usr/src/olaf
+
+#Install dependencies:
+# - ffmpeg to convert audio
+# The version of each dependency is not that critical
+# The interfaces used should be rather stable over time
+RUN apk add ffmpeg 
+
+#Create a temporary directory for the source files
+#and switch to it
+
+
+#copy the source files
+
 
 #compile and install Olaf
 RUN make && make install-su && make clean
