@@ -87,7 +87,7 @@ The CLI is implemented in Zig (`cli/olaf_cli.zig`) and wraps the C core via `ola
 # Main test suite (requires Ruby, ffmpeg)
 ruby eval/olaf_functional_tests.rb
 
-# Test Zig CLI wrapper
+# Test Zig CLI wrapper (requires ffmpeg)
 ruby eval/olaf_functional_test_zig_wrapper.rb
 ```
 
