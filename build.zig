@@ -70,6 +70,30 @@ pub fn build(b: *std.Build) void {
         }
     }
 
+    // Test step
+    const test_step = b.step("test", "Run Olaf tests");
+
+    if (!build_core) {
+        // Create test executable
+        const tests = b.addTest(.{
+            .name = "olaf-tests",
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .root_source_file = b.path("tests/olaf_tests.zig"),
+            }),
+        });
+
+        tests.addIncludePath(b.path("cli"));
+        tests.addIncludePath(b.path("src"));
+        addCoreSources(tests, b, &cflags, true, false, false);
+        tests.linkLibC();
+
+        const run_tests = b.addRunArtifact(tests);
+        run_tests.setCwd(b.path(".")); // Set working directory to project root
+        test_step.dependOn(&run_tests.step);
+    }
+
     // install step
     // Custom install step to system location
     const install_system_step = b.step("install-system", "Install Olaf to standard system location with config files");
