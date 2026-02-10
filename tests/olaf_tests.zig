@@ -2,6 +2,7 @@ const std = @import("std");
 const testing = std.testing;
 const fs = std.fs;
 const process = std.process;
+const dataset = @import("dataset_download.zig");
 
 // C imports for Olaf core
 const c = @cImport({
@@ -73,7 +74,7 @@ test "olaf_reader: read raw audio file" {
 
     // Check if test file exists
     fs.cwd().access(audio_file_name, .{}) catch |err| {
-        std.debug.print("\nSkipping test: {s} not found ({})\n", .{audio_file_name, err});
+        std.debug.print("\nSkipping test: {s} not found ({})\n", .{ audio_file_name, err });
         return error.SkipZigTest;
     };
 
@@ -103,6 +104,14 @@ test "olaf_reader: read raw audio file" {
 }
 
 // ============================================================================
+// Dataset Download - Ensures test audio files are available
+// ============================================================================
+
+test "dataset: ensure reference and query files are downloaded" {
+    try dataset.ensureDataset(testing.allocator, .ref_and_queries);
+}
+
+// ============================================================================
 // Functional Tests - Testing CLI Commands
 // ============================================================================
 
@@ -122,7 +131,7 @@ fn createTestDbDir(allocator: std.mem.Allocator) ![]const u8 {
 /// Helper to clean up test database directory
 fn cleanupTestDbDir(path: []const u8) void {
     fs.cwd().deleteTree(path) catch |err| {
-        std.debug.print("Warning: Failed to cleanup test directory {s}: {}\n", .{path, err});
+        std.debug.print("Warning: Failed to cleanup test directory {s}: {}\n", .{ path, err });
     };
 }
 
