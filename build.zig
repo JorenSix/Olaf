@@ -74,24 +74,29 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run Olaf tests");
 
     if (!build_core) {
-        // Create test executable
-        const tests = b.addTest(.{
-            .name = "olaf-tests",
-            .root_module = b.createModule(.{
-                .target = target,
-                .optimize = optimize,
-                .root_source_file = b.path("tests/olaf_tests.zig"),
-            }),
-        });
+        const test_files = [_][]const u8{
+            "tests/olaf_unit_tests.zig",
+            "tests/olaf_functional_tests.zig",
+        };
 
-        tests.addIncludePath(b.path("cli"));
-        tests.addIncludePath(b.path("src"));
-        addCoreSources(tests, b, &cflags, true, false, false);
-        tests.linkLibC();
+        for (test_files) |test_file| {
+            const tests = b.addTest(.{
+                .root_module = b.createModule(.{
+                    .target = target,
+                    .optimize = optimize,
+                    .root_source_file = b.path(test_file),
+                }),
+            });
 
-        const run_tests = b.addRunArtifact(tests);
-        run_tests.setCwd(b.path(".")); // Set working directory to project root
-        test_step.dependOn(&run_tests.step);
+            tests.addIncludePath(b.path("cli"));
+            tests.addIncludePath(b.path("src"));
+            addCoreSources(tests, b, &cflags, true, false, false);
+            tests.linkLibC();
+
+            const run_tests = b.addRunArtifact(tests);
+            run_tests.setCwd(b.path("."));
+            test_step.dependOn(&run_tests.step);
+        }
     }
 
     // install step
