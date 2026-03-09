@@ -9,6 +9,15 @@ install:
 	mkdir -p $(DESTDIR)$(BINDIR)
 	install -m 755 zig-out/bin/olaf $(DESTDIR)$(BINDIR)/olaf
 
+#removes all installed files
+uninstall:
+	rm -f $(DESTDIR)$(BINDIR)/olaf
+	rm -rf ~/.olaf
+
+clean:
+	rm -rf .zig-cache zig-out
+
+
 
 #Compiles the default olaf version for use on traditional computers
 compile_core:
@@ -34,6 +43,15 @@ compile_core:
 	mkdir -p bin
 	gcc -o bin/olaf_core *.o 			-lc -lm -ffast-math -pthread
 
+#Cleans the temporary files
+clean_core:
+	-rm -f *.o
+	-rm -f bin/*
+	-rm -f wasm/js/olaf.js
+	-rm -f wasm/js/olaf.html
+	-rm -f wasm/js/olaf.wasm
+	-rm -f olaf_cffi*
+	
 
 lib:
 	gcc -c src/pffft.c 					-W -Wall -fPIC -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
@@ -137,35 +155,13 @@ web:
 		cat wasm/js/olaf.js wasm/js/olaf_processor_edit.js >> wasm/js/olaf_processor.js
 		rm  wasm/js/olaf.js
 
-#Cleans the temporary files
-clean:
-	-rm -f *.o
-	-rm -f bin/*
-	-rm -f wasm/js/olaf.js
-	-rm -f wasm/js/olaf.html
-	-rm -f wasm/js/olaf.wasm
-	-rm -f olaf_cffi*
+
 
 #Deletes the database, check your configuration for the database location
 destroy_db:
 	rm ~/.olaf/db/*
 
 
-
-#Only install the Ruby part, mainly for dev purposes
-install_r:
-	install -m 755 olaf.rb $(DESTDIR)$(BINDIR)/olaf
-
-#installs olaf as root user
-install-su:
-	mkdir -p $(DESTDIR)$(BINDIR)
-	install -m 755 bin/olaf_c $(DESTDIR)$(BINDIR)/olaf_c
-	install -m 755 olaf.rb $(DESTDIR)$(BINDIR)/olaf
-
-#removes all installed files
-uninstall:
-	rm -f $(DESTDIR)$(BINDIR)/olaf $(DESTDIR)$(BINDIR)/olaf_c
-	rm -rf ~/.olaf
 
 #Compile unit tests and run the unit tests
 #The functional tests are run via ruby, see readme

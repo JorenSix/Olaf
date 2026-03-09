@@ -15,10 +15,7 @@ jobs:
   ci:
     if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/') || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        project: [core, cli]
-    name: Olaf Zig Build ${{ matrix.project }}
+    name: Olaf Zig Build
     steps:
       - uses: actions/checkout@v4
       - uses: mlugg/setup-zig@v2
@@ -36,125 +33,46 @@ jobs:
     strategy:
       matrix:
         include:
-          # CLI builds only
-          - project: cli
-            target: x86_64-linux-gnu
+          - target: x86_64-linux-gnu
             os_name: linux-x86_64
-          - project: cli
-            target: aarch64-linux-gnu
+          - target: aarch64-linux-gnu
             os_name: linux-aarch64
-          - project: cli
-            target: x86_64-windows-gnu
+          - target: x86_64-windows-gnu
             os_name: windows-x86_64
-          - project: cli
-            target: aarch64-windows-gnu
+          - target: aarch64-windows-gnu
             os_name: windows-aarch64
-          - project: cli
-            target: x86_64-macos-none
+          - target: x86_64-macos-none
             os_name: macos-x86_64
-          - project: cli
-            target: aarch64-macos-none
+          - target: aarch64-macos-none
             os_name: macos-aarch64
-    
-    name: Build ${{ matrix.project }} for ${{ matrix.os_name }}
+
+    name: Build cli for ${{ matrix.os_name }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: mlugg/setup-zig@v2
         with:
           version: '0.15.2'
-      
+
       - name: Build for ${{ matrix.target }}
-        run: |
-          echo "Building for target: ${{ matrix.target }}"
-          
-          # Build with explicit target and optimization
-          if ! zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast; then
-            echo "Build failed for ${{ matrix.target }}"
-            echo "Available targets:"
-            zig targets | head -20
-            exit 1
-          fi
-          
-          echo "Build completed successfully"
-      
+        run: zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast
+
       - name: Package artifacts
         run: |
-          # Create release directory
           mkdir -p release
-          
-          # Determine file extension based on target
           if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-            EXT=".exe"
-            BINARY_NAME="olaf.exe"
+            cp zig-out/bin/olaf.exe release/
           else
-            EXT=""
-            BINARY_NAME="olaf"
+            cp zig-out/bin/olaf release/
           fi
-          
-          # Debug: Show build output structure
-          echo "=== Build output structure ==="
-          find . -name "zig-out" -type d -exec find {} -type f \; || echo "No zig-out directory found"
-          
-          # Find and copy built binaries
-          FOUND_FILES=false
-          if [ -d "./zig-out/bin" ]; then
-            echo "=== Found zig-out/bin directory ==="
-            ls -la "./zig-out/bin/"
-            
-            cd "./zig-out/bin"
-            for binary in *; do
-              if [ -f "$binary" ]; then
-                echo "Processing binary: $binary"
-                # Rename binary to simply 'olaf' or 'olaf.exe'
-                cp "$binary" "$GITHUB_WORKSPACE/release/$BINARY_NAME"
-                FOUND_FILES=true
-              fi
-            done
-            cd "$GITHUB_WORKSPACE"
+          cp cli/olaf_config.json cli/olaf_config.schema.json release/
+          cd release
+          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
+            zip -r "olaf_cli-${{ matrix.os_name }}.zip" *
           else
-            echo "=== No zig-out/bin directory found ==="
-            echo "Creating dummy file for testing..."
-            echo "Dummy binary for olaf_cli-${{ matrix.os_name }}" > "release/$BINARY_NAME"
-            FOUND_FILES=true
+            tar -czf "olaf_cli-${{ matrix.os_name }}.tar.gz" *
           fi
-          
-          # Copy config files
-          echo "=== Adding config files ==="
-          if [ -f "./olaf_config.json" ]; then
-            cp "./olaf_config.json" "release/"
-            echo "Added olaf_config.json"
-          else
-            echo "Warning: olaf_config.json not found in ."
-          fi
-          
-          if [ -f "./olaf_config.schema.json" ]; then
-            cp "./olaf_config.schema.json" "release/"
-            echo "Added olaf_config.schema.json"
-          else
-            echo "Warning: olaf_config.schema.json not found in ."
-          fi
-          
-          # Check if we have files to archive
-          echo "=== Files in release directory ==="
-          ls -la release/ || echo "Release directory is empty"
-          
-          # Only create archive if we have files
-          if [ "$FOUND_FILES" = true ] && [ "$(ls -A release/)" ]; then
-            cd release
-            if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-              zip -r "olaf_cli-${{ matrix.os_name }}.zip" olaf.exe olaf_config.json olaf_config.schema.json
-            else
-              tar -czf "olaf_cli-${{ matrix.os_name }}.tar.gz" olaf olaf_config.json olaf_config.schema.json
-            fi
-            cd ..
-            echo "=== Created archives ==="
-            ls -la release/*.tar.gz release/*.zip 2>/dev/null || echo "No archives created"
-          else
-            echo "=== No files to archive ==="
-            exit 1
-          fi
-      
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -173,32 +91,31 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history for changelog generation
-      
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-      
+
       - name: Prepare release assets
         run: |
+          TAG=${GITHUB_REF#refs/tags/}
           mkdir -p release-assets
           find artifacts -name "*.tar.gz" -o -name "*.zip" | while read file; do
             cp "$file" release-assets/
           done
-          
-          # Create source archives
-          git archive --format=zip --prefix=olaf-${GITHUB_REF#refs/tags/}/ HEAD > release-assets/olaf-${GITHUB_REF#refs/tags/}-source.zip
-          git archive --format=tar.gz --prefix=olaf-${GITHUB_REF#refs/tags/}/ HEAD > release-assets/olaf-${GITHUB_REF#refs/tags/}-source.tar.gz
-      
+          git archive --format=zip --prefix=olaf-${TAG}/ HEAD > release-assets/olaf-${TAG}-source.zip
+          git archive --format=tar.gz --prefix=olaf-${TAG}/ HEAD > release-assets/olaf-${TAG}-source.tar.gz
+
       - name: Generate release notes
         id: release_notes
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/}
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-          
+
           echo "# Release $TAG_NAME" > release_notes.md
           echo "" >> release_notes.md
-          
+
           if [ -n "$PREV_TAG" ]; then
             echo "## What's Changed" >> release_notes.md
             git log --oneline --no-merges $PREV_TAG..HEAD | head -10 | while read line; do
@@ -207,16 +124,16 @@ jobs:
           else
             echo "Initial release of Olaf cli." >> release_notes.md
           fi
-          
+
           echo "" >> release_notes.md
           echo "**Supported Platforms:** Linux (x64/ARM64), macOS (Intel/Apple Silicon), Windows (x64/ARM64)" >> release_notes.md
-          
+
           {
             echo 'RELEASE_NOTES<<EOF'
             cat release_notes.md
             echo 'EOF'
           } >> $GITHUB_OUTPUT
-      
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -229,4 +146,3 @@ jobs:
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          

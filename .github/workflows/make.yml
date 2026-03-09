@@ -22,8 +22,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    #
+    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v3
+    #setup ffmpeg and zig
     - uses: FedericoCarboni/setup-ffmpeg@v2
       id: setup-ffmpeg
       with:
@@ -31,7 +32,9 @@ jobs:
     - uses: mlugg/setup-zig@v2
       with:
         version: 0.15.2
+    #run the build and tests
     - run: make
     - run: make install
     - run: make mem
+    - run: make compile_core
     - run: zig build test
