@@ -28,12 +28,10 @@ jobs:
       id: setup-ffmpeg
       with:
         token: "${{ secrets.GITHUB_TOKEN }}"
-    - uses: ruby/setup-ruby@v1
+    - uses: mlugg/setup-zig@v2
       with:
-        ruby-version: '3.4'
+        version: 0.15.2
     - run: make
     - run: make install
-    - run: make clean
     - run: make mem
-    - run: ruby eval/olaf_download_dataset.rb
-    - run: ruby eval/olaf_functional_tests.rb
+    - run: zig build test
