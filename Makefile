@@ -1,6 +1,17 @@
+PREFIX ?= /usr/local
+BINDIR ?= $(PREFIX)/bin
+
+compile:
+	zig build -Doptimize=ReleaseFast
+
+#Installs olaf on its default location
+install:
+	mkdir -p $(DESTDIR)$(BINDIR)
+	install -m 755 zig-out/bin/olaf $(DESTDIR)$(BINDIR)/olaf
+
 
 #Compiles the default olaf version for use on traditional computers
-compile:
+compile_core:
 	gcc -c src/pffft.c 					-W -Wall -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
 	gcc -c src/midl.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/mdb.c 					-W -Wall -std=c11 -pedantic -O2
@@ -139,31 +150,22 @@ clean:
 destroy_db:
 	rm ~/.olaf/db/*
 
-#Installs olaf on its default location
-install:
-	mkdir -p ~/.olaf/db/
-	sudo mv bin/olaf_c /usr/local/bin/olaf_c
-	sudo chmod +x /usr/local/bin/olaf_c
-	sudo cp olaf.rb /usr/local/bin/olaf
-	sudo chmod +x /usr/local/bin/olaf
+
 
 #Only install the Ruby part, mainly for dev purposes
 install_r:
-	sudo cp olaf.rb /usr/local/bin/olaf
-	sudo chmod +x /usr/local/bin/olaf
+	install -m 755 olaf.rb $(DESTDIR)$(BINDIR)/olaf
 
 #installs olaf as root user
 install-su:
-	mkdir -p ~/.olaf/db/
-	cp bin/olaf_c /usr/local/bin/olaf_c
-	chmod +x /usr/local/bin/olaf_c
-	cp olaf.rb /usr/local/bin/olaf
-	chmod +x /usr/local/bin/olaf
+	mkdir -p $(DESTDIR)$(BINDIR)
+	install -m 755 bin/olaf_c $(DESTDIR)$(BINDIR)/olaf_c
+	install -m 755 olaf.rb $(DESTDIR)$(BINDIR)/olaf
 
 #removes all installed files
 uninstall:
-	rm -r ~/.olaf
-	sudo rm /usr/local/bin/olaf /usr/local/bin/olaf_c
+	rm -f $(DESTDIR)$(BINDIR)/olaf $(DESTDIR)$(BINDIR)/olaf_c
+	rm -rf ~/.olaf
 
 #Compile unit tests and run the unit tests
 #The functional tests are run via ruby, see readme
