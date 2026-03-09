@@ -17,52 +17,44 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        project: [core, wrapper]
+        project: [core, cli]
     name: Olaf Zig Build ${{ matrix.project }}
     steps:
       - uses: actions/checkout@v4
       - uses: mlugg/setup-zig@v2
         with:
-          version: '0.14.1'
+          version: '0.15.2'
       - name: Build default target
-        run: zig build
-        working-directory: ${{ matrix.project == 'wrapper' && 'zig_wrapper' || '.' }}
+        run: zig build -Doptimize=ReleaseFast
       - name: Build Windows target
-        run: zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSmall
-        working-directory: ${{ matrix.project == 'wrapper' && 'zig_wrapper' || '.' }}
+        run: zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseFast
 
-  # Release builds for tags (zig_wrapper only)
+  # Release builds for tags (cli only)
   release:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
-          # Wrapper builds only
-          - project: wrapper
+          # CLI builds only
+          - project: cli
             target: x86_64-linux-gnu
             os_name: linux-x86_64
-            working_dir: "zig_wrapper"
-          - project: wrapper
+          - project: cli
             target: aarch64-linux-gnu
             os_name: linux-aarch64
-            working_dir: "zig_wrapper"
-          - project: wrapper
+          - project: cli
             target: x86_64-windows-gnu
             os_name: windows-x86_64
-            working_dir: "zig_wrapper"
-          - project: wrapper
+          - project: cli
             target: aarch64-windows-gnu
             os_name: windows-aarch64
-            working_dir: "zig_wrapper"
-          - project: wrapper
+          - project: cli
             target: x86_64-macos-none
             os_name: macos-x86_64
-            working_dir: "zig_wrapper"
-          - project: wrapper
+          - project: cli
             target: aarch64-macos-none
             os_name: macos-aarch64
-            working_dir: "zig_wrapper"
     
     name: Build ${{ matrix.project }} for ${{ matrix.os_name }}
     steps:
@@ -70,15 +62,14 @@ jobs:
       
       - uses: mlugg/setup-zig@v2
         with:
-          version: '0.14.1'
+          version: '0.15.2'
       
       - name: Build for ${{ matrix.target }}
         run: |
           echo "Building for target: ${{ matrix.target }}"
-          echo "Working directory: ${{ matrix.working_dir }}"
           
           # Build with explicit target and optimization
-          if ! zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSmall; then
+          if ! zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast; then
             echo "Build failed for ${{ matrix.target }}"
             echo "Available targets:"
             zig targets | head -20
@@ -86,7 +77,6 @@ jobs:
           fi
           
           echo "Build completed successfully"
-        working-directory: ${{ matrix.working_dir }}
       
       - name: Package artifacts
         run: |
@@ -104,15 +94,15 @@ jobs:
           
           # Debug: Show build output structure
           echo "=== Build output structure ==="
-          find ${{ matrix.working_dir }} -name "zig-out" -type d -exec find {} -type f \; || echo "No zig-out directory found"
+          find . -name "zig-out" -type d -exec find {} -type f \; || echo "No zig-out directory found"
           
           # Find and copy built binaries
           FOUND_FILES=false
-          if [ -d "${{ matrix.working_dir }}/zig-out/bin" ]; then
+          if [ -d "./zig-out/bin" ]; then
             echo "=== Found zig-out/bin directory ==="
-            ls -la "${{ matrix.working_dir }}/zig-out/bin/"
+            ls -la "./zig-out/bin/"
             
-            cd "${{ matrix.working_dir }}/zig-out/bin"
+            cd "./zig-out/bin"
             for binary in *; do
               if [ -f "$binary" ]; then
                 echo "Processing binary: $binary"
@@ -131,18 +121,18 @@ jobs:
           
           # Copy config files
           echo "=== Adding config files ==="
-          if [ -f "${{ matrix.working_dir }}/olaf_config.json" ]; then
-            cp "${{ matrix.working_dir }}/olaf_config.json" "release/"
+          if [ -f "./olaf_config.json" ]; then
+            cp "./olaf_config.json" "release/"
             echo "Added olaf_config.json"
           else
-            echo "Warning: olaf_config.json not found in ${{ matrix.working_dir }}"
+            echo "Warning: olaf_config.json not found in ."
           fi
           
-          if [ -f "${{ matrix.working_dir }}/olaf_config.schema.json" ]; then
-            cp "${{ matrix.working_dir }}/olaf_config.schema.json" "release/"
+          if [ -f "./olaf_config.schema.json" ]; then
+            cp "./olaf_config.schema.json" "release/"
             echo "Added olaf_config.schema.json"
           else
-            echo "Warning: olaf_config.schema.json not found in ${{ matrix.working_dir }}"
+            echo "Warning: olaf_config.schema.json not found in ."
           fi
           
           # Check if we have files to archive
@@ -215,7 +205,7 @@ jobs:
               echo "- $line" >> release_notes.md
             done
           else
-            echo "Initial release of Olaf wrapper." >> release_notes.md
+            echo "Initial release of Olaf cli." >> release_notes.md
           fi
           
           echo "" >> release_notes.md

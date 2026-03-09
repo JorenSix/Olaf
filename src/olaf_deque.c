@@ -39,10 +39,10 @@ Olaf_Deque * olaf_deque_new(size_t max_size){
 	return olaf_deque;
 }
 
-//free memory resources and 
+//free memory resources and
 void olaf_deque_destroy(Olaf_Deque * olaf_deque){
 	queue_free(olaf_deque->queue);
-	//free(olaf_deque->values);
+	free(olaf_deque->values);
 	free(olaf_deque);
 }
 

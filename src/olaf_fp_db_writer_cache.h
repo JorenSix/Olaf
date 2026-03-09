@@ -61,6 +61,15 @@
 	void olaf_fp_db_writer_cache_store( Olaf_FP_DB_Writer_Cache * olaf_fp_db_writer_cache);
 
 	/**
+	 * @brief      Set the audio file path and identifier for the cache writer.
+	 *
+	 * @param      olaf_fp_db_writer_cache  The olaf fp database writer cache
+	 * @param[in]  audio_file_path          The path to the audio file
+	 * @param[in]  audio_file_identifier    The numeric identifier for the audio file
+	 */
+	void olaf_fp_db_writer_cache_set_audio_file_info(Olaf_FP_DB_Writer_Cache *olaf_fp_db_writer_cache, const char *audio_file_path, uint64_t audio_file_identifier);
+
+	/**
 	 * @brief      Free resources and close the CSV file.
 	 *
 	 * @param      olaf_fp_db_writer_cache  The olaf fp database writer cache

@@ -21,7 +21,8 @@ compile:
 	gcc -c src/olaf_fp_matcher.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_config.c 			-W -Wall -std=c11 -pedantic -O2
 	mkdir -p bin
-	gcc -o bin/olaf_c *.o 			-lc -lm -ffast-math -pthread
+	gcc -o bin/olaf_core *.o 			-lc -lm -ffast-math -pthread
+
 
 lib:
 	gcc -c src/pffft.c 					-W -Wall -fPIC -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
@@ -69,7 +70,7 @@ compile_gprof:
 	gcc -c src/olaf_fp_matcher.c 		-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_config.c 			-pg -W -Wall -std=c11 -pedantic -O2
 	mkdir -p bin
-	gcc -o bin/olaf_c *.o 			-pg -lc -lm -ffast-math -pthread
+	gcc -o bin/olaf_core *.o 			-pg -lc -lm -ffast-math -pthread
 
 #The memory database version is equal to the embedded version
 #pass the -D to load the correct 
@@ -185,10 +186,19 @@ test:
 docs:
 	doxygen
 
+zig_linux:
+	zig build -Dtarget=x86_64-linux-gnu -Drelease-fast
+
+zig_mac_arm:
+	zig build -Dtarget=aarch64-macos.11.0.0-none -Drelease-fast
+
+zig_mac_x86:
+	zig build -Dtarget=x86_64-macos-gnu -Drelease-fast
+
 #Compile a windows exe using Zig
 zig_win:
-	zig build -Dtarget=x86_64-windows-gnu
+	zig build -Dtarget=x86_64-windows-gnu -Drelease-fast
 
 #Compile a webassembly version, currently unused, via Zig
 zig_web:
-	zig build -Dtarget=wasm32-freestanding-musl
+	zig build -Dtarget=wasm32-freestanding-musl -Drelease-fast

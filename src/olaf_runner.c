@@ -4,17 +4,13 @@
 #include "pffft.h"
 #include "assert.h"
 
-Olaf_Runner * olaf_runner_new(int mode){
+Olaf_Runner * olaf_runner_new(int mode, Olaf_Config * config, FILE * fp_cache_file, FILE * fp_meta_file){
 	Olaf_Runner *runner = (Olaf_Runner *) malloc(sizeof(Olaf_Runner));
 
 	runner->mode = mode;
-	//Get the default configuration
-	#ifdef mem
-		fprintf(stderr,"Info: using the mem configuration\n");
-		runner->config = olaf_config_mem();
-	#else
-		runner->config = olaf_config_default();
-	#endif
+	runner->config =  config;
+	runner->fp_cache_file = fp_cache_file;
+	runner->fp_meta_file = fp_meta_file;
 	
 	//The raw format and size of float should be 32 bits
 	assert(runner->config->bytesPerAudioSample == sizeof(float));
@@ -25,20 +21,20 @@ Olaf_Runner * olaf_runner_new(int mode){
 	// We will use a size of audioblocksize 
 	// We are only interested in real part
 	runner->fftSetup = pffft_new_setup(runner->config->audioBlockSize,PFFFT_REAL);
-	
 	runner->fft_in = (float *) pffft_aligned_malloc(bytesPerAudioBlock);//fft input
 	runner->fft_out= (float *) pffft_aligned_malloc(bytesPerAudioBlock);//fft output
 
-	
-	if(runner->config->verbose){
-		fprintf(stderr, "Open DB at folder '%s'\n", runner->config->dbFolder);
-	}
-
 	//no db needed in print mode!
-	if(mode == OLAF_RUNNER_MODE_PRINT){
+	if(mode == OLAF_RUNNER_MODE_PRINT || mode == OLAF_RUNNER_MODE_CACHE){
 		runner->db = NULL;
+		if(runner->config->verbose){
+			fprintf(stderr, "No DB needed in PRINT or CACHE mode\n");
+		}
 	} else {
 		bool readonly_db = (mode == OLAF_RUNNER_MODE_QUERY);
+		if(runner->config->verbose){
+			fprintf(stderr, "Open DB at in readonly mode %d folder '%s'\n", readonly_db, runner->config->dbFolder);
+		}
 		runner->db = olaf_db_new(runner->config->dbFolder,readonly_db);
 	}
 	
@@ -60,7 +56,8 @@ void olaf_runner_destroy(Olaf_Runner * runner){
 		olaf_db_destroy(runner->db);
 	}
 
-	olaf_config_destroy(runner->config);
+	//olaf_config_destroy(runner->config);
+
 
 	free(runner);
 }

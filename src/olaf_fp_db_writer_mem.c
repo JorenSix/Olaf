@@ -95,6 +95,7 @@ void olaf_fp_db_writer_destroy(Olaf_FP_DB_Writer * db_writer, bool store){
 		printf("};\n");
 	}
 
+	free(db_writer->hashes);
 	free(db_writer);
 }
 

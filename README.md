@@ -55,16 +55,21 @@ Olaf was featured on [hackaday](https://hackaday.com/2020/08/30/olaf-lets-an-esp
 
 ## Olaf on traditional computers
 
-To use Olaf `ffmpeg` and `ruby` need to be installed on your system. While the core of Olaf is in pure c, a Ruby script provides an easy to use interface to its capabilities. The Ruby script converts audio (with `ffmpeg`), parses command line arguments and reports results in a readable format.
+To use Olaf `ffmpeg` need to be installed on your system. While the core of Olaf is in pure c, a Zig wrapper provides an easy to use interface to its capabilities. The Zig wrapper converts audio (with `ffmpeg`), parses command line arguments and reports results in a readable format.
 
-To install ffmpeg and ruby on a Debian like system: `apt-get install ffmpeg ruby`. On macOS ruby is available by default and `ffmpeg` can be installed with [homebrew](https://brew.sh/) by calling `brew install ffmpeg`.
+To install ffmpeg on a Debian like system: `apt-get install ffmpeg ruby`. On macOS `ffmpeg` can be installed with [homebrew](https://brew.sh/) by calling `brew install ffmpeg`.
 
-### Compilation and installation
+### Installation
 
-To compile the version with a key value store for traditional computers use the following. By default the makefile uses `gcc` set to the C11 standard. Other compilers compliant with the C11 standard work equally well. Make sure `gcc` is installed correctly or modify the Makefile for your compiler of choice. Compilation and installation:
+
+
+### Compilation 
+
+To compile Olaf for traditional computers, Zig is used. By default the makefile uses `gcc` set to the C11 standard. Other compilers compliant with the C11 standard work equally well. Make sure `gcc` is installed correctly or modify the Makefile for your compiler of choice. Compilation and installation:
 
 ```bash
-#sudo apt-get install ffmpeg ruby
+#sudo apt-get install ffmpeg
+
 git clone https://github.com/JorenSix/Olaf
 cd Olaf
 make

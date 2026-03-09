@@ -73,11 +73,13 @@ Olaf_DB * olaf_db_new(const char * mdb_folder,bool readonly){
 		resource_flags |= MDB_CREATE;
 	}
 
+	olaf_db->mdb_folder = mdb_folder;
+
 	//open the database with flags sets
 	e(mdb_dbi_open(olaf_db->txn, "olaf_fingerprints",fingerprint_flags , &olaf_db->dbi_fps));
 	e(mdb_dbi_open(olaf_db->txn, "olaf_resource_map",resource_flags , &olaf_db->dbi_resource_map));
 
-	olaf_db->mdb_folder = mdb_folder;
+	
 
 	return olaf_db;
 }
@@ -347,18 +349,21 @@ size_t olaf_db_size(Olaf_DB * olaf_db){
 	//This assumes the default filename for MDB
 	const char* mdb_filename = "data.mdb";
 
-	//This limits the full path to a rather random
-	//700 characters
-	char mdb_full_path_name[700];
+	size_t total_len = strlen(olaf_db->mdb_folder) + strlen(mdb_filename) + 1;
+	char *mdb_full_path_name = malloc(total_len);
+	if(!mdb_full_path_name) return 0;
 
-	strcpy(mdb_full_path_name, olaf_db->mdb_folder);
-	strcat(mdb_full_path_name,mdb_filename);
+	snprintf(mdb_full_path_name, total_len, "%s%s", olaf_db->mdb_folder, mdb_filename);
 
 	FILE * db_file = fopen(mdb_full_path_name,"rb");
+	free(mdb_full_path_name);
+
+	if(!db_file) return 0;
+
 	fseek (db_file , 0 , SEEK_END);
 	size_t fp_db_size_in_bytes = ftell(db_file);
 	fclose(db_file);
-	
+
 	return fp_db_size_in_bytes;
 }
 

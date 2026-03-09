@@ -32,4 +32,5 @@ wasm/js/olaf_processor.js
 zig-out/
 zig-cache/
 
-zig_wrapper/zig_out/
+.venv
+

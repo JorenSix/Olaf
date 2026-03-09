@@ -152,6 +152,13 @@ int main(int argc, const char* argv[]){
 		olaf_print_help("No filename given\n");
 	}
 
+	#ifdef mem
+		fprintf(stderr,"Info: using the mem configuration\n");
+		Olaf_Config* config = olaf_config_mem();
+	#else
+		Olaf_Config* config = olaf_config_default();
+	#endif
+
 	const char* command = argv[1];
 	int runner_mode = OLAF_RUNNER_MODE_QUERY; 
 	
@@ -166,6 +173,7 @@ int main(int argc, const char* argv[]){
 	} else if(strcmp(command,"name_to_id") == 0){
 		//print the hash and exit
 		printf("%u\n",olaf_db_string_hash(argv[2],strlen(argv[2])));
+		olaf_config_destroy(config);
 		exit(0);
 		return 0;
 	} else if(strcmp(command,"stats") == 0){
@@ -179,7 +187,7 @@ int main(int argc, const char* argv[]){
 		olaf_print_help("Unknown command\n");
 	}
 
-	Olaf_Runner * runner = olaf_runner_new(runner_mode);
+	Olaf_Runner * runner = olaf_runner_new(runner_mode, config, NULL, NULL);
 
 	if(runner_mode == OLAF_RUNNER_MODE_QUERY && argc == 2){
 		//read audio samples from standard input
@@ -192,7 +200,9 @@ int main(int argc, const char* argv[]){
 	}else{
 		if(argc % 2 == 1 ){
 			fprintf(stderr,"Error: You need to provide converted raw audio and the original file name, for example:\n\tolaf query audio.raw original_filename.mp3\n");
-			exit(-3);	
+			olaf_runner_destroy(runner);
+			olaf_config_destroy(config);
+			exit(-3);
 		}
 		//for each audio file
 		for(int arg_index = 2 ; arg_index + 1 < argc ; arg_index+=2){
@@ -205,6 +215,7 @@ int main(int argc, const char* argv[]){
 	}
 
 	olaf_runner_destroy(runner);
+	olaf_config_destroy(config);
 
 	return 0;
 }

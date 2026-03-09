@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "olaf_config.h"
 
@@ -26,15 +27,13 @@ Olaf_Config* olaf_config_default(void){
 	const char * homeDir = getenv("HOME");
 	if (homeDir == NULL){
 		fprintf(stderr,"No home directory found, will use './db' as db folder");
-		config->dbFolder = "db";
+		config->dbFolder = strdup("db");
 	}else{
 		//This assume a UNIX file separator
 		const char* dbDir = "/.olaf/db/";
 		size_t length = strlen(homeDir) +  strlen(dbDir) + 1;
 		char * fullDbFolderName = (char *) malloc(length);
-		strcpy(fullDbFolderName,homeDir);
-		strcat(fullDbFolderName,dbDir);
-		fullDbFolderName[length-1] = '\0';
+		snprintf(fullDbFolderName, length, "%s%s", homeDir, dbDir);
 		config->dbFolder = fullDbFolderName;
 	}	
 
@@ -109,11 +108,13 @@ Olaf_Config* olaf_config_default(void){
 Olaf_Config* olaf_config_test(void){
 	Olaf_Config* config =  olaf_config_default();
 
-	const char* dbDir = "tests/olaf_test_db";
-	char * folderName = (char *) malloc(strlen(dbDir)+1);
-	strcpy(folderName,dbDir);
+	// Free the old dbFolder allocated in olaf_config_default
+	if(config->dbFolder != NULL){
+		free((void*)config->dbFolder);
+	}
 
-	config->dbFolder = folderName;
+	const char* dbDir = "tests/olaf_test_db";
+	config->dbFolder = strdup(dbDir);
 
 	return config;
 }

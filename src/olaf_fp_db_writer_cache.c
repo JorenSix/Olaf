@@ -41,38 +41,40 @@ struct Olaf_FP_DB_Writer_Cache{
 };
 
 
-//parses
-//1/1,/Users/Downloads/Olaf/dataset/ref/11266.mp3,5113090338, 11997, 28, 13566.224609, 12024, 15, 4625.463379, 12031, 94, 13430.319336
-//1/1,/Users/Downloads/Olaf/dataset/ref/11266.mp3,281260083, 11997, 28, 13566.224609, 12024, 15, 4625.463379, 12048, 19, 6334.749023
-//1/1,/Users/Downloads/Olaf/dataset/ref/11266.mp3,1638900200, 12012, 381, 22.856133, 12032, 408, 24.121077, 12052, 382, 456.642639
+
+
+void olaf_fp_db_writer_cache_set_audio_file_info(Olaf_FP_DB_Writer_Cache *db_writer_cache, const char *audio_file_path, uint64_t audio_file_identifier){
+	if(db_writer_cache->audio_filename != NULL){
+		free((void*)db_writer_cache->audio_filename);
+	}
+	db_writer_cache->audio_filename = strdup(audio_file_path);
+	db_writer_cache->audio_file_identifier = audio_file_identifier;
+}
+
+//parses new format:
+//5113090338, 11997, 28, 13566.224609, 12024, 15, 4625.463379, 12031, 94, 13430.319336
+//281260083, 11997, 28, 13566.224609, 12024, 15, 4625.463379, 12048, 19, 6334.749023
+//1638900200, 12012, 381, 22.856133, 12032, 408, 24.121077, 12052, 382, 456.642639
 
 int olaf_fp_db_writer_cache_parse_csv_line(Olaf_FP_DB_Writer_Cache * db_writer_cache,char *line) {
-
-	//uint32_t audio_id = olaf_db_string_hash(orig_path,strlen(orig_path));
 
     int column_counter = 0;
 
     char *token = strtok(line, ",");
-    while (token != NULL && column_counter < 4) {
+    while (token != NULL && column_counter < 2) {
 
-    	if(column_counter == 1 && db_writer_cache->audio_file_identifier == 0){
-    		db_writer_cache->audio_filename = token;
-    		db_writer_cache->audio_file_identifier = (uint64_t) olaf_db_string_hash(token,strlen(token));
-    		//printf("%llu %s \n",db_writer_cache->audio_file_identifier ,token);
-    	}
-
-    	//fp_hash
-    	if(column_counter == 2){
+    	//fp_hash (column 0)
+    	if(column_counter == 0){
     		uint64_t hash = strtoull(token, NULL, 10);
     		db_writer_cache->fp_hashes[db_writer_cache->fp_index] = hash;
     	}
 
-    	//fp t1
-    	if(column_counter == 3){
-    		uint64_t fingerprint_t1 = strtoull(token, NULL, 10);
-    		db_writer_cache->last_fp_t1 = fingerprint_t1;
+    	//fp t1 (column 1)
+    	if(column_counter == 1){
+    		uint64_t fingerprint_t = strtoull(token, NULL, 10);
+    		db_writer_cache->last_fp_t1 = fingerprint_t;
 			uint64_t fingerprint_id = db_writer_cache->audio_file_identifier;
-    		db_writer_cache->fp_values[db_writer_cache->fp_index] = (fingerprint_t1<<32) + fingerprint_id; 
+    		db_writer_cache->fp_values[db_writer_cache->fp_index] = (fingerprint_t<<32) + fingerprint_id; 
     	}
 
         token = strtok(NULL, ",");
@@ -111,8 +113,6 @@ void olaf_fp_db_writer_cache_read_csv_file(Olaf_FP_DB_Writer_Cache * db_writer_c
 	db_writer_cache->fp_index = 0;    
 }
 
-
-
 Olaf_FP_DB_Writer_Cache * olaf_fp_db_writer_cache_new(Olaf_DB* db,Olaf_Config * config,const char *csv_filename){
 	Olaf_FP_DB_Writer_Cache *db_writer_cache = (Olaf_FP_DB_Writer_Cache *) malloc(sizeof(Olaf_FP_DB_Writer_Cache));
 
@@ -148,11 +148,9 @@ void olaf_fp_db_writer_cache_store( Olaf_FP_DB_Writer_Cache * db_writer_cache){
 	olaf_db_store_meta_data(db_writer_cache->db,&audio_identifier,&meta_data);
 }
 
-
-
 void olaf_fp_db_writer_cache_destroy(Olaf_FP_DB_Writer_Cache * db_writer_cache){
 	if(db_writer_cache->audio_filename !=NULL){
-		//free(db_writer_cache->audio_filename);
+		free((void*)db_writer_cache->audio_filename);
 	}
 	//store or delete remaining hashes
 	free(db_writer_cache);

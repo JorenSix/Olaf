@@ -28,6 +28,7 @@
 	#include <stdint.h>
 
 	#include "olaf_fp_extractor.h"
+	#include "olaf_resource_meta_data.h"
 	
 	/**
 	 * @struct Olaf_FP_File_Writer
@@ -45,23 +46,29 @@
 	 *
 	 * @return     State information related to file writer.
 	 */
-	Olaf_FP_File_Writer * olaf_fp_file_writer_new(Olaf_Config * olaf_config, uint32_t audio_file_identifier);
+	Olaf_FP_File_Writer * olaf_fp_file_writer_new( FILE * output_file);
 
 	/**
-	 * @brief      Store fingerprints in memory to write to a file later on.
+	 * @brief      Write the header line to the file.
+	 *
+	 * @param      olaf_fp_file_writer  The olaf fp file writer state information.
+	 */
+	void olaf_fp_file_writer_write_header(Olaf_FP_File_Writer * file_writer);
+
+	/**
+	 * @brief      Print the fingerprints to a file.
 	 *
 	 * @param      olaf_fp_file_writer  The olaf fp file writer state information.
 	 * @param      fingerprints         The fingerprint list to store.
 	 */
-	void olaf_fp_file_writer_store( Olaf_FP_File_Writer * olaf_fp_file_writer , struct extracted_fingerprints * fingerprints);
+	void olaf_fp_file_writer_write( Olaf_FP_File_Writer * olaf_fp_file_writer, struct extracted_fingerprints * fingerprints);
 
 	/**
-	 * @brief      Free resources related to the file writer. Also 
-	 * write the fingerprints to a ".tdb" file in the configured cache directory. 
+	 * @brief      Close the file and free up memory.
 	 *
 	 * @param      olaf_fp_file_writer  The olaf fp file writer state info.
+	 * @param      meta_data           The meta data related to the audio file.
 	 */
-	void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * olaf_fp_file_writer);
+	void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * olaf_fp_file_writer, Olaf_Resource_Meta_data * meta_data, FILE * fp_meta_file);
 
 #endif //OLAF_FP_FILE_WRITER_H
-	

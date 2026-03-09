@@ -1,6 +1,6 @@
 {
-  "db_folder": "/tmp/mydb",
-  "cache_folder": "/tmp/mycache",
+  "db_folder": "/tmp/olaf/mydb/",
+  "cache_folder": "/tmp/olaf/mycache/",
   "fragment_duration_in_seconds": 45,
   "allowed_audio_file_extensions": [".mp3", ".wav"],
 

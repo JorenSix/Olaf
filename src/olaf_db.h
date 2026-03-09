@@ -37,6 +37,8 @@
 #define OLAF_DB_H
 	#include <stdbool.h>
 	#include <stdint.h>
+
+	#include "olaf_resource_meta_data.h"
 	
 	/**
 	 * @struct Olaf_DB
@@ -62,22 +64,6 @@
 	 */
 	void olaf_db_destroy(Olaf_DB * db);
 
-
-	/**
-	 * @struct Olaf_Resource_Meta_data
-	 * @brief A struct containing meta data on indexed audio files
-	 * 
-	 */
-	typedef struct Olaf_Resource_Meta_data Olaf_Resource_Meta_data;
-
-	struct Olaf_Resource_Meta_data{
-		/** Duration of the audio file in seconds. */
-		float duration;
-		/** The number of fingerprints extracted from the audio file. */
-		long fingerprints;
-		/** The path of the audio file, limited to 512 characters! */
-		char path[512];
-	};
 
 	/**
 	 * Store meta-data.

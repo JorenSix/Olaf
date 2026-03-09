@@ -1,8 +1,8 @@
 const std = @import("std");
 const fs = std.fs;
 
-const debug = std.log.scoped(.olaf_wrapper).debug;
-const l_err = std.log.scoped(.olaf_wrapper).err;
+const debug = std.log.scoped(.olaf_cli).debug;
+const l_err = std.log.scoped(.olaf_cli).err;
 
 const epoch = std.time.epoch;
 

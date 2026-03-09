@@ -1,15 +1,15 @@
 const std = @import("std");
 const json = std.json;
-const olaf_wrapper_util = @import("olaf_wrapper_util.zig");
+const olaf_cli_util = @import("olaf_cli_util.zig");
 
-const debug = std.log.scoped(.olaf_wrapper).debug;
+const debug = std.log.scoped(.olaf_cli).debug;
 
 pub const Config = struct {
     // Path configurations
     db_folder: []const u8 = "~/.olaf/db/",
     cache_folder: []const u8 = "~/.olaf/cache",
 
-    // Wrapper specific configurations
+    // CLI specific configurations
     check_incoming_audio: bool = true,
     skip_duplicates: bool = true,
     fragment_duration_in_seconds: u32 = 30,
@@ -197,7 +197,7 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !
             db_folder = try allocator.dupe(u8, config.db_folder);
         }
         defer allocator.free(db_folder);
-        config.db_folder = try olaf_wrapper_util.expandPath(allocator, db_folder);
+        config.db_folder = try olaf_cli_util.expandPath(allocator, db_folder);
 
         var cache_folder: []u8 = undefined;
         if (obj.get("cache_folder")) |val| {
@@ -210,7 +210,7 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !
             cache_folder = try allocator.dupe(u8, config.cache_folder);
         }
         defer allocator.free(cache_folder);
-        config.cache_folder = try olaf_wrapper_util.expandPath(allocator, cache_folder);
+        config.cache_folder = try olaf_cli_util.expandPath(allocator, cache_folder);
 
         // Array field
         if (obj.get("allowed_audio_file_extensions")) |val| {
