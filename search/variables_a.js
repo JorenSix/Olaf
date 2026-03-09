@@ -1,5 +1,28 @@
 var searchData=
 [
-  ['path_0',['path',['../struct_olaf___resource___meta__data.html#a06f9246831bebc65cba89365de74b17e',1,'Olaf_Resource_Meta_data']]],
-  ['printresultevery_1',['printResultEvery',['../struct_olaf___config.html#a969a9165d5ad8085b7ace679e4ac7221',1,'Olaf_Config']]]
+  ['magnitude_0',['magnitude',['../structeventpoint.html#af4a12d0ee4e4700388b1a79b9b13f426',1,'eventpoint']]],
+  ['magnitude1_1',['magnitude1',['../structfingerprint.html#af9be566ac135b4b12f0bf9150ef87ef1',1,'fingerprint']]],
+  ['magnitude2_2',['magnitude2',['../structfingerprint.html#a7f32f91803ab1e62aa9468ff6079bbcb',1,'fingerprint']]],
+  ['magnitude3_3',['magnitude3',['../structfingerprint.html#ad1a07ab537f87d24e637070628e92fdb',1,'fingerprint']]],
+  ['mags_4',['mags',['../struct_olaf___e_p___extractor.html#aeb8652fc9bc0c43e1e0ec6ba8c69d74b',1,'Olaf_EP_Extractor']]],
+  ['matchcount_5',['matchCount',['../structmatch__result.html#a3b1b2b32b9aa265aeb90d687625fbeb6',1,'match_result']]],
+  ['matchidentifier_6',['matchIdentifier',['../structmatch__result.html#a1f540f33509f69ba6a903e4356abe470',1,'match_result']]],
+  ['max_5fsize_7',['max_size',['../struct_olaf___deque.html#a03affb50e2a36013baf1490168f016f8',1,'Olaf_Deque']]],
+  ['maxdbcollisions_8',['maxDBCollisions',['../struct_olaf___config.html#a394889484132a23f2c8a338ee4a8c1e0',1,'Olaf_Config']]],
+  ['maxes_9',['maxes',['../struct_olaf___e_p___extractor.html#a1293caa1ea301b0ef56c17c1e0aca468',1,'Olaf_EP_Extractor']]],
+  ['maxeventpoints_10',['maxEventPoints',['../struct_olaf___config.html#af03cd352152e2b709023cbf1eb4a3c37',1,'Olaf_Config']]],
+  ['maxeventpointsperblock_11',['maxEventPointsPerBlock',['../struct_olaf___config.html#a07ae4103b5229cd283c799dcaf962ac6',1,'Olaf_Config']]],
+  ['maxeventpointusages_12',['maxEventPointUsages',['../struct_olaf___config.html#a49035bdb0c03c23ac40564a59ae2f2cf',1,'Olaf_Config']]],
+  ['maxfingerprints_13',['maxFingerprints',['../struct_olaf___config.html#a0a57fe4cb183334f2244845b3df0843b',1,'Olaf_Config']]],
+  ['maxfreqdistance_14',['maxFreqDistance',['../struct_olaf___config.html#af6751ce77d8310e77b8bf8bff9544f55',1,'Olaf_Config']]],
+  ['maxresults_15',['maxResults',['../struct_olaf___config.html#ae60cf1c5c6b08a2b9f21caeacbe700f1',1,'Olaf_Config']]],
+  ['maxtimedistance_16',['maxTimeDistance',['../struct_olaf___config.html#a47b09a72ca00faca46c56dcccf80e25a',1,'Olaf_Config']]],
+  ['mdb_5ffolder_17',['mdb_folder',['../struct_olaf___d_b.html#a87560754868cfb87134496273cfd45b1',1,'Olaf_DB']]],
+  ['mineventpointmagnitude_18',['minEventPointMagnitude',['../struct_olaf___config.html#af2ea442d5f869e3cb9d9b370a4beaf59',1,'Olaf_Config']]],
+  ['minfreqdistance_19',['minFreqDistance',['../struct_olaf___config.html#ac0ea3411e107056cf1e9b1f14c941394',1,'Olaf_Config']]],
+  ['minfrequencybin_20',['minFrequencyBin',['../struct_olaf___config.html#aefb9971b4dd01648e04c2d852ece5cba',1,'Olaf_Config']]],
+  ['minmatchcount_21',['minMatchCount',['../struct_olaf___config.html#ac15d2531237a445f5b8a82b80c8a797d',1,'Olaf_Config']]],
+  ['minmatchtimediff_22',['minMatchTimeDiff',['../struct_olaf___config.html#aa22dadf05649f2dbcbea2b9514bbc81f',1,'Olaf_Config']]],
+  ['mintimedistance_23',['minTimeDistance',['../struct_olaf___config.html#ac482434302f3ca4f05ca94350142aa1b',1,'Olaf_Config']]],
+  ['mode_24',['mode',['../struct_olaf___runner.html#a3431950c1635d04db78471f51b170232',1,'Olaf_Runner']]]
 ];

@@ -77,36 +77,224 @@ $(function() {
   <div class="headertitle"><div class="title">Olaf_State Struct Reference</div></div>
 </div><!--header-->
 <div class="contents">
+
+<p>Holds the complete processing state for the WASM-based Olaf instance.  
+ <a href="#details">More...</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-attribs" class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Data Fields</h2></td></tr>
-<tr class="memitem:a40c82545bf57cdad7fefc3958198d88d" id="r_a40c82545bf57cdad7fefc3958198d88d"><td class="memItemLeft" align="right" valign="top"><a id="a40c82545bf57cdad7fefc3958198d88d" name="a40c82545bf57cdad7fefc3958198d88d"></a>
-float *&#160;</td><td class="memItemRight" valign="bottom"><b>audio</b></td></tr>
-<tr class="memitem:aa88d6e879d1f60cb34e1d5f5b3e79265" id="r_aa88d6e879d1f60cb34e1d5f5b3e79265"><td class="memItemLeft" align="right" valign="top"><a id="aa88d6e879d1f60cb34e1d5f5b3e79265" name="aa88d6e879d1f60cb34e1d5f5b3e79265"></a>
-size_t&#160;</td><td class="memItemRight" valign="bottom"><b>audio_block_index</b></td></tr>
-<tr class="memitem:acfb79f8e39359237f57b30b04ecef967" id="r_acfb79f8e39359237f57b30b04ecef967"><td class="memItemLeft" align="right" valign="top"><a id="acfb79f8e39359237f57b30b04ecef967" name="acfb79f8e39359237f57b30b04ecef967"></a>
-size_t&#160;</td><td class="memItemRight" valign="bottom"><b>audio_sample_index</b></td></tr>
-<tr class="memitem:a6d20826eddc82766d8e796102e45833e" id="r_a6d20826eddc82766d8e796102e45833e"><td class="memItemLeft" align="right" valign="top"><a id="a6d20826eddc82766d8e796102e45833e" name="a6d20826eddc82766d8e796102e45833e"></a>
-<a class="el" href="struct_p_f_f_f_t___setup.html">PFFFT_Setup</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>fftSetup</b></td></tr>
-<tr class="memitem:af1495ce4d883b22a95d86cf6f161c099" id="r_af1495ce4d883b22a95d86cf6f161c099"><td class="memItemLeft" align="right" valign="top"><a id="af1495ce4d883b22a95d86cf6f161c099" name="af1495ce4d883b22a95d86cf6f161c099"></a>
-float *&#160;</td><td class="memItemRight" valign="bottom"><b>fft_in</b></td></tr>
-<tr class="memitem:a913f08f4b0d574dbed17df613582b57d" id="r_a913f08f4b0d574dbed17df613582b57d"><td class="memItemLeft" align="right" valign="top"><a id="a913f08f4b0d574dbed17df613582b57d" name="a913f08f4b0d574dbed17df613582b57d"></a>
-float *&#160;</td><td class="memItemRight" valign="bottom"><b>fft_out</b></td></tr>
-<tr class="memitem:a7b7dca23f797a8178af250358268b4d3" id="r_a7b7dca23f797a8178af250358268b4d3"><td class="memItemLeft" align="right" valign="top"><a id="a7b7dca23f797a8178af250358268b4d3" name="a7b7dca23f797a8178af250358268b4d3"></a>
-<a class="el" href="struct_olaf___config.html">Olaf_Config</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>config</b></td></tr>
-<tr class="memitem:a438265c0cab2bf6ca4fe3c643ab647dd" id="r_a438265c0cab2bf6ca4fe3c643ab647dd"><td class="memItemLeft" align="right" valign="top"><a id="a438265c0cab2bf6ca4fe3c643ab647dd" name="a438265c0cab2bf6ca4fe3c643ab647dd"></a>
-<a class="el" href="struct_olaf___d_b.html">Olaf_DB</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>db</b></td></tr>
-<tr class="memitem:aff23612fb9ccdd4a3cf67727d345509b" id="r_aff23612fb9ccdd4a3cf67727d345509b"><td class="memItemLeft" align="right" valign="top"><a id="aff23612fb9ccdd4a3cf67727d345509b" name="aff23612fb9ccdd4a3cf67727d345509b"></a>
-<a class="el" href="struct_olaf___e_p___extractor.html">Olaf_EP_Extractor</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>ep_extractor</b></td></tr>
-<tr class="memitem:abfcc07b5a05c170ba68723ef5cb1ba4c" id="r_abfcc07b5a05c170ba68723ef5cb1ba4c"><td class="memItemLeft" align="right" valign="top"><a id="abfcc07b5a05c170ba68723ef5cb1ba4c" name="abfcc07b5a05c170ba68723ef5cb1ba4c"></a>
-<a class="el" href="struct_olaf___f_p___extractor.html">Olaf_FP_Extractor</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>fp_extractor</b></td></tr>
-<tr class="memitem:a8666e9db1237e3752db0674181ec88e5" id="r_a8666e9db1237e3752db0674181ec88e5"><td class="memItemLeft" align="right" valign="top"><a id="a8666e9db1237e3752db0674181ec88e5" name="a8666e9db1237e3752db0674181ec88e5"></a>
-<a class="el" href="struct_olaf___f_p___matcher.html">Olaf_FP_Matcher</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>fp_matcher</b></td></tr>
-<tr class="memitem:a68076ad3b99abe6d70c440e89efd7cb4" id="r_a68076ad3b99abe6d70c440e89efd7cb4"><td class="memItemLeft" align="right" valign="top"><a id="a68076ad3b99abe6d70c440e89efd7cb4" name="a68076ad3b99abe6d70c440e89efd7cb4"></a>
-struct <a class="el" href="structextracted__event__points.html">extracted_event_points</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>eventPoints</b></td></tr>
-<tr class="memitem:ac347890ad2debce5cd3846701c4a93cf" id="r_ac347890ad2debce5cd3846701c4a93cf"><td class="memItemLeft" align="right" valign="top"><a id="ac347890ad2debce5cd3846701c4a93cf" name="ac347890ad2debce5cd3846701c4a93cf"></a>
-struct <a class="el" href="structextracted__fingerprints.html">extracted_fingerprints</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>fingerprints</b></td></tr>
+<tr class="memitem:a40c82545bf57cdad7fefc3958198d88d" id="r_a40c82545bf57cdad7fefc3958198d88d"><td class="memItemLeft" align="right" valign="top">float *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a40c82545bf57cdad7fefc3958198d88d">audio</a></td></tr>
+<tr class="memitem:aa88d6e879d1f60cb34e1d5f5b3e79265" id="r_aa88d6e879d1f60cb34e1d5f5b3e79265"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa88d6e879d1f60cb34e1d5f5b3e79265">audio_block_index</a></td></tr>
+<tr class="memitem:acfb79f8e39359237f57b30b04ecef967" id="r_acfb79f8e39359237f57b30b04ecef967"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#acfb79f8e39359237f57b30b04ecef967">audio_sample_index</a></td></tr>
+<tr class="memitem:a6d20826eddc82766d8e796102e45833e" id="r_a6d20826eddc82766d8e796102e45833e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_p_f_f_f_t___setup.html">PFFFT_Setup</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6d20826eddc82766d8e796102e45833e">fftSetup</a></td></tr>
+<tr class="memitem:af1495ce4d883b22a95d86cf6f161c099" id="r_af1495ce4d883b22a95d86cf6f161c099"><td class="memItemLeft" align="right" valign="top">float *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af1495ce4d883b22a95d86cf6f161c099">fft_in</a></td></tr>
+<tr class="memitem:a913f08f4b0d574dbed17df613582b57d" id="r_a913f08f4b0d574dbed17df613582b57d"><td class="memItemLeft" align="right" valign="top">float *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a913f08f4b0d574dbed17df613582b57d">fft_out</a></td></tr>
+<tr class="memitem:a7b7dca23f797a8178af250358268b4d3" id="r_a7b7dca23f797a8178af250358268b4d3"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_olaf___config.html">Olaf_Config</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7b7dca23f797a8178af250358268b4d3">config</a></td></tr>
+<tr class="memitem:a438265c0cab2bf6ca4fe3c643ab647dd" id="r_a438265c0cab2bf6ca4fe3c643ab647dd"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_olaf___d_b.html">Olaf_DB</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a438265c0cab2bf6ca4fe3c643ab647dd">db</a></td></tr>
+<tr class="memitem:aff23612fb9ccdd4a3cf67727d345509b" id="r_aff23612fb9ccdd4a3cf67727d345509b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_olaf___e_p___extractor.html">Olaf_EP_Extractor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aff23612fb9ccdd4a3cf67727d345509b">ep_extractor</a></td></tr>
+<tr class="memitem:abfcc07b5a05c170ba68723ef5cb1ba4c" id="r_abfcc07b5a05c170ba68723ef5cb1ba4c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_olaf___f_p___extractor.html">Olaf_FP_Extractor</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#abfcc07b5a05c170ba68723ef5cb1ba4c">fp_extractor</a></td></tr>
+<tr class="memitem:a8666e9db1237e3752db0674181ec88e5" id="r_a8666e9db1237e3752db0674181ec88e5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_olaf___f_p___matcher.html">Olaf_FP_Matcher</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a8666e9db1237e3752db0674181ec88e5">fp_matcher</a></td></tr>
+<tr class="memitem:a68076ad3b99abe6d70c440e89efd7cb4" id="r_a68076ad3b99abe6d70c440e89efd7cb4"><td class="memItemLeft" align="right" valign="top">struct <a class="el" href="structextracted__event__points.html">extracted_event_points</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a68076ad3b99abe6d70c440e89efd7cb4">eventPoints</a></td></tr>
+<tr class="memitem:ac347890ad2debce5cd3846701c4a93cf" id="r_ac347890ad2debce5cd3846701c4a93cf"><td class="memItemLeft" align="right" valign="top">struct <a class="el" href="structextracted__fingerprints.html">extracted_fingerprints</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac347890ad2debce5cd3846701c4a93cf">fingerprints</a></td></tr>
 </table>
+<a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Holds the complete processing state for the WASM-based Olaf instance. </p>
+</div><a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Field Documentation</h2>
+<a id="a40c82545bf57cdad7fefc3958198d88d" name="a40c82545bf57cdad7fefc3958198d88d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a40c82545bf57cdad7fefc3958198d88d">&#9670;&#160;</a></span>audio</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float* Olaf_State::audio</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Buffer for incoming audio samples </p>
+
+</div>
+</div>
+<a id="aa88d6e879d1f60cb34e1d5f5b3e79265" name="aa88d6e879d1f60cb34e1d5f5b3e79265"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa88d6e879d1f60cb34e1d5f5b3e79265">&#9670;&#160;</a></span>audio_block_index</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t Olaf_State::audio_block_index</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Index of the current audio block </p>
+
+</div>
+</div>
+<a id="acfb79f8e39359237f57b30b04ecef967" name="acfb79f8e39359237f57b30b04ecef967"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acfb79f8e39359237f57b30b04ecef967">&#9670;&#160;</a></span>audio_sample_index</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t Olaf_State::audio_sample_index</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Index of the current audio sample within the block </p>
+
+</div>
+</div>
+<a id="a7b7dca23f797a8178af250358268b4d3" name="a7b7dca23f797a8178af250358268b4d3"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a7b7dca23f797a8178af250358268b4d3">&#9670;&#160;</a></span>config</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="struct_olaf___config.html">Olaf_Config</a>* Olaf_State::config</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Reference to the Olaf configuration </p>
+
+</div>
+</div>
+<a id="a438265c0cab2bf6ca4fe3c643ab647dd" name="a438265c0cab2bf6ca4fe3c643ab647dd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a438265c0cab2bf6ca4fe3c643ab647dd">&#9670;&#160;</a></span>db</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="struct_olaf___d_b.html">Olaf_DB</a>* Olaf_State::db</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Reference to the fingerprint database </p>
+
+</div>
+</div>
+<a id="aff23612fb9ccdd4a3cf67727d345509b" name="aff23612fb9ccdd4a3cf67727d345509b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aff23612fb9ccdd4a3cf67727d345509b">&#9670;&#160;</a></span>ep_extractor</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="struct_olaf___e_p___extractor.html">Olaf_EP_Extractor</a>* Olaf_State::ep_extractor</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Event point extractor instance </p>
+
+</div>
+</div>
+<a id="a68076ad3b99abe6d70c440e89efd7cb4" name="a68076ad3b99abe6d70c440e89efd7cb4"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a68076ad3b99abe6d70c440e89efd7cb4">&#9670;&#160;</a></span>eventPoints</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct <a class="el" href="structextracted__event__points.html">extracted_event_points</a>* Olaf_State::eventPoints</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Pointer to the current extracted event points </p>
+
+</div>
+</div>
+<a id="af1495ce4d883b22a95d86cf6f161c099" name="af1495ce4d883b22a95d86cf6f161c099"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af1495ce4d883b22a95d86cf6f161c099">&#9670;&#160;</a></span>fft_in</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float* Olaf_State::fft_in</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>FFT input buffer </p>
+
+</div>
+</div>
+<a id="a913f08f4b0d574dbed17df613582b57d" name="a913f08f4b0d574dbed17df613582b57d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a913f08f4b0d574dbed17df613582b57d">&#9670;&#160;</a></span>fft_out</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">float* Olaf_State::fft_out</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>FFT output buffer </p>
+
+</div>
+</div>
+<a id="a6d20826eddc82766d8e796102e45833e" name="a6d20826eddc82766d8e796102e45833e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6d20826eddc82766d8e796102e45833e">&#9670;&#160;</a></span>fftSetup</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="struct_p_f_f_f_t___setup.html">PFFFT_Setup</a>* Olaf_State::fftSetup</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>FFT configuration and twiddle factors </p>
+
+</div>
+</div>
+<a id="ac347890ad2debce5cd3846701c4a93cf" name="ac347890ad2debce5cd3846701c4a93cf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac347890ad2debce5cd3846701c4a93cf">&#9670;&#160;</a></span>fingerprints</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">struct <a class="el" href="structextracted__fingerprints.html">extracted_fingerprints</a>* Olaf_State::fingerprints</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Pointer to the current extracted fingerprints </p>
+
+</div>
+</div>
+<a id="abfcc07b5a05c170ba68723ef5cb1ba4c" name="abfcc07b5a05c170ba68723ef5cb1ba4c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#abfcc07b5a05c170ba68723ef5cb1ba4c">&#9670;&#160;</a></span>fp_extractor</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="struct_olaf___f_p___extractor.html">Olaf_FP_Extractor</a>* Olaf_State::fp_extractor</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Fingerprint extractor instance </p>
+
+</div>
+</div>
+<a id="a8666e9db1237e3752db0674181ec88e5" name="a8666e9db1237e3752db0674181ec88e5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8666e9db1237e3752db0674181ec88e5">&#9670;&#160;</a></span>fp_matcher</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="struct_olaf___f_p___matcher.html">Olaf_FP_Matcher</a>* Olaf_State::fp_matcher</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Fingerprint matcher instance </p>
+
+</div>
+</div>
 <hr/>The documentation for this struct was generated from the following file:<ul>
 <li><b>olaf_wasm.c</b></li>
 </ul>

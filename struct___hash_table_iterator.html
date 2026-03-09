@@ -82,16 +82,59 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-attribs" class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Data Fields</h2></td></tr>
-<tr class="memitem:a42de40d11405a44f9d30d3b9fda9ec04" id="r_a42de40d11405a44f9d30d3b9fda9ec04"><td class="memItemLeft" align="right" valign="top"><a id="a42de40d11405a44f9d30d3b9fda9ec04" name="a42de40d11405a44f9d30d3b9fda9ec04"></a>
-<a class="el" href="hash-table_8h.html#ad09c371a5dda2decb59db772786a842a">HashTable</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>hash_table</b></td></tr>
-<tr class="memitem:a75bbf653beb5bb40f47f12fb9f2eb0f8" id="r_a75bbf653beb5bb40f47f12fb9f2eb0f8"><td class="memItemLeft" align="right" valign="top"><a id="a75bbf653beb5bb40f47f12fb9f2eb0f8" name="a75bbf653beb5bb40f47f12fb9f2eb0f8"></a>
-<a class="el" href="hash-table_8h.html#a83d586c0e3c9cf35b34a1ff8e1cf38ca">HashTableEntry</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>next_entry</b></td></tr>
-<tr class="memitem:a3fa691df8f3d46d54f6fe1bf48ebaac5" id="r_a3fa691df8f3d46d54f6fe1bf48ebaac5"><td class="memItemLeft" align="right" valign="top"><a id="a3fa691df8f3d46d54f6fe1bf48ebaac5" name="a3fa691df8f3d46d54f6fe1bf48ebaac5"></a>
-unsigned int&#160;</td><td class="memItemRight" valign="bottom"><b>next_chain</b></td></tr>
+<tr class="memitem:a42de40d11405a44f9d30d3b9fda9ec04" id="r_a42de40d11405a44f9d30d3b9fda9ec04"><td class="memItemLeft" align="right" valign="top"><a class="el" href="hash-table_8h.html#ad09c371a5dda2decb59db772786a842a">HashTable</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a42de40d11405a44f9d30d3b9fda9ec04">hash_table</a></td></tr>
+<tr class="memitem:a75bbf653beb5bb40f47f12fb9f2eb0f8" id="r_a75bbf653beb5bb40f47f12fb9f2eb0f8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="hash-table_8h.html#a83d586c0e3c9cf35b34a1ff8e1cf38ca">HashTableEntry</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a75bbf653beb5bb40f47f12fb9f2eb0f8">next_entry</a></td></tr>
+<tr class="memitem:a3fa691df8f3d46d54f6fe1bf48ebaac5" id="r_a3fa691df8f3d46d54f6fe1bf48ebaac5"><td class="memItemLeft" align="right" valign="top">unsigned int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a3fa691df8f3d46d54f6fe1bf48ebaac5">next_chain</a></td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Definition of a <a class="el" href="hash-table_8h.html#ab25d701f1220c8a1a514ff0fbdfc0c30">HashTableIterator</a>. </p>
-</div><hr/>The documentation for this struct was generated from the following file:<ul>
+</div><a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Field Documentation</h2>
+<a id="a42de40d11405a44f9d30d3b9fda9ec04" name="a42de40d11405a44f9d30d3b9fda9ec04"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a42de40d11405a44f9d30d3b9fda9ec04">&#9670;&#160;</a></span>hash_table</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="hash-table_8h.html#ad09c371a5dda2decb59db772786a842a">HashTable</a>* _HashTableIterator::hash_table</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>The hash table being iterated. </p>
+
+</div>
+</div>
+<a id="a3fa691df8f3d46d54f6fe1bf48ebaac5" name="a3fa691df8f3d46d54f6fe1bf48ebaac5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3fa691df8f3d46d54f6fe1bf48ebaac5">&#9670;&#160;</a></span>next_chain</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unsigned int _HashTableIterator::next_chain</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Index of the next chain to iterate. </p>
+
+</div>
+</div>
+<a id="a75bbf653beb5bb40f47f12fb9f2eb0f8" name="a75bbf653beb5bb40f47f12fb9f2eb0f8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a75bbf653beb5bb40f47f12fb9f2eb0f8">&#9670;&#160;</a></span>next_entry</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="hash-table_8h.html#a83d586c0e3c9cf35b34a1ff8e1cf38ca">HashTableEntry</a>* _HashTableIterator::next_entry</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Pointer to the next entry to return. </p>
+
+</div>
+</div>
+<hr/>The documentation for this struct was generated from the following file:<ul>
 <li><a class="el" href="hash-table_8h_source.html">hash-table.h</a></li>
 </ul>
 </div><!-- contents -->

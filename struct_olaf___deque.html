@@ -85,19 +85,76 @@ $(function() {
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-attribs" class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Data Fields</h2></td></tr>
-<tr class="memitem:a03affb50e2a36013baf1490168f016f8" id="r_a03affb50e2a36013baf1490168f016f8"><td class="memItemLeft" align="right" valign="top"><a id="a03affb50e2a36013baf1490168f016f8" name="a03affb50e2a36013baf1490168f016f8"></a>
-size_t&#160;</td><td class="memItemRight" valign="bottom"><b>max_size</b></td></tr>
-<tr class="memitem:a47d43310c269f71c91fad83d9424cb53" id="r_a47d43310c269f71c91fad83d9424cb53"><td class="memItemLeft" align="right" valign="top"><a id="a47d43310c269f71c91fad83d9424cb53" name="a47d43310c269f71c91fad83d9424cb53"></a>
-size_t *&#160;</td><td class="memItemRight" valign="bottom"><b>values</b></td></tr>
-<tr class="memitem:a82251d6fd9ff3abb933fa925ddb5ee60" id="r_a82251d6fd9ff3abb933fa925ddb5ee60"><td class="memItemLeft" align="right" valign="top"><a id="a82251d6fd9ff3abb933fa925ddb5ee60" name="a82251d6fd9ff3abb933fa925ddb5ee60"></a>
-size_t&#160;</td><td class="memItemRight" valign="bottom"><b>value_index</b></td></tr>
-<tr class="memitem:a9e3c9ea9c804459ca6e0d1daa250ed91" id="r_a9e3c9ea9c804459ca6e0d1daa250ed91"><td class="memItemLeft" align="right" valign="top"><a id="a9e3c9ea9c804459ca6e0d1daa250ed91" name="a9e3c9ea9c804459ca6e0d1daa250ed91"></a>
-<a class="el" href="queue_8h.html#aaa31d02f2b2876d12bb8f83900eacce6">Queue</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>queue</b></td></tr>
+<tr class="memitem:a03affb50e2a36013baf1490168f016f8" id="r_a03affb50e2a36013baf1490168f016f8"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a03affb50e2a36013baf1490168f016f8">max_size</a></td></tr>
+<tr class="memitem:a47d43310c269f71c91fad83d9424cb53" id="r_a47d43310c269f71c91fad83d9424cb53"><td class="memItemLeft" align="right" valign="top">size_t *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a47d43310c269f71c91fad83d9424cb53">values</a></td></tr>
+<tr class="memitem:a82251d6fd9ff3abb933fa925ddb5ee60" id="r_a82251d6fd9ff3abb933fa925ddb5ee60"><td class="memItemLeft" align="right" valign="top">size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a82251d6fd9ff3abb933fa925ddb5ee60">value_index</a></td></tr>
+<tr class="memitem:a9e3c9ea9c804459ca6e0d1daa250ed91" id="r_a9e3c9ea9c804459ca6e0d1daa250ed91"><td class="memItemLeft" align="right" valign="top"><a class="el" href="queue_8h.html#aaa31d02f2b2876d12bb8f83900eacce6">Queue</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9e3c9ea9c804459ca6e0d1daa250ed91">queue</a></td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Contains state information related to the deque. </p>
-<p>The memory used by the ep extractor should be freed in the @_destroy@ method. </p>
-</div><hr/>The documentation for this struct was generated from the following file:<ul>
+<p>The memory used by the ep extractor should be freed in the olaf_deque_destroy() method. </p>
+</div><a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Field Documentation</h2>
+<a id="a03affb50e2a36013baf1490168f016f8" name="a03affb50e2a36013baf1490168f016f8"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a03affb50e2a36013baf1490168f016f8">&#9670;&#160;</a></span>max_size</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t Olaf_Deque::max_size</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Maximum number of elements the deque can hold. </p>
+
+</div>
+</div>
+<a id="a9e3c9ea9c804459ca6e0d1daa250ed91" name="a9e3c9ea9c804459ca6e0d1daa250ed91"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9e3c9ea9c804459ca6e0d1daa250ed91">&#9670;&#160;</a></span>queue</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="queue_8h.html#aaa31d02f2b2876d12bb8f83900eacce6">Queue</a>* Olaf_Deque::queue</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Underlying doubly-linked queue for deque operations. </p>
+
+</div>
+</div>
+<a id="a82251d6fd9ff3abb933fa925ddb5ee60" name="a82251d6fd9ff3abb933fa925ddb5ee60"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a82251d6fd9ff3abb933fa925ddb5ee60">&#9670;&#160;</a></span>value_index</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t Olaf_Deque::value_index</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Index of the next free slot in the values array. </p>
+
+</div>
+</div>
+<a id="a47d43310c269f71c91fad83d9424cb53" name="a47d43310c269f71c91fad83d9424cb53"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a47d43310c269f71c91fad83d9424cb53">&#9670;&#160;</a></span>values</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">size_t* Olaf_Deque::values</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Array backing store for deque element values. </p>
+
+</div>
+</div>
+<hr/>The documentation for this struct was generated from the following file:<ul>
 <li><b>olaf_deque.c</b></li>
 </ul>
 </div><!-- contents -->

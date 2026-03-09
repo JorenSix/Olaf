@@ -98,15 +98,19 @@ $(function() {
 Macros</h2></td></tr>
 <tr class="memitem:a09a3b394b8602092d58347b791158062" id="r_a09a3b394b8602092d58347b791158062"><td class="memItemLeft" align="right" valign="top"><a id="a09a3b394b8602092d58347b791158062" name="a09a3b394b8602092d58347b791158062"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>MAX_LINE_LEN</b>&#160;&#160;&#160;2048</td></tr>
+<tr class="memdesc:a09a3b394b8602092d58347b791158062"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum length of a single line in the CSV file. <br /></td></tr>
 <tr class="memitem:a3f6d16dfdf7920e1e5f1dad5db5347f2" id="r_a3f6d16dfdf7920e1e5f1dad5db5347f2"><td class="memItemLeft" align="right" valign="top"><a id="a3f6d16dfdf7920e1e5f1dad5db5347f2" name="a3f6d16dfdf7920e1e5f1dad5db5347f2"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>MAX_TOKEN_LEN</b>&#160;&#160;&#160;512</td></tr>
+<tr class="memdesc:a3f6d16dfdf7920e1e5f1dad5db5347f2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum length of a single token in the CSV file. <br /></td></tr>
 <tr class="memitem:ac3ef57649b74cadbbc9e352279c5e27c" id="r_ac3ef57649b74cadbbc9e352279c5e27c"><td class="memItemLeft" align="right" valign="top"><a id="ac3ef57649b74cadbbc9e352279c5e27c" name="ac3ef57649b74cadbbc9e352279c5e27c"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>FP_ARRAY_SIZE</b>&#160;&#160;&#160;10000</td></tr>
+<tr class="memdesc:ac3ef57649b74cadbbc9e352279c5e27c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of the fingerprint array buffer. <br /></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-typedef-members" class="groupheader"><a id="typedef-members" name="typedef-members"></a>
 Typedefs</h2></td></tr>
 <tr class="memitem:a580697cd3a98485d53f267c86cda0bd2" id="r_a580697cd3a98485d53f267c86cda0bd2"><td class="memItemLeft" align="right" valign="top"><a id="a580697cd3a98485d53f267c86cda0bd2" name="a580697cd3a98485d53f267c86cda0bd2"></a>
 typedef struct Olaf_FP_DB_Writer_Cache&#160;</td><td class="memItemRight" valign="bottom"><b>Olaf_FP_DB_Writer_Cache</b></td></tr>
+<tr class="memdesc:a580697cd3a98485d53f267c86cda0bd2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Typedef for struct <a class="el" href="struct_olaf___f_p___d_b___writer___cache.html" title="An opaque struct with state information related to the cache writer.">Olaf_FP_DB_Writer_Cache</a>. <br /></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-func-members" class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
@@ -114,6 +118,8 @@ Functions</h2></td></tr>
 <tr class="memdesc:ae5931851a72e26fbd0cd562db525c7d1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Initializes a new cache db writer.  <br /></td></tr>
 <tr class="memitem:aa11c9f6d608d73ea4585630008ba9599" id="r_aa11c9f6d608d73ea4585630008ba9599"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa11c9f6d608d73ea4585630008ba9599">olaf_fp_db_writer_cache_store</a> (<a class="el" href="struct_olaf___f_p___d_b___writer___cache.html">Olaf_FP_DB_Writer_Cache</a> *olaf_fp_db_writer_cache)</td></tr>
 <tr class="memdesc:aa11c9f6d608d73ea4585630008ba9599"><td class="mdescLeft">&#160;</td><td class="mdescRight">Read the csv file and store the fingerpints within the file. Or an error if the CSV is malformed.  <br /></td></tr>
+<tr class="memitem:aacfac5b8db588c1ab3e87d8fc8af69d6" id="r_aacfac5b8db588c1ab3e87d8fc8af69d6"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aacfac5b8db588c1ab3e87d8fc8af69d6">olaf_fp_db_writer_cache_set_audio_file_info</a> (<a class="el" href="struct_olaf___f_p___d_b___writer___cache.html">Olaf_FP_DB_Writer_Cache</a> *olaf_fp_db_writer_cache, const char *audio_file_path, uint64_t audio_file_identifier)</td></tr>
+<tr class="memdesc:aacfac5b8db588c1ab3e87d8fc8af69d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the audio file path and identifier for the cache writer.  <br /></td></tr>
 <tr class="memitem:aba346065ea4801ddaa81436dc3096425" id="r_aba346065ea4801ddaa81436dc3096425"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aba346065ea4801ddaa81436dc3096425">olaf_fp_db_writer_cache_destroy</a> (<a class="el" href="struct_olaf___f_p___d_b___writer___cache.html">Olaf_FP_DB_Writer_Cache</a> *olaf_fp_db_writer_cache)</td></tr>
 <tr class="memdesc:aba346065ea4801ddaa81436dc3096425"><td class="mdescLeft">&#160;</td><td class="mdescRight">Free resources and close the CSV file.  <br /></td></tr>
 </table>
@@ -179,6 +185,42 @@ Functions</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>Newly initialized state information. </dd></dl>
+
+</div>
+</div>
+<a id="aacfac5b8db588c1ab3e87d8fc8af69d6" name="aacfac5b8db588c1ab3e87d8fc8af69d6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aacfac5b8db588c1ab3e87d8fc8af69d6">&#9670;&#160;</a></span>olaf_fp_db_writer_cache_set_audio_file_info()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void olaf_fp_db_writer_cache_set_audio_file_info </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_olaf___f_p___d_b___writer___cache.html">Olaf_FP_DB_Writer_Cache</a> *</td>          <td class="paramname"><span class="paramname"><em>olaf_fp_db_writer_cache</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char *</td>          <td class="paramname"><span class="paramname"><em>audio_file_path</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t</td>          <td class="paramname"><span class="paramname"><em>audio_file_identifier</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Set the audio file path and identifier for the cache writer. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramdir"></td><td class="paramname">olaf_fp_db_writer_cache</td><td>The olaf fp database writer cache </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">audio_file_path</td><td>The path to the audio file </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">audio_file_identifier</td><td>The numeric identifier for the audio file </td></tr>
+  </table>
+  </dd>
+</dl>
 
 </div>
 </div>

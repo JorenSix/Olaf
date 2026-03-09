@@ -87,6 +87,7 @@ $(function() {
 <a href="#details">More...</a></p>
 <div class="textblock"><code>#include &quot;<a class="el" href="olaf__config_8h_source.html">olaf_config.h</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="olaf__runner_8h_source.html">olaf_runner.h</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="olaf__fp__matcher_8h_source.html">olaf_fp_matcher.h</a>&quot;</code><br />
 </div>
 <p><a href="olaf__stream__processor_8h_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -94,6 +95,7 @@ $(function() {
 Typedefs</h2></td></tr>
 <tr class="memitem:a5b29d73bcb9093de4063713f91af95f8" id="r_a5b29d73bcb9093de4063713f91af95f8"><td class="memItemLeft" align="right" valign="top"><a id="a5b29d73bcb9093de4063713f91af95f8" name="a5b29d73bcb9093de4063713f91af95f8"></a>
 typedef struct Olaf_Stream_Processor&#160;</td><td class="memItemRight" valign="bottom"><b>Olaf_Stream_Processor</b></td></tr>
+<tr class="memdesc:a5b29d73bcb9093de4063713f91af95f8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Typedef for struct <a class="el" href="struct_olaf___stream___processor.html" title="An opaque struct with state information related to the stream processor.">Olaf_Stream_Processor</a>. <br /></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-func-members" class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
@@ -103,6 +105,10 @@ Functions</h2></td></tr>
 <tr class="memdesc:aa913d333daf70c7bd2ba1206ae51acaf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Process a file from the first to last audio sample.  <br /></td></tr>
 <tr class="memitem:a4cbce80e76cd42499bbce779b7ddd580" id="r_a4cbce80e76cd42499bbce779b7ddd580"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4cbce80e76cd42499bbce779b7ddd580">olaf_stream_processor_destroy</a> (<a class="el" href="struct_olaf___stream___processor.html">Olaf_Stream_Processor</a> *olaf_stream_processor)</td></tr>
 <tr class="memdesc:a4cbce80e76cd42499bbce779b7ddd580"><td class="mdescLeft">&#160;</td><td class="mdescRight">Free up memory and release resources.  <br /></td></tr>
+<tr class="memitem:a984d4f3fe520c56952c07c94aef409fd" id="r_a984d4f3fe520c56952c07c94aef409fd"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a984d4f3fe520c56952c07c94aef409fd">olaf_stream_processor_set_result_callback</a> (<a class="el" href="struct_olaf___stream___processor.html">Olaf_Stream_Processor</a> *olaf_stream_processor, <a class="el" href="olaf__fp__matcher_8h.html#a5380b7c796652b6ed68d908c926331f9">Olaf_FP_Matcher_Result_Callback</a> callback)</td></tr>
+<tr class="memdesc:a984d4f3fe520c56952c07c94aef409fd"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the result callback function.  <br /></td></tr>
+<tr class="memitem:a6556e62b0542bd481761de95d64538cf" id="r_a6556e62b0542bd481761de95d64538cf"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6556e62b0542bd481761de95d64538cf">olaf_stream_processor_set_result_header</a> (<a class="el" href="struct_olaf___stream___processor.html">Olaf_Stream_Processor</a> *processor, const char *result_header)</td></tr>
+<tr class="memdesc:a6556e62b0542bd481761de95d64538cf"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the result header for the stream processor.  <br /></td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Makes it more easy to process an audio stream. </p>
@@ -189,6 +195,66 @@ Functions</h2></td></tr>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">olaf_stream_processor</td><td>The olaf stream processor. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a984d4f3fe520c56952c07c94aef409fd" name="a984d4f3fe520c56952c07c94aef409fd"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a984d4f3fe520c56952c07c94aef409fd">&#9670;&#160;</a></span>olaf_stream_processor_set_result_callback()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void olaf_stream_processor_set_result_callback </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_olaf___stream___processor.html">Olaf_Stream_Processor</a> *</td>          <td class="paramname"><span class="paramname"><em>olaf_stream_processor</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="olaf__fp__matcher_8h.html#a5380b7c796652b6ed68d908c926331f9">Olaf_FP_Matcher_Result_Callback</a></td>          <td class="paramname"><span class="paramname"><em>callback</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Set the result callback function. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">olaf_stream_processor</td><td>The stream processor </td></tr>
+    <tr><td class="paramname">callback</td><td>The callback function </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a6556e62b0542bd481761de95d64538cf" name="a6556e62b0542bd481761de95d64538cf"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6556e62b0542bd481761de95d64538cf">&#9670;&#160;</a></span>olaf_stream_processor_set_result_header()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void olaf_stream_processor_set_result_header </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_olaf___stream___processor.html">Olaf_Stream_Processor</a> *</td>          <td class="paramname"><span class="paramname"><em>processor</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">const char *</td>          <td class="paramname"><span class="paramname"><em>result_header</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Set the result header for the stream processor. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">processor</td><td>The stream processor </td></tr>
+    <tr><td class="paramname">result_header</td><td>The result header string </td></tr>
   </table>
   </dd>
 </dl>

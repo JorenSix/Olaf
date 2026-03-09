@@ -1,12 +1,12 @@
 var searchData=
 [
-  ['queue_5ffree_0',['queue_free',['../queue_8h.html#a42c7cc8caeb6778234887511db8fba40',1,'queue.c']]],
-  ['queue_5fis_5fempty_1',['queue_is_empty',['../queue_8h.html#a9ac9b90b97da28b8c1a98a5c4d784110',1,'queue.c']]],
-  ['queue_5fnew_2',['queue_new',['../queue_8h.html#adbe2c7c3113e1b2de1a8fd1ae353f11f',1,'queue.c']]],
-  ['queue_5fpeek_5fhead_3',['queue_peek_head',['../queue_8h.html#a8924c24ee3250e23fa4009f46ba4b9d8',1,'queue.c']]],
-  ['queue_5fpeek_5ftail_4',['queue_peek_tail',['../queue_8h.html#a13eed7922e2baaa839b3fca630a04e99',1,'queue.c']]],
-  ['queue_5fpop_5fhead_5',['queue_pop_head',['../queue_8h.html#ad6bcabffd5a8947dfba39698aa003a8b',1,'queue.c']]],
-  ['queue_5fpop_5ftail_6',['queue_pop_tail',['../queue_8h.html#ae5084bfe95c3cf582dff20f05abaf06a',1,'queue.c']]],
-  ['queue_5fpush_5fhead_7',['queue_push_head',['../queue_8h.html#a60ec4a7181b97a89cdac71ba1169bf5c',1,'queue.c']]],
-  ['queue_5fpush_5ftail_8',['queue_push_tail',['../queue_8h.html#a6656d203c3bdfb13284a6007ba1dbbc1',1,'queue.c']]]
+  ['pffft_5faligned_5ffree_0',['pffft_aligned_free',['../pffft_8h.html#a13c2a81ce97de4586d68132b85704109',1,'pffft.c']]],
+  ['pffft_5faligned_5fmalloc_1',['pffft_aligned_malloc',['../pffft_8h.html#ac7c921ac3eca49e8824dd33726f91ec7',1,'pffft.c']]],
+  ['pffft_5fdestroy_5fsetup_2',['pffft_destroy_setup',['../pffft_8h.html#a3322de91a2e8ff92d8c224f55ebe2956',1,'pffft.c']]],
+  ['pffft_5fnew_5fsetup_3',['pffft_new_setup',['../pffft_8h.html#a696c00c57eea120dde84a5b7a6f7bc78',1,'pffft.c']]],
+  ['pffft_5fsimd_5fsize_4',['pffft_simd_size',['../pffft_8h.html#ac0472e2ff3d963a141c0514882a2c036',1,'pffft.c']]],
+  ['pffft_5ftransform_5',['pffft_transform',['../pffft_8h.html#aa2186adf3c5714578afe741f1cdcdec0',1,'pffft.c']]],
+  ['pffft_5ftransform_5fordered_6',['pffft_transform_ordered',['../pffft_8h.html#a48fb170c7f691ed17eccdcf7830d974d',1,'pffft.c']]],
+  ['pffft_5fzconvolve_5faccumulate_7',['pffft_zconvolve_accumulate',['../pffft_8h.html#a445c5a950f2e59c60c087d9b43b16a6a',1,'pffft.h']]],
+  ['pffft_5fzreorder_8',['pffft_zreorder',['../pffft_8h.html#a9f7888b1051fcc78266a161b1b13aa62',1,'pffft.h']]]
 ];

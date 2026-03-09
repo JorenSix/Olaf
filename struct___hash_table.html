@@ -77,26 +77,144 @@ $(function() {
   <div class="headertitle"><div class="title">_HashTable Struct Reference</div></div>
 </div><!--header-->
 <div class="contents">
+
+<p>A hash table mapping keys to values using separate chaining.  
+ <a href="#details">More...</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-attribs" class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Data Fields</h2></td></tr>
-<tr class="memitem:a6f05dbe56cd27c249d7785b9c572576c" id="r_a6f05dbe56cd27c249d7785b9c572576c"><td class="memItemLeft" align="right" valign="top"><a id="a6f05dbe56cd27c249d7785b9c572576c" name="a6f05dbe56cd27c249d7785b9c572576c"></a>
-<a class="el" href="hash-table_8h.html#a83d586c0e3c9cf35b34a1ff8e1cf38ca">HashTableEntry</a> **&#160;</td><td class="memItemRight" valign="bottom"><b>table</b></td></tr>
-<tr class="memitem:a5172ca428e2f8888d2072a0a8eb02d75" id="r_a5172ca428e2f8888d2072a0a8eb02d75"><td class="memItemLeft" align="right" valign="top"><a id="a5172ca428e2f8888d2072a0a8eb02d75" name="a5172ca428e2f8888d2072a0a8eb02d75"></a>
-unsigned int&#160;</td><td class="memItemRight" valign="bottom"><b>table_size</b></td></tr>
-<tr class="memitem:a98c0c6518cb28697bbba3c67e422f1bc" id="r_a98c0c6518cb28697bbba3c67e422f1bc"><td class="memItemLeft" align="right" valign="top"><a id="a98c0c6518cb28697bbba3c67e422f1bc" name="a98c0c6518cb28697bbba3c67e422f1bc"></a>
-<a class="el" href="hash-table_8h.html#a2a7d207742069085f5897797d5edf232">HashTableHashFunc</a>&#160;</td><td class="memItemRight" valign="bottom"><b>hash_func</b></td></tr>
-<tr class="memitem:ad585462c764ea3fc8ac469c57dd95a6c" id="r_ad585462c764ea3fc8ac469c57dd95a6c"><td class="memItemLeft" align="right" valign="top"><a id="ad585462c764ea3fc8ac469c57dd95a6c" name="ad585462c764ea3fc8ac469c57dd95a6c"></a>
-<a class="el" href="hash-table_8h.html#a7338baa3adce2f75f5c9f52510bf9939">HashTableEqualFunc</a>&#160;</td><td class="memItemRight" valign="bottom"><b>equal_func</b></td></tr>
-<tr class="memitem:a8c46ab10827e8517e6f34a6da6c23590" id="r_a8c46ab10827e8517e6f34a6da6c23590"><td class="memItemLeft" align="right" valign="top"><a id="a8c46ab10827e8517e6f34a6da6c23590" name="a8c46ab10827e8517e6f34a6da6c23590"></a>
-<a class="el" href="hash-table_8h.html#a58d0e71e9e8d13bc5eeffac21e77121e">HashTableKeyFreeFunc</a>&#160;</td><td class="memItemRight" valign="bottom"><b>key_free_func</b></td></tr>
-<tr class="memitem:a33ffc08ba68d0723af2446f5a1d9d3a1" id="r_a33ffc08ba68d0723af2446f5a1d9d3a1"><td class="memItemLeft" align="right" valign="top"><a id="a33ffc08ba68d0723af2446f5a1d9d3a1" name="a33ffc08ba68d0723af2446f5a1d9d3a1"></a>
-<a class="el" href="hash-table_8h.html#aeda2e57ef6aad4b2e4625f595c41fda6">HashTableValueFreeFunc</a>&#160;</td><td class="memItemRight" valign="bottom"><b>value_free_func</b></td></tr>
-<tr class="memitem:a85da997c3b92f29acde9546e217b4db6" id="r_a85da997c3b92f29acde9546e217b4db6"><td class="memItemLeft" align="right" valign="top"><a id="a85da997c3b92f29acde9546e217b4db6" name="a85da997c3b92f29acde9546e217b4db6"></a>
-unsigned int&#160;</td><td class="memItemRight" valign="bottom"><b>entries</b></td></tr>
-<tr class="memitem:ad37315bd2b89ac7c708ced77bb1e1c92" id="r_ad37315bd2b89ac7c708ced77bb1e1c92"><td class="memItemLeft" align="right" valign="top"><a id="ad37315bd2b89ac7c708ced77bb1e1c92" name="ad37315bd2b89ac7c708ced77bb1e1c92"></a>
-unsigned int&#160;</td><td class="memItemRight" valign="bottom"><b>prime_index</b></td></tr>
+<tr class="memitem:a6f05dbe56cd27c249d7785b9c572576c" id="r_a6f05dbe56cd27c249d7785b9c572576c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="hash-table_8h.html#a83d586c0e3c9cf35b34a1ff8e1cf38ca">HashTableEntry</a> **&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6f05dbe56cd27c249d7785b9c572576c">table</a></td></tr>
+<tr class="memitem:a5172ca428e2f8888d2072a0a8eb02d75" id="r_a5172ca428e2f8888d2072a0a8eb02d75"><td class="memItemLeft" align="right" valign="top">unsigned int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5172ca428e2f8888d2072a0a8eb02d75">table_size</a></td></tr>
+<tr class="memitem:a98c0c6518cb28697bbba3c67e422f1bc" id="r_a98c0c6518cb28697bbba3c67e422f1bc"><td class="memItemLeft" align="right" valign="top"><a class="el" href="hash-table_8h.html#a2a7d207742069085f5897797d5edf232">HashTableHashFunc</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a98c0c6518cb28697bbba3c67e422f1bc">hash_func</a></td></tr>
+<tr class="memitem:ad585462c764ea3fc8ac469c57dd95a6c" id="r_ad585462c764ea3fc8ac469c57dd95a6c"><td class="memItemLeft" align="right" valign="top"><a class="el" href="hash-table_8h.html#a7338baa3adce2f75f5c9f52510bf9939">HashTableEqualFunc</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad585462c764ea3fc8ac469c57dd95a6c">equal_func</a></td></tr>
+<tr class="memitem:a8c46ab10827e8517e6f34a6da6c23590" id="r_a8c46ab10827e8517e6f34a6da6c23590"><td class="memItemLeft" align="right" valign="top"><a class="el" href="hash-table_8h.html#a58d0e71e9e8d13bc5eeffac21e77121e">HashTableKeyFreeFunc</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a8c46ab10827e8517e6f34a6da6c23590">key_free_func</a></td></tr>
+<tr class="memitem:a33ffc08ba68d0723af2446f5a1d9d3a1" id="r_a33ffc08ba68d0723af2446f5a1d9d3a1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="hash-table_8h.html#aeda2e57ef6aad4b2e4625f595c41fda6">HashTableValueFreeFunc</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a33ffc08ba68d0723af2446f5a1d9d3a1">value_free_func</a></td></tr>
+<tr class="memitem:a85da997c3b92f29acde9546e217b4db6" id="r_a85da997c3b92f29acde9546e217b4db6"><td class="memItemLeft" align="right" valign="top">unsigned int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a85da997c3b92f29acde9546e217b4db6">entries</a></td></tr>
+<tr class="memitem:ad37315bd2b89ac7c708ced77bb1e1c92" id="r_ad37315bd2b89ac7c708ced77bb1e1c92"><td class="memItemLeft" align="right" valign="top">unsigned int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad37315bd2b89ac7c708ced77bb1e1c92">prime_index</a></td></tr>
 </table>
+<a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>A hash table mapping keys to values using separate chaining. </p>
+</div><a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Field Documentation</h2>
+<a id="a85da997c3b92f29acde9546e217b4db6" name="a85da997c3b92f29acde9546e217b4db6"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a85da997c3b92f29acde9546e217b4db6">&#9670;&#160;</a></span>entries</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unsigned int _HashTable::entries</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Number of entries currently in the table. </p>
+
+</div>
+</div>
+<a id="ad585462c764ea3fc8ac469c57dd95a6c" name="ad585462c764ea3fc8ac469c57dd95a6c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad585462c764ea3fc8ac469c57dd95a6c">&#9670;&#160;</a></span>equal_func</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="hash-table_8h.html#a7338baa3adce2f75f5c9f52510bf9939">HashTableEqualFunc</a> _HashTable::equal_func</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Function used to compare keys for equality. </p>
+
+</div>
+</div>
+<a id="a98c0c6518cb28697bbba3c67e422f1bc" name="a98c0c6518cb28697bbba3c67e422f1bc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a98c0c6518cb28697bbba3c67e422f1bc">&#9670;&#160;</a></span>hash_func</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="hash-table_8h.html#a2a7d207742069085f5897797d5edf232">HashTableHashFunc</a> _HashTable::hash_func</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Function used to hash keys. </p>
+
+</div>
+</div>
+<a id="a8c46ab10827e8517e6f34a6da6c23590" name="a8c46ab10827e8517e6f34a6da6c23590"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a8c46ab10827e8517e6f34a6da6c23590">&#9670;&#160;</a></span>key_free_func</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="hash-table_8h.html#a58d0e71e9e8d13bc5eeffac21e77121e">HashTableKeyFreeFunc</a> _HashTable::key_free_func</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Function to free keys, or NULL. </p>
+
+</div>
+</div>
+<a id="ad37315bd2b89ac7c708ced77bb1e1c92" name="ad37315bd2b89ac7c708ced77bb1e1c92"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad37315bd2b89ac7c708ced77bb1e1c92">&#9670;&#160;</a></span>prime_index</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unsigned int _HashTable::prime_index</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Index into the prime table sizes array. </p>
+
+</div>
+</div>
+<a id="a6f05dbe56cd27c249d7785b9c572576c" name="a6f05dbe56cd27c249d7785b9c572576c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6f05dbe56cd27c249d7785b9c572576c">&#9670;&#160;</a></span>table</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="hash-table_8h.html#a83d586c0e3c9cf35b34a1ff8e1cf38ca">HashTableEntry</a>** _HashTable::table</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Array of chain head pointers. </p>
+
+</div>
+</div>
+<a id="a5172ca428e2f8888d2072a0a8eb02d75" name="a5172ca428e2f8888d2072a0a8eb02d75"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a5172ca428e2f8888d2072a0a8eb02d75">&#9670;&#160;</a></span>table_size</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">unsigned int _HashTable::table_size</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Number of slots in the table array. </p>
+
+</div>
+</div>
+<a id="a33ffc08ba68d0723af2446f5a1d9d3a1" name="a33ffc08ba68d0723af2446f5a1d9d3a1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a33ffc08ba68d0723af2446f5a1d9d3a1">&#9670;&#160;</a></span>value_free_func</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="hash-table_8h.html#aeda2e57ef6aad4b2e4625f595c41fda6">HashTableValueFreeFunc</a> _HashTable::value_free_func</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Function to free values, or NULL. </p>
+
+</div>
+</div>
 <hr/>The documentation for this struct was generated from the following file:<ul>
 <li><b>hash-table.c</b></li>
 </ul>

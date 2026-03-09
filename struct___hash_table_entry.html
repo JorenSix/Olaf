@@ -77,14 +77,48 @@ $(function() {
   <div class="headertitle"><div class="title">_HashTableEntry Struct Reference</div></div>
 </div><!--header-->
 <div class="contents">
+
+<p>An entry in a hash table, storing a key-value pair and a chain link.  
+ <a href="#details">More...</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-attribs" class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Data Fields</h2></td></tr>
-<tr class="memitem:afda142941b31e5437445e5c12f33e7e1" id="r_afda142941b31e5437445e5c12f33e7e1"><td class="memItemLeft" align="right" valign="top"><a id="afda142941b31e5437445e5c12f33e7e1" name="afda142941b31e5437445e5c12f33e7e1"></a>
-<a class="el" href="hash-table_8h.html#ab0f7bbff5910764d5c92ff84053bc8e2">HashTablePair</a>&#160;</td><td class="memItemRight" valign="bottom"><b>pair</b></td></tr>
-<tr class="memitem:aa1b2f45427486535d1b966463d5bd205" id="r_aa1b2f45427486535d1b966463d5bd205"><td class="memItemLeft" align="right" valign="top"><a id="aa1b2f45427486535d1b966463d5bd205" name="aa1b2f45427486535d1b966463d5bd205"></a>
-<a class="el" href="hash-table_8h.html#a83d586c0e3c9cf35b34a1ff8e1cf38ca">HashTableEntry</a> *&#160;</td><td class="memItemRight" valign="bottom"><b>next</b></td></tr>
+<tr class="memitem:afda142941b31e5437445e5c12f33e7e1" id="r_afda142941b31e5437445e5c12f33e7e1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="hash-table_8h.html#ab0f7bbff5910764d5c92ff84053bc8e2">HashTablePair</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afda142941b31e5437445e5c12f33e7e1">pair</a></td></tr>
+<tr class="memitem:aa1b2f45427486535d1b966463d5bd205" id="r_aa1b2f45427486535d1b966463d5bd205"><td class="memItemLeft" align="right" valign="top"><a class="el" href="hash-table_8h.html#a83d586c0e3c9cf35b34a1ff8e1cf38ca">HashTableEntry</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa1b2f45427486535d1b966463d5bd205">next</a></td></tr>
 </table>
+<a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>An entry in a hash table, storing a key-value pair and a chain link. </p>
+</div><a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Field Documentation</h2>
+<a id="aa1b2f45427486535d1b966463d5bd205" name="aa1b2f45427486535d1b966463d5bd205"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa1b2f45427486535d1b966463d5bd205">&#9670;&#160;</a></span>next</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="hash-table_8h.html#a83d586c0e3c9cf35b34a1ff8e1cf38ca">HashTableEntry</a>* _HashTableEntry::next</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Pointer to the next entry in the chain. </p>
+
+</div>
+</div>
+<a id="afda142941b31e5437445e5c12f33e7e1" name="afda142941b31e5437445e5c12f33e7e1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#afda142941b31e5437445e5c12f33e7e1">&#9670;&#160;</a></span>pair</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="hash-table_8h.html#ab0f7bbff5910764d5c92ff84053bc8e2">HashTablePair</a> _HashTableEntry::pair</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>The key-value pair for this entry. </p>
+
+</div>
+</div>
 <hr/>The documentation for this struct was generated from the following file:<ul>
 <li><b>hash-table.c</b></li>
 </ul>

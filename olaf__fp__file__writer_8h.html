@@ -87,6 +87,7 @@ $(function() {
 <a href="#details">More...</a></p>
 <div class="textblock"><code>#include &lt;stdint.h&gt;</code><br />
 <code>#include &quot;<a class="el" href="olaf__fp__extractor_8h_source.html">olaf_fp_extractor.h</a>&quot;</code><br />
+<code>#include &quot;olaf_resource_meta_data.h&quot;</code><br />
 </div>
 <p><a href="olaf__fp__file__writer_8h_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -94,22 +95,25 @@ $(function() {
 Typedefs</h2></td></tr>
 <tr class="memitem:aefdc4937a39f464f12e873de62df1213" id="r_aefdc4937a39f464f12e873de62df1213"><td class="memItemLeft" align="right" valign="top"><a id="aefdc4937a39f464f12e873de62df1213" name="aefdc4937a39f464f12e873de62df1213"></a>
 typedef struct Olaf_FP_File_Writer&#160;</td><td class="memItemRight" valign="bottom"><b>Olaf_FP_File_Writer</b></td></tr>
+<tr class="memdesc:aefdc4937a39f464f12e873de62df1213"><td class="mdescLeft">&#160;</td><td class="mdescRight">Typedef for struct <a class="el" href="struct_olaf___f_p___file___writer.html" title="A struct to keep the internal state of the file writer hidden. It should not be used in other places.">Olaf_FP_File_Writer</a>. <br /></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-func-members" class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:afa589c1468132d216033363520a616d0" id="r_afa589c1468132d216033363520a616d0"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_olaf___f_p___file___writer.html">Olaf_FP_File_Writer</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#afa589c1468132d216033363520a616d0">olaf_fp_file_writer_new</a> (<a class="el" href="struct_olaf___config.html">Olaf_Config</a> *olaf_config, uint32_t audio_file_identifier)</td></tr>
-<tr class="memdesc:afa589c1468132d216033363520a616d0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new file writer.  <br /></td></tr>
-<tr class="memitem:a8b91dcbcd70d0bc982b64d98f616cf3c" id="r_a8b91dcbcd70d0bc982b64d98f616cf3c"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a8b91dcbcd70d0bc982b64d98f616cf3c">olaf_fp_file_writer_store</a> (<a class="el" href="struct_olaf___f_p___file___writer.html">Olaf_FP_File_Writer</a> *olaf_fp_file_writer, struct <a class="el" href="structextracted__fingerprints.html">extracted_fingerprints</a> *fingerprints)</td></tr>
-<tr class="memdesc:a8b91dcbcd70d0bc982b64d98f616cf3c"><td class="mdescLeft">&#160;</td><td class="mdescRight">Store fingerprints in memory to write to a file later on.  <br /></td></tr>
-<tr class="memitem:a303eb47d2655e6125a69f22351e5b605" id="r_a303eb47d2655e6125a69f22351e5b605"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a303eb47d2655e6125a69f22351e5b605">olaf_fp_file_writer_destroy</a> (<a class="el" href="struct_olaf___f_p___file___writer.html">Olaf_FP_File_Writer</a> *olaf_fp_file_writer)</td></tr>
-<tr class="memdesc:a303eb47d2655e6125a69f22351e5b605"><td class="mdescLeft">&#160;</td><td class="mdescRight">Free resources related to the file writer. Also write the fingerprints to a ".tdb" file in the configured cache directory.  <br /></td></tr>
+<tr class="memitem:a1302597487db46928d4b87ef1507cf0e" id="r_a1302597487db46928d4b87ef1507cf0e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_olaf___f_p___file___writer.html">Olaf_FP_File_Writer</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a1302597487db46928d4b87ef1507cf0e">olaf_fp_file_writer_new</a> (FILE *output_file)</td></tr>
+<tr class="memdesc:a1302597487db46928d4b87ef1507cf0e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new file writer.  <br /></td></tr>
+<tr class="memitem:ab11ba2a2d06a4a516f4a34a6d9a6968b" id="r_ab11ba2a2d06a4a516f4a34a6d9a6968b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab11ba2a2d06a4a516f4a34a6d9a6968b">olaf_fp_file_writer_write_header</a> (<a class="el" href="struct_olaf___f_p___file___writer.html">Olaf_FP_File_Writer</a> *file_writer)</td></tr>
+<tr class="memdesc:ab11ba2a2d06a4a516f4a34a6d9a6968b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Write the header line to the file.  <br /></td></tr>
+<tr class="memitem:ab40778755b4f546920ce9367adc89a92" id="r_ab40778755b4f546920ce9367adc89a92"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab40778755b4f546920ce9367adc89a92">olaf_fp_file_writer_write</a> (<a class="el" href="struct_olaf___f_p___file___writer.html">Olaf_FP_File_Writer</a> *olaf_fp_file_writer, struct <a class="el" href="structextracted__fingerprints.html">extracted_fingerprints</a> *fingerprints)</td></tr>
+<tr class="memdesc:ab40778755b4f546920ce9367adc89a92"><td class="mdescLeft">&#160;</td><td class="mdescRight">Print the fingerprints to a file.  <br /></td></tr>
+<tr class="memitem:aec1fd57f8e200c280e359c17cc4ede64" id="r_aec1fd57f8e200c280e359c17cc4ede64"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aec1fd57f8e200c280e359c17cc4ede64">olaf_fp_file_writer_destroy</a> (<a class="el" href="struct_olaf___f_p___file___writer.html">Olaf_FP_File_Writer</a> *olaf_fp_file_writer, <a class="el" href="struct_olaf___resource___meta__data.html">Olaf_Resource_Meta_data</a> *meta_data, FILE *fp_meta_file)</td></tr>
+<tr class="memdesc:aec1fd57f8e200c280e359c17cc4ede64"><td class="mdescLeft">&#160;</td><td class="mdescRight">Close the file and free up memory.  <br /></td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Olaf fingerprint extractor: combines event points into fingerprints. </p>
 <p>The fingerprint extractor is responsible for combining event points into fingerprints and also defines the fingerprint struct. </p>
 </div><a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Function Documentation</h2>
-<a id="a303eb47d2655e6125a69f22351e5b605" name="a303eb47d2655e6125a69f22351e5b605"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a303eb47d2655e6125a69f22351e5b605">&#9670;&#160;</a></span>olaf_fp_file_writer_destroy()</h2>
+<a id="aec1fd57f8e200c280e359c17cc4ede64" name="aec1fd57f8e200c280e359c17cc4ede64"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aec1fd57f8e200c280e359c17cc4ede64">&#9670;&#160;</a></span>olaf_fp_file_writer_destroy()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -117,24 +121,35 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname">void olaf_fp_file_writer_destroy </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="struct_olaf___f_p___file___writer.html">Olaf_FP_File_Writer</a> *</td>          <td class="paramname"><span class="paramname"><em>olaf_fp_file_writer</em></span></td><td>)</td>
+          <td class="paramtype"><a class="el" href="struct_olaf___f_p___file___writer.html">Olaf_FP_File_Writer</a> *</td>          <td class="paramname"><span class="paramname"><em>olaf_fp_file_writer</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype"><a class="el" href="struct_olaf___resource___meta__data.html">Olaf_Resource_Meta_data</a> *</td>          <td class="paramname"><span class="paramname"><em>meta_data</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">FILE *</td>          <td class="paramname"><span class="paramname"><em>fp_meta_file</em></span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p>Free resources related to the file writer. Also write the fingerprints to a ".tdb" file in the configured cache directory. </p>
+<p>Close the file and free up memory. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">olaf_fp_file_writer</td><td>The olaf fp file writer state info. </td></tr>
+    <tr><td class="paramname">meta_data</td><td>The meta data related to the audio file. </td></tr>
+    <tr><td class="paramname">fp_meta_file</td><td>The file to write meta data to. </td></tr>
   </table>
   </dd>
 </dl>
 
 </div>
 </div>
-<a id="afa589c1468132d216033363520a616d0" name="afa589c1468132d216033363520a616d0"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#afa589c1468132d216033363520a616d0">&#9670;&#160;</a></span>olaf_fp_file_writer_new()</h2>
+<a id="a1302597487db46928d4b87ef1507cf0e" name="a1302597487db46928d4b87ef1507cf0e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1302597487db46928d4b87ef1507cf0e">&#9670;&#160;</a></span>olaf_fp_file_writer_new()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -142,12 +157,8 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname"><a class="el" href="struct_olaf___f_p___file___writer.html">Olaf_FP_File_Writer</a> * olaf_fp_file_writer_new </td>
           <td>(</td>
-          <td class="paramtype"><a class="el" href="struct_olaf___config.html">Olaf_Config</a> *</td>          <td class="paramname"><span class="paramname"><em>olaf_config</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
+          <td class="paramtype">FILE *</td>          <td class="paramname"><span class="paramname"><em>output_file</em></span></td><td>)</td>
           <td></td>
-          <td class="paramtype">uint32_t</td>          <td class="paramname"><span class="paramname"><em>audio_file_identifier</em></span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -155,8 +166,7 @@ Functions</h2></td></tr>
 <p>Create a new file writer. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramdir"></td><td class="paramname">olaf_config</td><td>The olaf configuration with the location to store the cached file. </td></tr>
-    <tr><td class="paramdir">[in]</td><td class="paramname">audio_file_identifier</td><td>The audio file identifier. The audio file identifier is used in the file name.</td></tr>
+    <tr><td class="paramname">output_file</td><td>The output file to write fingerprints to.</td></tr>
   </table>
   </dd>
 </dl>
@@ -164,14 +174,14 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a8b91dcbcd70d0bc982b64d98f616cf3c" name="a8b91dcbcd70d0bc982b64d98f616cf3c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8b91dcbcd70d0bc982b64d98f616cf3c">&#9670;&#160;</a></span>olaf_fp_file_writer_store()</h2>
+<a id="ab40778755b4f546920ce9367adc89a92" name="ab40778755b4f546920ce9367adc89a92"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab40778755b4f546920ce9367adc89a92">&#9670;&#160;</a></span>olaf_fp_file_writer_write()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void olaf_fp_file_writer_store </td>
+          <td class="memname">void olaf_fp_file_writer_write </td>
           <td>(</td>
           <td class="paramtype"><a class="el" href="struct_olaf___f_p___file___writer.html">Olaf_FP_File_Writer</a> *</td>          <td class="paramname"><span class="paramname"><em>olaf_fp_file_writer</em></span>, </td>
         </tr>
@@ -183,11 +193,36 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Store fingerprints in memory to write to a file later on. </p>
+<p>Print the fingerprints to a file. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">olaf_fp_file_writer</td><td>The olaf fp file writer state information. </td></tr>
     <tr><td class="paramname">fingerprints</td><td>The fingerprint list to store. </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="ab11ba2a2d06a4a516f4a34a6d9a6968b" name="ab11ba2a2d06a4a516f4a34a6d9a6968b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab11ba2a2d06a4a516f4a34a6d9a6968b">&#9670;&#160;</a></span>olaf_fp_file_writer_write_header()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void olaf_fp_file_writer_write_header </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="struct_olaf___f_p___file___writer.html">Olaf_FP_File_Writer</a> *</td>          <td class="paramname"><span class="paramname"><em>file_writer</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Write the header line to the file. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">file_writer</td><td>The olaf fp file writer state information. </td></tr>
   </table>
   </dd>
 </dl>

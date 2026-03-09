@@ -102,22 +102,30 @@ Data Structures</h2></td></tr>
 Macros</h2></td></tr>
 <tr class="memitem:a0ebedad155d09dbd69dcb7c3e7053213" id="r_a0ebedad155d09dbd69dcb7c3e7053213"><td class="memItemLeft" align="right" valign="top"><a id="a0ebedad155d09dbd69dcb7c3e7053213" name="a0ebedad155d09dbd69dcb7c3e7053213"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>OLAF_RUNNER_MODE_QUERY</b>&#160;&#160;&#160;233</td></tr>
+<tr class="memdesc:a0ebedad155d09dbd69dcb7c3e7053213"><td class="mdescLeft">&#160;</td><td class="mdescRight">Runner mode for querying the database. <br /></td></tr>
 <tr class="memitem:a2d971c5e67da7c8f88e070733e2ab46f" id="r_a2d971c5e67da7c8f88e070733e2ab46f"><td class="memItemLeft" align="right" valign="top"><a id="a2d971c5e67da7c8f88e070733e2ab46f" name="a2d971c5e67da7c8f88e070733e2ab46f"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>OLAF_RUNNER_MODE_STORE</b>&#160;&#160;&#160;434</td></tr>
+<tr class="memdesc:a2d971c5e67da7c8f88e070733e2ab46f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Runner mode for storing fingerprints in the database. <br /></td></tr>
 <tr class="memitem:abe6f0d8d7b38cb46e52a0bea95737e6a" id="r_abe6f0d8d7b38cb46e52a0bea95737e6a"><td class="memItemLeft" align="right" valign="top"><a id="abe6f0d8d7b38cb46e52a0bea95737e6a" name="abe6f0d8d7b38cb46e52a0bea95737e6a"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>OLAF_RUNNER_MODE_DELETE</b>&#160;&#160;&#160;653</td></tr>
+<tr class="memdesc:abe6f0d8d7b38cb46e52a0bea95737e6a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Runner mode for deleting fingerprints from the database. <br /></td></tr>
 <tr class="memitem:a9632002db0700750e3da93c656812962" id="r_a9632002db0700750e3da93c656812962"><td class="memItemLeft" align="right" valign="top"><a id="a9632002db0700750e3da93c656812962" name="a9632002db0700750e3da93c656812962"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>OLAF_RUNNER_MODE_PRINT</b>&#160;&#160;&#160;9043</td></tr>
+<tr class="memdesc:a9632002db0700750e3da93c656812962"><td class="mdescLeft">&#160;</td><td class="mdescRight">Runner mode for printing fingerprints. <br /></td></tr>
+<tr class="memitem:ac496e366e3b490b026c516098bb17624" id="r_ac496e366e3b490b026c516098bb17624"><td class="memItemLeft" align="right" valign="top"><a id="ac496e366e3b490b026c516098bb17624" name="ac496e366e3b490b026c516098bb17624"></a>
+#define&#160;</td><td class="memItemRight" valign="bottom"><b>OLAF_RUNNER_MODE_CACHE</b>&#160;&#160;&#160;2342</td></tr>
+<tr class="memdesc:ac496e366e3b490b026c516098bb17624"><td class="mdescLeft">&#160;</td><td class="mdescRight">Runner mode for caching fingerprints. <br /></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-typedef-members" class="groupheader"><a id="typedef-members" name="typedef-members"></a>
 Typedefs</h2></td></tr>
 <tr class="memitem:a15b78e058abcf529bec35fd61ee964e4" id="r_a15b78e058abcf529bec35fd61ee964e4"><td class="memItemLeft" align="right" valign="top"><a id="a15b78e058abcf529bec35fd61ee964e4" name="a15b78e058abcf529bec35fd61ee964e4"></a>
 typedef struct Olaf_Runner&#160;</td><td class="memItemRight" valign="bottom"><b>Olaf_Runner</b></td></tr>
+<tr class="memdesc:a15b78e058abcf529bec35fd61ee964e4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Typedef for struct <a class="el" href="struct_olaf___runner.html" title="Helps to run query, store, delete or print commands. These share a lot of functionality but differ in...">Olaf_Runner</a>. <br /></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-func-members" class="groupheader"><a id="func-members" name="func-members"></a>
 Functions</h2></td></tr>
-<tr class="memitem:a540acba4f0a9ba547f33df7566e6d4d8" id="r_a540acba4f0a9ba547f33df7566e6d4d8"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_olaf___runner.html">Olaf_Runner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a540acba4f0a9ba547f33df7566e6d4d8">olaf_runner_new</a> (int mode)</td></tr>
-<tr class="memdesc:a540acba4f0a9ba547f33df7566e6d4d8"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new runner.  <br /></td></tr>
+<tr class="memitem:ab9d59ccd7e35f1c1960b9cd44e7de67b" id="r_ab9d59ccd7e35f1c1960b9cd44e7de67b"><td class="memItemLeft" align="right" valign="top"><a class="el" href="struct_olaf___runner.html">Olaf_Runner</a> *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab9d59ccd7e35f1c1960b9cd44e7de67b">olaf_runner_new</a> (int mode, <a class="el" href="struct_olaf___config.html">Olaf_Config</a> *config, FILE *fp_cache_file, FILE *fp_meta_file)</td></tr>
+<tr class="memdesc:ab9d59ccd7e35f1c1960b9cd44e7de67b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Create a new runner.  <br /></td></tr>
 <tr class="memitem:aa6628a6e9b3cbf455ebefd63825b44a9" id="r_aa6628a6e9b3cbf455ebefd63825b44a9"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aa6628a6e9b3cbf455ebefd63825b44a9">olaf_runner_destroy</a> (<a class="el" href="struct_olaf___runner.html">Olaf_Runner</a> *runner)</td></tr>
 <tr class="memdesc:aa6628a6e9b3cbf455ebefd63825b44a9"><td class="mdescLeft">&#160;</td><td class="mdescRight">Delete the resources related to the runner.  <br /></td></tr>
 </table>
@@ -149,8 +157,8 @@ Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a540acba4f0a9ba547f33df7566e6d4d8" name="a540acba4f0a9ba547f33df7566e6d4d8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a540acba4f0a9ba547f33df7566e6d4d8">&#9670;&#160;</a></span>olaf_runner_new()</h2>
+<a id="ab9d59ccd7e35f1c1960b9cd44e7de67b" name="ab9d59ccd7e35f1c1960b9cd44e7de67b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab9d59ccd7e35f1c1960b9cd44e7de67b">&#9670;&#160;</a></span>olaf_runner_new()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -158,8 +166,22 @@ Functions</h2></td></tr>
         <tr>
           <td class="memname"><a class="el" href="struct_olaf___runner.html">Olaf_Runner</a> * olaf_runner_new </td>
           <td>(</td>
-          <td class="paramtype">int</td>          <td class="paramname"><span class="paramname"><em>mode</em></span></td><td>)</td>
+          <td class="paramtype">int</td>          <td class="paramname"><span class="paramname"><em>mode</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
           <td></td>
+          <td class="paramtype"><a class="el" href="struct_olaf___config.html">Olaf_Config</a> *</td>          <td class="paramname"><span class="paramname"><em>config</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">FILE *</td>          <td class="paramname"><span class="paramname"><em>fp_cache_file</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">FILE *</td>          <td class="paramname"><span class="paramname"><em>fp_meta_file</em></span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -167,11 +189,14 @@ Functions</h2></td></tr>
 <p>Create a new runner. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramdir">[in]</td><td class="paramname">mode</td><td>The mode</td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">mode</td><td>The mode </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">config</td><td>The configuration </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">fp_cache_file</td><td>The output cache file </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">fp_meta_file</td><td>The output meta data file</td></tr>
   </table>
   </dd>
 </dl>
-<dl class="section return"><dt>Returns</dt><dd>The state of the runner </dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>A new runner struct state of the runner </dd></dl>
 
 </div>
 </div>

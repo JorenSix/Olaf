@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['xcursor_5finited_0',['XCURSOR_INITED',['../group__internal.html#ga3984b0c84521b4cc360e3f280dde75e7',1,'mdb.c']]],
-  ['xcursor_5frefresh_1',['XCURSOR_REFRESH',['../group__internal.html#ga3876e09a141d0992dc588b8cec4b71eb',1,'mdb.c']]]
+  ['warning_5fgiven_0',['warning_given',['../struct_olaf___d_b.html#a9030093c8bcbd15ca80eff6d72277895',1,'Olaf_DB::warning_given'],['../struct_olaf___f_p___extractor.html#a5e07ad4caf20204ebc60d5b4c34abb7c',1,'Olaf_FP_Extractor::warning_given']]],
+  ['why_20olaf_1',['Why Olaf?',['../index.html#why_sec',1,'']]]
 ];

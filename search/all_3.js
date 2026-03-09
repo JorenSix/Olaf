@@ -1,4 +1,7 @@
 var searchData=
 [
-  ['configuration_0',['Olaf&apos;s configuration',['../index.html#configuration',1,'']]]
+  ['config_0',['config',['../struct_olaf___e_p___extractor.html#a39c7f8fedfdfeb5ee867fb32da2adf1d',1,'Olaf_EP_Extractor::config'],['../struct_olaf___f_f_t.html#a55608adcab25a152399c947b7cf12024',1,'Olaf_FFT::config'],['../struct_olaf___f_p___d_b___writer___cache.html#a8ac1fba551b7ca58d5099cfab1968dbe',1,'Olaf_FP_DB_Writer_Cache::config'],['../struct_olaf___f_p___extractor.html#a6fb6815f6d3361f2e889f1d04d65aff7',1,'Olaf_FP_Extractor::config'],['../struct_olaf___f_p___matcher.html#af81ab12b6d9b03291c4c24e403cd7f4e',1,'Olaf_FP_Matcher::config'],['../struct_olaf___reader.html#adef69953bdb3ee179224db29f26f6f82',1,'Olaf_Reader::config'],['../struct_olaf___runner.html#adbebef1b3a389a64b20193dc3d2e8806',1,'Olaf_Runner::config'],['../struct_olaf___stream___processor.html#a61ee9c9d50c3b238e2b676906bddc4a5',1,'Olaf_Stream_Processor::config'],['../struct_olaf___state.html#a7b7dca23f797a8178af250358268b4d3',1,'Olaf_State::config']]],
+  ['configuration_1',['Olaf&apos;s configuration',['../index.html#configuration',1,'']]],
+  ['csv_5ffilename_2',['csv_filename',['../struct_olaf___f_p___d_b___writer___cache.html#a8fb6a918d6760fe86f29be68cd2c336c',1,'Olaf_FP_DB_Writer_Cache']]],
+  ['currenteventpoints_3',['currentEventPoints',['../struct_olaf___e_p___extractor.html#ad2e47a532e6cb416b0008c1534e91b2c',1,'Olaf_EP_Extractor']]]
 ];
