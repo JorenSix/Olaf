@@ -25,9 +25,9 @@ jobs:
         with:
           version: '0.15.2'
       - name: Build default target
-        run: zig build
+        run: zig build -Doptimize=ReleaseFast
       - name: Build Windows target
-        run: zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSmall
+        run: zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseFast
 
   # Release builds for tags (cli only)
   release:
@@ -69,7 +69,7 @@ jobs:
           echo "Building for target: ${{ matrix.target }}"
           
           # Build with explicit target and optimization
-          if ! zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseSmall; then
+          if ! zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast; then
             echo "Build failed for ${{ matrix.target }}"
             echo "Available targets:"
             zig targets | head -20

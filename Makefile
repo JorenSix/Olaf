@@ -186,22 +186,19 @@ test:
 docs:
 	doxygen
 
-test_cli:
-	ruby eval/olaf_functional_test_zig_wrapper.rb
-
 zig_linux:
-	zig build -Dtarget=x86_64-linux-gnu
+	zig build -Dtarget=x86_64-linux-gnu -Drelease-fast
 
 zig_mac_arm:
-	zig build -Dtarget=aarch64-macos.11.0.0-none
+	zig build -Dtarget=aarch64-macos.11.0.0-none -Drelease-fast
 
 zig_mac_x86:
-	zig build -Dtarget=x86_64-macos-gnu
+	zig build -Dtarget=x86_64-macos-gnu -Drelease-fast
 
 #Compile a windows exe using Zig
 zig_win:
-	zig build -Dtarget=x86_64-windows-gnu
+	zig build -Dtarget=x86_64-windows-gnu -Drelease-fast
 
 #Compile a webassembly version, currently unused, via Zig
 zig_web:
-	zig build -Dtarget=wasm32-freestanding-musl
+	zig build -Dtarget=wasm32-freestanding-musl -Drelease-fast

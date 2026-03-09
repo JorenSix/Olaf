@@ -87,7 +87,6 @@ test "functional: store and query workflow" {
 - Store → Query workflow
 - Delete operations
 - Cache operations
-- Multi-threaded operations
 
 **Integration Tests**: Test the full pipeline
 - Audio → Reader → Stream Processor → EP Extractor → FP Extractor → Matcher
@@ -144,5 +143,5 @@ To expand test coverage, consider adding tests for:
 - Ensure all source files are compiled
 
 **Zig tests fail to compile**
-- Check Zig version: `zig version` (requires 0.13.0+)
+- Check Zig version: `zig version` (requires 0.15.2)
 - Update imports in `olaf_tests.zig` if CLI structure changed
