@@ -34,6 +34,9 @@
 #ifndef OLAF_CONFIG_H
 #define OLAF_CONFIG_H
 	
+	/** @typedef Olaf_Config
+	 *  @brief Typedef for struct Olaf_Config.
+	 */
 	typedef struct Olaf_Config Olaf_Config;
 
 	/**
@@ -47,7 +50,7 @@
 	 */
 	struct Olaf_Config{
 
-		char * dbFolder;
+		char * dbFolder; /**< The folder where the database files are stored. */
 
 		//------ General Configuration
 
@@ -79,7 +82,7 @@
 		
 		/**The filter size of the max filter in frequency (vertical direction), either expressed in fft bins or in MIDI notes (12 midi notes is an octave).*/
 		int filterSizeFrequency;
-		int halfFilterSizeFrequency;
+		int halfFilterSizeFrequency; /**< Half of the filter size in frequency. */
 
 		/**To avoid extracting event points of silence, the ep magnitude should be at least this value*/
 		float minEventPointMagnitude;

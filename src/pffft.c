@@ -1194,14 +1194,17 @@ v4sf *cfftf1_ps(int n, const v4sf *input_readonly, v4sf *work1, v4sf *work2, con
 }
 
 
+/** @struct PFFFT_Setup
+ * @brief Internal state for a PFFFT transform instance.
+ */
 struct PFFFT_Setup {
-  int     N;
-  int     Ncvec; // nb of complex simd vectors (N/4 if PFFFT_COMPLEX, N/8 if PFFFT_REAL)
-  int ifac[15];
-  pffft_transform_t transform;
-  v4sf *data; // allocated room for twiddle coefs
-  float *e;    // points into 'data' , N/4*3 elements
-  float *twiddle; // points into 'data', N/4 elements
+  int     N; /**< FFT size */
+  int     Ncvec; /**< Number of complex SIMD vectors (N/4 if PFFFT_COMPLEX, N/8 if PFFFT_REAL) */
+  int ifac[15]; /**< Factorization of the FFT size */
+  pffft_transform_t transform; /**< Transform type (real or complex) */
+  v4sf *data; /**< Allocated room for twiddle coefficients */
+  float *e; /**< Points into data, N/4*3 elements */
+  float *twiddle; /**< Points into data, N/4 elements */
 };
 
 PFFFT_Setup *pffft_new_setup(int N, pffft_transform_t transform) {

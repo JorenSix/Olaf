@@ -24,10 +24,10 @@
 
 //state information
 struct Olaf_Deque{
-	size_t max_size;
-	size_t * values;
-	size_t value_index;
-	Queue *queue;
+	size_t max_size; /**< Maximum number of elements the deque can hold. */
+	size_t * values; /**< Array backing store for deque element values. */
+	size_t value_index; /**< Index of the next free slot in the values array. */
+	Queue *queue; /**< Underlying doubly-linked queue for deque operations. */
 };
 
 Olaf_Deque * olaf_deque_new(size_t max_size){

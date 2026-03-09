@@ -31,20 +31,26 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include "alloc-testing.h"
 #endif
 
+/** @struct _HashTableEntry
+ *  @brief An entry in a hash table, storing a key-value pair and a chain link.
+ */
 struct _HashTableEntry {
-	HashTablePair pair;
-	HashTableEntry *next;
+	HashTablePair pair; /**< The key-value pair for this entry. */
+	HashTableEntry *next; /**< Pointer to the next entry in the chain. */
 };
 
+/** @struct _HashTable
+ *  @brief A hash table mapping keys to values using separate chaining.
+ */
 struct _HashTable {
-	HashTableEntry **table;
-	unsigned int table_size;
-	HashTableHashFunc hash_func;
-	HashTableEqualFunc equal_func;
-	HashTableKeyFreeFunc key_free_func;
-	HashTableValueFreeFunc value_free_func;
-	unsigned int entries;
-	unsigned int prime_index;
+	HashTableEntry **table; /**< Array of chain head pointers. */
+	unsigned int table_size; /**< Number of slots in the table array. */
+	HashTableHashFunc hash_func; /**< Function used to hash keys. */
+	HashTableEqualFunc equal_func; /**< Function used to compare keys for equality. */
+	HashTableKeyFreeFunc key_free_func; /**< Function to free keys, or NULL. */
+	HashTableValueFreeFunc value_free_func; /**< Function to free values, or NULL. */
+	unsigned int entries; /**< Number of entries currently in the table. */
+	unsigned int prime_index; /**< Index into the prime table sizes array. */
 };
 
 /* This is a set of good hash table prime numbers, from:

@@ -35,6 +35,9 @@
      * A struct to keep the internal state of the matcher hidden and should 
      * not be used in other places
      */
+    /** @typedef Olaf_Reader
+     *  @brief Typedef for struct Olaf_Reader.
+     */
     typedef struct Olaf_Reader Olaf_Reader;
 
     /**

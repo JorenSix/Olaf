@@ -32,15 +32,21 @@ CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 typedef struct _QueueEntry QueueEntry;
 
+/** @struct _QueueEntry
+ *  @brief A single node in a double-ended queue.
+ */
 struct _QueueEntry {
-	QueueValue data;
-	QueueEntry *prev;
-	QueueEntry *next;
+	QueueValue data; /**< The value stored in this entry. */
+	QueueEntry *prev; /**< Pointer to the previous entry, or NULL. */
+	QueueEntry *next; /**< Pointer to the next entry, or NULL. */
 };
 
+/** @struct _Queue
+ *  @brief A double-ended queue (deque) backed by a doubly-linked list.
+ */
 struct _Queue {
-	QueueEntry *head;
-	QueueEntry *tail;
+	QueueEntry *head; /**< Pointer to the front of the queue. */
+	QueueEntry *tail; /**< Pointer to the back of the queue. */
 };
 
 Queue *queue_new(void)

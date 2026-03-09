@@ -22,16 +22,16 @@
 #include "olaf_db.h"
 
 struct Olaf_FP_DB_Writer{
-	uint64_t keys[1<<12];
-	uint64_t values[1<<12];
+	uint64_t keys[1<<12]; /**< Buffer of fingerprint hash keys */
+	uint64_t values[1<<12]; /**< Buffer of fingerprint hash values */
 
-	int index;
+	int index; /**< Current write index into the key/value buffers */
 
-	int threshold;
+	int threshold; /**< Flush threshold for the key/value buffers */
 
-	Olaf_DB * db;
+	Olaf_DB * db; /**< Reference to the fingerprint database */
 
-	uint32_t audio_file_identifier;
+	uint32_t audio_file_identifier; /**< Identifier of the audio file being stored */
 };
 
 

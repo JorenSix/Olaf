@@ -23,29 +23,23 @@
 #include "olaf_fp_extractor.h"
 #include "olaf_db.h"
 
+/** @struct match_result
+ * @brief Represents a single fingerprint match result between a query and a reference.
+ */
 struct match_result{
-	// The time of the matched reference fingerprint t1 
-	int referenceFingerprintT1;
+	int referenceFingerprintT1; /**< The time of the matched reference fingerprint t1 */
 
-	//The time of the query fingerprint f1
-	int queryFingerprintT1;
+	int queryFingerprintT1; /**< The time of the query fingerprint t1 */
 
-	//The first found match in the reference for this time difference
-	//Storing the first and last match makes it possible to identify
-	//the matched secion in the reference audio
-	int firstReferenceFingerprintT1;
+	int firstReferenceFingerprintT1; /**< The first found match in the reference for this time difference */
 
-	//The last found match in the reference for this time difference
-	int lastReferenceFingerprintT1;
+	int lastReferenceFingerprintT1; /**< The last found match in the reference for this time difference */
 
-	//The number of occurences with this exact time difference
-	int matchCount;
+	int matchCount; /**< The number of occurrences with this exact time difference */
 
-	//the matching audio file
-	uint32_t matchIdentifier;
+	uint32_t matchIdentifier; /**< The matching audio file identifier */
 
-	//the key used in the hash table
-	uint64_t result_hash_table_key;
+	uint64_t result_hash_table_key; /**< The key used in the hash table */
 };
 
 inline int max ( int a, int b ) { return a > b ? a : b; }
@@ -53,28 +47,19 @@ inline int min ( int a, int b ) { return a < b ? a : b; }
 
 struct Olaf_FP_Matcher{
 
-	//A hash table to quickly check whether a match_id and time diff
-	//combination has already been encountered
+	HashTable *result_hash_table; /**< Hash table mapping match_id/time-diff combinations to match structs */
 
-	//The key is pointer to a combination of match_id and time diff 
-	//    values pointers to match structs
-	HashTable *result_hash_table;
+	Olaf_DB * db; /**< The database to use */
 
-	//The database to use
-	Olaf_DB * db;
+	Olaf_Config * config; /**< The configuration of Olaf */
 
-	//The configuration of Olaf
-	Olaf_Config * config;
+	uint64_t * db_results; /**< List of results returned by the database, limited to maxDBCollisions */
 
-	//A list of results returns by the database
-	//  limited to a configured maxDBCollisions
-	uint64_t * db_results;
+	Olaf_FP_Matcher_Result_Callback result_callback; /**< Callback invoked for each match result */
 
-	Olaf_FP_Matcher_Result_Callback result_callback;
+	const char * header; /**< Optional header string for result output */
 
-	const char * header;
-
-	int last_print_at;
+	int last_print_at; /**< Audio block index of the last printed result */
 };
 
 //For the hash table use a 64 bit key mapped to 32 bits

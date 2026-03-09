@@ -31,8 +31,11 @@
 	#include "olaf_db.h"
 	#include "olaf_config.h"
 
+	/** @brief Maximum length of a single line in the CSV file. */
 	#define MAX_LINE_LEN 2048
+	/** @brief Maximum length of a single token in the CSV file. */
 	#define MAX_TOKEN_LEN 512
+	/** @brief Size of the fingerprint array buffer. */
 	#define FP_ARRAY_SIZE 10000
 	
 	/**
@@ -40,6 +43,9 @@
      * @brief An opaque struct with state information related to the cache writer.
      * 
      */
+	/** @typedef Olaf_FP_DB_Writer_Cache
+	 *  @brief Typedef for struct Olaf_FP_DB_Writer_Cache.
+	 */
 	typedef struct Olaf_FP_DB_Writer_Cache Olaf_FP_DB_Writer_Cache;
 
 	/**

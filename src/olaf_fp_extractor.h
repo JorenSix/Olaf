@@ -40,17 +40,17 @@
 	 * This is basically means falling back to using only 2 event points.
 	 */
 	struct fingerprint{
-		int frequencyBin1;
-		int timeIndex1;
-		float magnitude1;
+		int frequencyBin1; /**< Frequency bin of the first event point. */
+		int timeIndex1; /**< Time index of the first event point. */
+		float magnitude1; /**< Magnitude of the first event point. */
 
-		int frequencyBin2;
-		int timeIndex2;
-		float magnitude2;
+		int frequencyBin2; /**< Frequency bin of the second event point. */
+		int timeIndex2; /**< Time index of the second event point. */
+		float magnitude2; /**< Magnitude of the second event point. */
 
-		int frequencyBin3;
-		int timeIndex3;
-		float magnitude3;
+		int frequencyBin3; /**< Frequency bin of the third event point. */
+		int timeIndex3; /**< Time index of the third event point. */
+		float magnitude3; /**< Magnitude of the third event point. */
 	};
 
 	/**
@@ -61,8 +61,8 @@
 	 * 
 	 */
 	struct extracted_fingerprints{
-		struct fingerprint * fingerprints;
-		size_t fingerprintIndex;
+		struct fingerprint * fingerprints; /**< Array of extracted fingerprints. */
+		size_t fingerprintIndex; /**< The current index into the fingerprints array. */
 	};
 	
 	/**
@@ -70,6 +70,9 @@
 	 * 
 	 * @brief State information for the fingerprint extractor. 
 	 * 
+	 */
+	/** @typedef Olaf_FP_Extractor
+	 *  @brief Typedef for struct Olaf_FP_Extractor.
 	 */
 	typedef struct Olaf_FP_Extractor Olaf_FP_Extractor;
 

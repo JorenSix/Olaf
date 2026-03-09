@@ -25,13 +25,11 @@
 volatile bool end_of_file_reached;
 
 struct Olaf_Reader{
-	//the olaf configuration
-	Olaf_Config* config;
+	Olaf_Config* config; /**< The Olaf configuration */
 
-	//The file currently being read
-	FILE* audio_file;
+	FILE* audio_file; /**< The file currently being read */
 
-	size_t total_samples_read;
+	size_t total_samples_read; /**< Total number of audio samples read so far */
 };
 
 //void olaf_reader_trap(int signal){

@@ -36,13 +36,15 @@
 	 * @brief A struct to keep the internal state of the file writer hidden. It should 
 	 * not be used in other places.
 	 */
+	/** @typedef Olaf_FP_File_Writer
+	 *  @brief Typedef for struct Olaf_FP_File_Writer.
+	 */
 	typedef struct Olaf_FP_File_Writer Olaf_FP_File_Writer;
 
 	/**
 	 * @brief      Create a new file writer
 	 *
-	 * @param      olaf_config            The olaf configuration with the location to store the cached file.
-	 * @param[in]  audio_file_identifier  The audio file identifier. The audio file identifier is used in the file name.
+	 * @param      output_file  The output file to write fingerprints to.
 	 *
 	 * @return     State information related to file writer.
 	 */
@@ -51,7 +53,7 @@
 	/**
 	 * @brief      Write the header line to the file.
 	 *
-	 * @param      olaf_fp_file_writer  The olaf fp file writer state information.
+	 * @param      file_writer  The olaf fp file writer state information.
 	 */
 	void olaf_fp_file_writer_write_header(Olaf_FP_File_Writer * file_writer);
 
@@ -68,6 +70,7 @@
 	 *
 	 * @param      olaf_fp_file_writer  The olaf fp file writer state info.
 	 * @param      meta_data           The meta data related to the audio file.
+	 * @param      fp_meta_file        The file to write meta data to.
 	 */
 	void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * olaf_fp_file_writer, Olaf_Resource_Meta_data * meta_data, FILE * fp_meta_file);
 

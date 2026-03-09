@@ -15,7 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * @file olaf_max_lemire.c
+ * @file olaf_max_filter_lemire.c
  *
  * @brief Lemire Max filter implementation. 
  * 
@@ -31,6 +31,12 @@
 #include "olaf_deque.h"
 
 
+/** @brief Apply a Lemire max filter to an array.
+ *  @param array The input array of float values.
+ *  @param array_size The number of elements in the array.
+ *  @param filter_width The width of the max filter window.
+ *  @param maxvalues The output array for filtered max values.
+ */
 void olaf_lemire_max_filter(float* array, size_t array_size , size_t filter_width , float* maxvalues ) {
 
     Olaf_Deque * maxfifo = olaf_deque_new(array_size * 5);

@@ -33,6 +33,9 @@
      * @brief An opaque struct with state information related to the stream processor.
      * 
      */
+	/** @typedef Olaf_FP_DB_Writer
+	 *  @brief Typedef for struct Olaf_FP_DB_Writer.
+	 */
 	typedef struct Olaf_FP_DB_Writer Olaf_FP_DB_Writer;
 
 	/**

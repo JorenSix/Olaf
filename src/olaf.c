@@ -91,12 +91,18 @@
 #include "olaf_db.h"
 #include "olaf_fp_db_writer_cache.h"
 
+/** @brief Prints usage information and exits the program.
+ *  @param message The error message to display before usage text.
+ */
 void olaf_print_help(const char* message){
 	fprintf(stderr,"%s",message);
 	fprintf(stderr,"\tolaf_c [query audio.raw audio.wav | print audio.raw audio.wav |store [raw_audio.raw audio.wav]... | stats | name_to_id file_name.mp3 | delete raw_audio.raw audio.wav ]\n");
 	exit(-10);
 }
 
+/** @brief Prints database statistics and exits the program.
+ *  @return Does not return; calls exit(0).
+ */
 int olaf_stats(void){
 	//print database statistics and exit
 	Olaf_Config* config = olaf_config_default();
@@ -108,6 +114,11 @@ int olaf_stats(void){
 	return 0;
 }
 
+/** @brief Checks if fingerprints exist in the database for given audio files.
+ *  @param argc The argument count.
+ *  @param argv The argument vector.
+ *  @return Does not return; calls exit(0).
+ */
 int olaf_has(int argc, const char* argv[]){
 	Olaf_Config* config = olaf_config_default();
 	Olaf_DB* db = olaf_db_new(config->dbFolder,true);
@@ -130,6 +141,11 @@ int olaf_has(int argc, const char* argv[]){
 	return 0;
 }
 
+/** @brief Stores cached fingerprints from CSV files to the database.
+ *  @param argc The argument count.
+ *  @param argv The argument vector.
+ *  @return Does not return; calls exit(0).
+ */
 int olaf_store_cached(int argc, const char* argv[]){
 	Olaf_Config* config = olaf_config_default();
 	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
@@ -146,6 +162,11 @@ int olaf_store_cached(int argc, const char* argv[]){
 	return 0;
 }
 
+/** @brief Main entry point for the Olaf command-line application.
+ *  @param argc The argument count.
+ *  @param argv The argument vector.
+ *  @return 0 on success, non-zero on failure.
+ */
 int main(int argc, const char* argv[]){
 
 	if(argc < 2){

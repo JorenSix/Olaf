@@ -24,22 +24,19 @@
 
 //state information
 struct Olaf_EP_Extractor{
-	//the olaf configuration
-	Olaf_Config * config;
+	Olaf_Config * config; /**< The Olaf configuration */
 
-	// The magnitudes calculated from the fft
-	float** mags;
+	float** mags; /**< The magnitudes calculated from the FFT */
 
-	// The 'vertical' max-filtered magnitudes for the  
-	float** maxes;
+	float** maxes; /**< The vertical max-filtered magnitudes */
 
-	int filterIndex;
-	
-	int audioBlockIndex;
+	int filterIndex; /**< Current index into the max filter */
 
-	struct eventpoint * currentEventPoints;
+	int audioBlockIndex; /**< Index of the current audio block being processed */
 
-	struct extracted_event_points eventPoints;
+	struct eventpoint * currentEventPoints; /**< Temporary storage for event points in the current block */
+
+	struct extracted_event_points eventPoints; /**< The collection of extracted event points */
 };
 
 Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){

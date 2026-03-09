@@ -84,8 +84,13 @@ extern "C" {
 #endif
 
   /**
-   * @struct opaque struct holding internal stuff (precomputed twiddle factors) this 
-   * struct can be shared by many threads as it contains only read-only data.  
+   * @struct PFFFT_Setup
+   * @brief Opaque struct holding internal stuff (precomputed twiddle factors).
+   *
+   * This struct can be shared by many threads as it contains only read-only data.
+   */
+  /** @typedef PFFFT_Setup
+   *  @brief Typedef for struct PFFFT_Setup.
    */
   typedef struct PFFFT_Setup PFFFT_Setup;
 

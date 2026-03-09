@@ -32,8 +32,8 @@
 // 5k * 64bit =  40kB
 
 struct Olaf_DB{
-	const uint64_t * ref_fp;
-	size_t ref_fp_length;
+	const uint64_t * ref_fp; /**< Pointer to the reference fingerprint array. */
+	size_t ref_fp_length; /**< Number of elements in the reference fingerprint array. */
 };
 
 //create a new databas

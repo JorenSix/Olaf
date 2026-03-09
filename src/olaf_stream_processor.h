@@ -35,6 +35,9 @@
      * @brief An opaque struct with state information related to the stream processor.
      * 
      */
+    /** @typedef Olaf_Stream_Processor
+     *  @brief Typedef for struct Olaf_Stream_Processor.
+     */
     typedef struct Olaf_Stream_Processor Olaf_Stream_Processor;
 
     /**

@@ -18,20 +18,20 @@
 #include "olaf_fp_file_writer.h"
 
 struct Olaf_Stream_Processor{
-	Olaf_Runner *runner;
-	Olaf_Config *config;
-	Olaf_Reader *reader;
-	Olaf_EP_Extractor *ep_extractor;
-	Olaf_FP_Extractor *fp_extractor;
+	Olaf_Runner *runner; /**< Reference to the runner managing this processor */
+	Olaf_Config *config; /**< Reference to the Olaf configuration */
+	Olaf_Reader *reader; /**< Audio reader for the input stream */
+	Olaf_EP_Extractor *ep_extractor; /**< Event point extractor instance */
+	Olaf_FP_Extractor *fp_extractor; /**< Fingerprint extractor instance */
 
-	uint32_t audio_identifier;
-	const char* orig_path;
+	uint32_t audio_identifier; /**< Hash identifier for the audio file */
+	const char* orig_path; /**< Original file path of the audio source */
 
-	const char* result_header;
-	Olaf_FP_Matcher_Result_Callback result_callback;
+	const char* result_header; /**< Optional header string for match results */
+	Olaf_FP_Matcher_Result_Callback result_callback; /**< Callback invoked for each match result */
 
 	//Input audio samples
-	float *audio_data;
+	float *audio_data; /**< Buffer holding input audio samples */
 };
 
 

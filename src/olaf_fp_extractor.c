@@ -25,11 +25,11 @@
 
 
 struct Olaf_FP_Extractor{
-	int audioBlockIndex;
-	struct extracted_fingerprints fingerprints;
-	Olaf_Config * config;
-	size_t total_fp_extracted;
-	bool warning_given;
+	int audioBlockIndex; /**< Index of the current audio block */
+	struct extracted_fingerprints fingerprints; /**< The collection of extracted fingerprints */
+	Olaf_Config * config; /**< Reference to the Olaf configuration */
+	size_t total_fp_extracted; /**< Total number of fingerprints extracted so far */
+	bool warning_given; /**< Whether a warning has already been emitted */
 };
 
 Olaf_FP_Extractor * olaf_fp_extractor_new(Olaf_Config * config){

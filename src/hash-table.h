@@ -85,8 +85,8 @@ typedef void *HashTableValue;
  */
 
 typedef struct _HashTablePair{
-	HashTableKey key;
-	HashTableValue value;
+	HashTableKey key; /**< The key for this pair. */
+	HashTableValue value; /**< The value for this pair. */
 } HashTablePair;
 
 /**
@@ -94,9 +94,9 @@ typedef struct _HashTablePair{
  */
 
 struct _HashTableIterator {
-	HashTable *hash_table;
-	HashTableEntry *next_entry;
-	unsigned int next_chain;
+	HashTable *hash_table; /**< The hash table being iterated. */
+	HashTableEntry *next_entry; /**< Pointer to the next entry to return. */
+	unsigned int next_chain; /**< Index of the next chain to iterate. */
 };
 
 /**

@@ -47,6 +47,9 @@
 	 * A struct to keep the internal state of the matcher hidden and should 
 	 * not be used in other places
 	 */
+	/** @typedef Olaf_FP_Matcher
+	 *  @brief Typedef for struct Olaf_FP_Matcher.
+	 */
 	typedef struct Olaf_FP_Matcher Olaf_FP_Matcher;
 
 	//Create a new matcher which matches incoming fingerprints with a database. 
@@ -54,8 +57,9 @@
 	/**
 	 * @brief      Initialize a new matcher
 	 *
-	 * @param      config  The current configuration
-	 * @param      db      The database
+	 * @param      config    The current configuration
+	 * @param      db        The database
+	 * @param      callback  The callback function for match results
 	 *
 	 * @return     A newly initialzed state struct, or undefined if memory could not be allocated.
 	 */

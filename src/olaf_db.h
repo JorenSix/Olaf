@@ -49,6 +49,9 @@
 	 * arrays in memory if it is memory backed.
 	 * 
 	 */
+	/** @typedef Olaf_DB
+	 *  @brief Typedef for struct Olaf_DB.
+	 */
 	typedef struct Olaf_DB Olaf_DB;
 
 	/** 

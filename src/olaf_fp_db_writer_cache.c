@@ -24,20 +24,20 @@
 #include "olaf_db.h"
 
 struct Olaf_FP_DB_Writer_Cache{
-	Olaf_DB * db;
-	Olaf_Config * config;
+	Olaf_DB * db; /**< Reference to the fingerprint database */
+	Olaf_Config * config; /**< Reference to the Olaf configuration */
 
-	const char* csv_filename;
+	const char* csv_filename; /**< Path to the CSV cache file */
 
-	uint64_t fp_hashes[FP_ARRAY_SIZE];
-	uint64_t fp_values[FP_ARRAY_SIZE];
-	size_t fp_index;
+	uint64_t fp_hashes[FP_ARRAY_SIZE]; /**< Cached fingerprint hash keys */
+	uint64_t fp_values[FP_ARRAY_SIZE]; /**< Cached fingerprint hash values */
+	size_t fp_index; /**< Current index into the fingerprint cache arrays */
 
-	size_t fp_counter;
-	uint64_t last_fp_t1;
+	size_t fp_counter; /**< Total number of fingerprints processed */
+	uint64_t last_fp_t1; /**< Timestamp of the last fingerprint t1 value */
 
-	uint64_t audio_file_identifier;
-	const char* audio_filename;
+	uint64_t audio_file_identifier; /**< Identifier of the current audio file */
+	const char* audio_filename; /**< File name of the current audio file */
 };
 
 

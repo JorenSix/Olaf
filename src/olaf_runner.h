@@ -28,10 +28,15 @@
 	#include "olaf_db.h"
 	#include "pffft.h"
 	
+	/** @brief Runner mode for querying the database. */
 	#define OLAF_RUNNER_MODE_QUERY  233
+	/** @brief Runner mode for storing fingerprints in the database. */
 	#define OLAF_RUNNER_MODE_STORE  434
+	/** @brief Runner mode for deleting fingerprints from the database. */
 	#define OLAF_RUNNER_MODE_DELETE 653
+	/** @brief Runner mode for printing fingerprints. */
 	#define OLAF_RUNNER_MODE_PRINT  9043
+	/** @brief Runner mode for caching fingerprints. */
 	#define OLAF_RUNNER_MODE_CACHE  2342
 	
 
@@ -42,27 +47,25 @@
 	 * @brief Helps to run query, store, delete or print commands. These share a lot of functionality but differ in crucial parts.
 	 * To keep this organized the runner keeps some shared state.
 	 */
+	/** @typedef Olaf_Runner
+	 *  @brief Typedef for struct Olaf_Runner.
+	 */
 	typedef struct Olaf_Runner Olaf_Runner;
 
 	struct Olaf_Runner{
-		//the olaf configuration
-		Olaf_Config * config;
+		Olaf_Config * config; /**< The olaf configuration. */
 
-		int mode;
+		int mode; /**< The current runner mode (query, store, delete, print, cache). */
 
-		//The database	
-		Olaf_DB* db;
+		Olaf_DB* db; /**< The database. */
 
-		//The fft struct that is reused
-		PFFFT_Setup *fftSetup;
+		PFFFT_Setup *fftSetup; /**< The FFT struct that is reused. */
 
-		//In and output fft data
-		float *fft_in;
-		float *fft_out;
+		float *fft_in; /**< Input buffer for FFT data. */
+		float *fft_out; /**< Output buffer for FFT data. */
 
-		//Cache file for printing fingerprints to if in PRINT or CACHE mode
-		FILE * fp_cache_file;
-		FILE * fp_meta_file;
+		FILE * fp_cache_file; /**< Cache file for printing fingerprints to if in PRINT or CACHE mode. */
+		FILE * fp_meta_file; /**< Meta data file for storing resource meta data. */
 	};
 
 	/**
@@ -70,7 +73,8 @@
 	 *
 	 * @param[in]  mode  The mode
 	 * @param[in]  config  The configuration
-	 * @param[in]  output_cache_file  The output cache file
+	 * @param[in]  fp_cache_file  The output cache file
+	 * @param[in]  fp_meta_file  The output meta data file
 	 *
 	 * @return     A new runner struct state of the runner
 	 */

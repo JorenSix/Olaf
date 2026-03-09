@@ -33,9 +33,9 @@ int fp_hash_compare(const void * a, const void * b) {
 }
 
 struct Olaf_FP_DB_Writer{
-	uint64_t* hashes;
-	size_t hashes_size;
-	size_t index;
+	uint64_t* hashes; /**< Array of fingerprint hashes */
+	size_t hashes_size; /**< Allocated capacity of the hashes array */
+	size_t index; /**< Current write index into the hashes array */
 };
 
 

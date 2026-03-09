@@ -33,10 +33,10 @@
 	 * @brief An event point is a combination of a frequency bin, time bin and magnitude
 	 */  
 	struct eventpoint {
-		int frequencyBin;
-		int timeIndex;
-		float magnitude;
-		int usages;
+		int frequencyBin; /**< The frequency bin index of the event point. */
+		int timeIndex; /**< The time index (audio block index) of the event point. */
+		float magnitude; /**< The magnitude at the event point. */
+		int usages; /**< The number of times this event point has been used. */
 	};
 
 	
@@ -45,8 +45,8 @@
 	 * @brief The result of event point extraction is a list of event points.
 	 */
 	struct extracted_event_points{
-		struct eventpoint * eventPoints;
-		int eventPointIndex;
+		struct eventpoint * eventPoints; /**< Array of extracted event points. */
+		int eventPointIndex; /**< The current index into the event points array. */
 	};
 	
 	/**
@@ -54,7 +54,10 @@
 	 *
 	 * @brief Contains state information for event point (EP) extraction.
 	 * 
-	 * The memory used by the ep extractor should be freed in the  @_destroy@ method. 
+	 * The memory used by the ep extractor should be freed in the olaf_ep_extractor_destroy() method.
+	 */
+	/** @typedef Olaf_EP_Extractor
+	 *  @brief Typedef for struct Olaf_EP_Extractor.
 	 */
 	typedef struct Olaf_EP_Extractor Olaf_EP_Extractor;
 
@@ -67,7 +70,7 @@
 
 	/**
 	 * A helper (debug) method to print a single event point.
-	 * @param eventpoint The event point to print.
+	 * @param e The event point to print.
 	 */
 	void olaf_ep_extractor_print_ep(struct eventpoint);
 

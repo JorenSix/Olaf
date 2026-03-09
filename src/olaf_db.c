@@ -26,15 +26,15 @@
 
 struct Olaf_DB{
 	//the file name to serialize and deserialize the data
-	MDB_env *env;
-	MDB_txn *txn;
+	MDB_env *env; /**< The LMDB environment handle. */
+	MDB_txn *txn; /**< The current LMDB transaction. */
 
-	MDB_dbi dbi_fps;
-	MDB_dbi dbi_resource_map;
+	MDB_dbi dbi_fps; /**< Database handle for fingerprint storage. */
+	MDB_dbi dbi_resource_map; /**< Database handle for resource metadata. */
 
-	bool warning_given;
+	bool warning_given; /**< Whether a collision warning has been printed. */
 
-	const char * mdb_folder;
+	const char * mdb_folder; /**< Path to the LMDB database folder. */
 };
 
 void e(int status_code){

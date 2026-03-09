@@ -32,7 +32,10 @@
 	 *
 	 * @brief Contains state information related to the deque.
 	 * 
-	 * The memory used by the ep extractor should be freed in the  @_destroy@ method. 
+	 * The memory used by the ep extractor should be freed in the olaf_deque_destroy() method.
+	 */
+	/** @typedef Olaf_Deque
+	 *  @brief Typedef for struct Olaf_Deque.
 	 */
 	typedef struct Olaf_Deque Olaf_Deque;
 

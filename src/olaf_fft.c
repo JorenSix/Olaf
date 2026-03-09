@@ -26,13 +26,11 @@
 #include "olaf_fft.h"
 
 struct Olaf_FFT{
-	//the olaf configuration
-	Olaf_Config * config;
+	Olaf_Config * config; /**< The Olaf configuration */
 
-	// the fft state info
-	PFFFT_Setup *fftSetup;
-	float *fft_in;
-	float *fft_out;
+	PFFFT_Setup *fftSetup; /**< The FFT setup state */
+	float *fft_in; /**< Input buffer for the FFT */
+	float *fft_out; /**< Output buffer for the FFT */
 };
 
 

@@ -23,7 +23,7 @@
 #include "olaf_db.h"
 
 struct Olaf_FP_File_Writer{
-	FILE * output_file;
+	FILE * output_file; /**< The output file handle for writing fingerprints */
 };
 
 Olaf_FP_File_Writer * olaf_fp_file_writer_new( FILE * output_file){

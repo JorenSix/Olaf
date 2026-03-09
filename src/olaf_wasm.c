@@ -28,25 +28,28 @@
 #include "olaf_fp_extractor.h"
 #include "olaf_fp_matcher.h"
 
+/** @struct Olaf_State
+ * @brief Holds the complete processing state for the WASM-based Olaf instance.
+ */
 struct Olaf_State{
-	float * audio;
-	
-	size_t audio_block_index;
+	float * audio; /**< Buffer for incoming audio samples */
 
-	size_t audio_sample_index;
+	size_t audio_block_index; /**< Index of the current audio block */
 
-	PFFFT_Setup *fftSetup;
-	float *fft_in;//fft input
-	float *fft_out;//fft output
+	size_t audio_sample_index; /**< Index of the current audio sample within the block */
 
-	Olaf_Config *config;
-	Olaf_DB* db;
-	Olaf_EP_Extractor *ep_extractor;
-	Olaf_FP_Extractor *fp_extractor;
-	Olaf_FP_Matcher *fp_matcher;
+	PFFFT_Setup *fftSetup; /**< FFT configuration and twiddle factors */
+	float *fft_in; /**< FFT input buffer */
+	float *fft_out; /**< FFT output buffer */
 
-	struct extracted_event_points * eventPoints;
-	struct extracted_fingerprints * fingerprints;
+	Olaf_Config *config; /**< Reference to the Olaf configuration */
+	Olaf_DB* db; /**< Reference to the fingerprint database */
+	Olaf_EP_Extractor *ep_extractor; /**< Event point extractor instance */
+	Olaf_FP_Extractor *fp_extractor; /**< Fingerprint extractor instance */
+	Olaf_FP_Matcher *fp_matcher; /**< Fingerprint matcher instance */
+
+	struct extracted_event_points * eventPoints; /**< Pointer to the current extracted event points */
+	struct extracted_fingerprints * fingerprints; /**< Pointer to the current extracted fingerprints */
 };
  
 
