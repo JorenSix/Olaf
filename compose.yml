@@ -1,10 +1,8 @@
-
 services:
   olaf:
-    build:
-      context: .
-      dockerfile: ./Dockerfile
-    command: ["olaf", "stats"]
+    image: olaf:1.0
+    build: .
     volumes:
-      - .olaf/docker_db:/root/.olaf
-      - .:/root/audio # Mount the current directory to /root/audio in the container, this assumes your audio files are in the current directory
+      - ${HOME}/.olaf/docker_dbs:/root/.olaf
+      - .:/root/audio
+    working_dir: /root/audio

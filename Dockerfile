@@ -1,54 +1,35 @@
-#Use Alpine linux as a base, a small distro
-#The version and architecture is not that relevant
-#The dependencies should be present
-FROM alpine:latest as builder
+# Stage 1: Build Olaf with Zig 0.15.2
+FROM alpine:latest AS builder
 
-#update the package index
-RUN apk update
+ARG TARGETARCH
 
-RUN apk add zig 
+RUN apk add --no-cache xz wget tar make
 
-RUN mkdir -p /usr/src/olaf
+# Download and extract Zig 0.15.2 for the target architecture
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      ZIG_ARCH="aarch64"; \
+    else \
+      ZIG_ARCH="x86_64"; \
+    fi && \
+    wget -q "https://ziglang.org/download/0.15.2/zig-${ZIG_ARCH}-linux-0.15.2.tar.xz" && \
+    tar xf zig-${ZIG_ARCH}-linux-0.15.2.tar.xz && \
+    mv zig-${ZIG_ARCH}-linux-0.15.2 /usr/local/zig
+
+ENV PATH="/usr/local/zig:${PATH}"
+
 WORKDIR /usr/src/olaf
-
-RUN zig build-exe src/olaf.zig -O ReleaseSafe --library c --library m --out-dir .
-
 COPY . .
 
+RUN make
 
-FROM alpine:latest as runner
+# Stage 2: Minimal runtime image
+FROM alpine:latest AS runner
 
-RUN mkdir -p /usr/src/olaf
-WORKDIR /usr/src/olaf
-COPY --from=builder /usr/src/olaf /usr/src/olaf
+RUN apk add --no-cache ffmpeg
 
-#Install dependencies:
-# - ffmpeg to convert audio
-# The version of each dependency is not that critical
-# The interfaces used should be rather stable over time
-RUN apk add ffmpeg 
+COPY --from=builder /usr/src/olaf/zig-out/bin/olaf /usr/local/bin/olaf
 
-#Create a temporary directory for the source files
-#and switch to it
-
-
-#copy the source files
-
-
-#compile and install Olaf
-RUN make && make install-su && make clean
-RUN echo "Olaf compiled and installed!"
-
-#Make and switch to the audio directory
-# This directory will be mounted and used as passthrough 
-# from host to container
+ENV HOME=/root
+RUN printf '{ "db_folder": "/root/.olaf/docker/db/", "cache_folder": "/root/.olaf/docker/cache/" }' > /usr/local/bin/olaf_config.json
 RUN mkdir -p /root/audio
 WORKDIR /root/audio
-
-#We do not need the temporary source files any more
-RUN rm -rf /usr/src/olaf
-
-#The database folder will be mounted from the host so that
-# the database + configuration persists over time
-# the folder can be removed
-RUN rm -rf /root/.olaf

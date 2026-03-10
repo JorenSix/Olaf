@@ -112,6 +112,7 @@ Olaf has been designed with a UNIX like environment in mind but also works on Wi
 Olaf can be containerized with [Docker](https://www.docker.com/). The provided Dockerfile is based on [Alpine linux](https://www.alpinelinux.org/) and installs only the needed requirements. A way to build the container and run Olaf:
 
 ```bash
+mkdir -p $HOME/.olaf/docker_dbs
 docker build -t olaf:1.0 .
 wget "https://filesamples.com/samples/audio/mp3/sample3.mp3"
 docker run -v $HOME/.olaf/docker_dbs:/root/.olaf -v $PWD:/root/audio olaf:1.0 olaf store sample3.mp3
@@ -123,10 +124,10 @@ In this case the `$HOME/.olaf/docker_dbs` is mapped to `/root/.olaf` in the cont
 If you prefer docker compose the following should get you started:
 
 ```bash
-ruby eval/olaf_download_dataset.rb 
-docker compose run olaf olaf store dataset/ref/*
-docker compose run olaf olaf query dataset/queries/*
-docker compose   run --remove-orphans olaf olaf stats 
+wget "https://filesamples.com/samples/audio/mp3/sample3.mp3"
+docker compose run olaf olaf store sample.mp3
+docker compose run olaf olaf query ample.mp3
+docker compose run --remove-orphans olaf olaf stats 
 ```
 
 ## Olaf in the browser

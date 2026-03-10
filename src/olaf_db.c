@@ -37,6 +37,17 @@ struct Olaf_DB{
 	const char * mdb_folder; /**< Path to the LMDB database folder. */
 };
 
+void e_ctx(int status_code, const char *operation, const char *db_folder) {
+	if (status_code != MDB_SUCCESS) {
+		fprintf(stderr, "Database Error in '%s': %s\n", operation, mdb_strerror(status_code));
+		if (db_folder) {
+			fprintf(stderr, "  Database folder: '%s'\n", db_folder);
+			fprintf(stderr, "  Hint: Ensure the folder exists and is writable (mkdir -p %s)\n", db_folder);
+		}
+		exit(-42);
+	}
+}
+
 void e(int status_code){
 	if (status_code != MDB_SUCCESS) {
 		fprintf(stderr, "Database Error: %s\n", mdb_strerror(status_code));
@@ -57,12 +68,12 @@ Olaf_DB * olaf_db_new(const char * mdb_folder,bool readonly){
 	//
 	size_t max_db_size_in_bytes = (size_t)(1024*1024) * (size_t)(1024*1024);
 
-	e(mdb_env_create(&olaf_db->env));
-	e(mdb_env_set_maxreaders(olaf_db->env, 10));
-	e(mdb_env_set_mapsize(olaf_db->env,max_db_size_in_bytes));
-	e(mdb_env_set_maxdbs(olaf_db->env,2));
-	e(mdb_env_open(olaf_db->env, mdb_folder, readonly ? (MDB_RDONLY | MDB_NOLOCK) : 0, 0664));
-	e(mdb_txn_begin(olaf_db->env, NULL, readonly ? MDB_RDONLY : 0 , &olaf_db->txn));
+	e_ctx(mdb_env_create(&olaf_db->env), "mdb_env_create", mdb_folder);
+	e_ctx(mdb_env_set_maxreaders(olaf_db->env, 10), "mdb_env_set_maxreaders", mdb_folder);
+	e_ctx(mdb_env_set_mapsize(olaf_db->env,max_db_size_in_bytes), "mdb_env_set_mapsize", mdb_folder);
+	e_ctx(mdb_env_set_maxdbs(olaf_db->env,2), "mdb_env_set_maxdbs", mdb_folder);
+	e_ctx(mdb_env_open(olaf_db->env, mdb_folder, readonly ? (MDB_RDONLY | MDB_NOLOCK) : 0, 0664), "mdb_env_open", mdb_folder);
+	e_ctx(mdb_txn_begin(olaf_db->env, NULL, readonly ? MDB_RDONLY : 0 , &olaf_db->txn), "mdb_txn_begin", mdb_folder);
 
 	unsigned int fingerprint_flags = MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_INTEGERDUP;
 	unsigned int resource_flags = MDB_INTEGERKEY;
@@ -76,8 +87,8 @@ Olaf_DB * olaf_db_new(const char * mdb_folder,bool readonly){
 	olaf_db->mdb_folder = mdb_folder;
 
 	//open the database with flags sets
-	e(mdb_dbi_open(olaf_db->txn, "olaf_fingerprints",fingerprint_flags , &olaf_db->dbi_fps));
-	e(mdb_dbi_open(olaf_db->txn, "olaf_resource_map",resource_flags , &olaf_db->dbi_resource_map));
+	e_ctx(mdb_dbi_open(olaf_db->txn, "olaf_fingerprints",fingerprint_flags , &olaf_db->dbi_fps), "mdb_dbi_open(olaf_fingerprints)", mdb_folder);
+	e_ctx(mdb_dbi_open(olaf_db->txn, "olaf_resource_map",resource_flags , &olaf_db->dbi_resource_map), "mdb_dbi_open(olaf_resource_map)", mdb_folder);
 
 	
 
@@ -349,11 +360,19 @@ size_t olaf_db_size(Olaf_DB * olaf_db){
 	//This assumes the default filename for MDB
 	const char* mdb_filename = "data.mdb";
 
-	size_t total_len = strlen(olaf_db->mdb_folder) + strlen(mdb_filename) + 1;
+	size_t folder_len = strlen(olaf_db->mdb_folder);
+	bool needs_sep = folder_len > 0
+		&& olaf_db->mdb_folder[folder_len - 1] != '/'
+		&& olaf_db->mdb_folder[folder_len - 1] != '\\';
+
+	size_t total_len = folder_len + (needs_sep ? 1 : 0) + strlen(mdb_filename) + 1;
 	char *mdb_full_path_name = malloc(total_len);
 	if(!mdb_full_path_name) return 0;
 
-	snprintf(mdb_full_path_name, total_len, "%s%s", olaf_db->mdb_folder, mdb_filename);
+	snprintf(mdb_full_path_name, total_len, "%s%s%s",
+		olaf_db->mdb_folder,
+		needs_sep ? "/" : "",
+		mdb_filename);
 
 	FILE * db_file = fopen(mdb_full_path_name,"rb");
 	free(mdb_full_path_name);
