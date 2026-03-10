@@ -99,13 +99,10 @@ jobs:
 
       - name: Prepare release assets
         run: |
-          TAG=${GITHUB_REF#refs/tags/}
           mkdir -p release-assets
           find artifacts -name "*.tar.gz" -o -name "*.zip" | while read file; do
             cp "$file" release-assets/
           done
-          git archive --format=zip --prefix=olaf-${TAG}/ HEAD > release-assets/olaf-${TAG}-source.zip
-          git archive --format=tar.gz --prefix=olaf-${TAG}/ HEAD > release-assets/olaf-${TAG}-source.tar.gz
 
       - name: Generate release notes
         id: release_notes
