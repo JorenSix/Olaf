@@ -1,0 +1,198 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 720" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="zigGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f7a41d;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e8891c;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="coreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2563eb;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="ffmpegGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#388e3c;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2e7d32;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="dbGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6d28d9;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-3%" y="-3%" width="106%" height="112%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.12"/>
+    </filter>
+    <filter id="shadowLg" x="-3%" y="-3%" width="106%" height="112%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.15"/>
+    </filter>
+    <marker id="arrowGray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#388e3c"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="720" rx="12" fill="#f8fafc"/>
+
+  <!-- Title -->
+  <text x="450" y="38" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">Olaf — Zig Wrapper with C Core Architecture</text>
+  <text x="450" y="58" text-anchor="middle" font-size="12" fill="#64748b">Audio fingerprinting: CLI → FFmpeg decode → C core processing → LMDB storage</text>
+
+  <!-- ═══════════════ USER / CLI INPUT ═══════════════ -->
+  <rect x="60" y="82" width="780" height="54" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" filter="url(#shadow)"/>
+  <text x="450" y="100" text-anchor="middle" font-size="10" font-weight="600" fill="#64748b" letter-spacing="1.5">USER INPUT</text>
+  <text x="450" y="120" text-anchor="middle" font-size="13" fill="#334155" font-family="'SF Mono', 'Fira Code', monospace">olaf store audio.mp3 | olaf query clip.wav | olaf dedup folder/</text>
+
+  <!-- Arrow down from user to Zig wrapper -->
+  <line x1="450" y1="136" x2="450" y2="158" stroke="#64748b" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+
+  <!-- ═══════════════ ZIG WRAPPER (outer box) ═══════════════ -->
+  <rect x="60" y="160" width="780" height="340" rx="10" fill="#fffbeb" stroke="#f7a41d" stroke-width="2" filter="url(#shadowLg)"/>
+  <rect x="60" y="160" width="780" height="32" rx="10" fill="url(#zigGrad)"/>
+  <rect x="60" y="180" width="780" height="12" fill="url(#zigGrad)"/>
+  <text x="80" y="182" font-size="14" font-weight="700" fill="#fff">⚡ Zig Wrapper Layer</text>
+  <text x="760" y="182" font-size="10" fill="#fef3c7" text-anchor="end">cli/ &amp; build.zig</text>
+
+  <!-- CLI Argument Parser -->
+  <rect x="82" y="204" width="200" height="72" rx="6" fill="#fff" stroke="#f7a41d" stroke-width="1" filter="url(#shadow)"/>
+  <text x="182" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">CLI Argument Parser</text>
+  <text x="182" y="242" text-anchor="middle" font-size="9.5" fill="#78716c">Parse sub-commands:</text>
+  <text x="182" y="255" text-anchor="middle" font-size="9" fill="#a8a29e" font-family="monospace">store | query | delete</text>
+  <text x="182" y="267" text-anchor="middle" font-size="9" fill="#a8a29e" font-family="monospace">dedup | stats | clear</text>
+
+  <!-- File / Folder Resolver -->
+  <rect x="300" y="204" width="200" height="72" rx="6" fill="#fff" stroke="#f7a41d" stroke-width="1" filter="url(#shadow)"/>
+  <text x="400" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">File / Folder Resolver</text>
+  <text x="400" y="242" text-anchor="middle" font-size="9.5" fill="#78716c">Recursive audio discovery</text>
+  <text x="400" y="255" text-anchor="middle" font-size="9" fill="#a8a29e">Allowlist extensions:</text>
+  <text x="400" y="267" text-anchor="middle" font-size="9" fill="#a8a29e" font-family="monospace">.mp3 .wav .flac .ogg …</text>
+
+  <!-- Result Formatter -->
+  <rect x="518" y="204" width="200" height="72" rx="6" fill="#fff" stroke="#f7a41d" stroke-width="1" filter="url(#shadow)"/>
+  <text x="618" y="225" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">Result Formatter</text>
+  <text x="618" y="242" text-anchor="middle" font-size="9.5" fill="#78716c">Human-readable output</text>
+  <text x="618" y="255" text-anchor="middle" font-size="9" fill="#a8a29e">Match results, stats,</text>
+  <text x="618" y="267" text-anchor="middle" font-size="9" fill="#a8a29e">dedup reports → stdout</text>
+
+  <!-- Connector: Parser → Resolver -->
+  <line x1="282" y1="240" x2="298" y2="240" stroke="#d97706" stroke-width="1.2" stroke-dasharray="4,2"/>
+  <!-- Connector: Resolver → Formatter -->
+  <line x1="500" y1="240" x2="516" y2="240" stroke="#d97706" stroke-width="1.2" stroke-dasharray="4,2"/>
+
+  <!-- ─── FFmpeg Subprocess (inside Zig) ─── -->
+  <rect x="82" y="292" width="340" height="86" rx="6" fill="#e8f5e9" stroke="#388e3c" stroke-width="1.5" filter="url(#shadow)"/>
+  <rect x="82" y="292" width="340" height="22" rx="6" fill="url(#ffmpegGrad)"/>
+  <rect x="82" y="306" width="340" height="8" fill="url(#ffmpegGrad)"/>
+  <text x="102" y="308" font-size="11" font-weight="700" fill="#fff">🎬 FFmpeg Subprocess (audio decode)</text>
+  <text x="252" y="332" text-anchor="middle" font-size="9.5" fill="#2e7d32" font-family="monospace">ffmpeg -i input.mp3 -ac 1 -ar 16000</text>
+  <text x="252" y="346" text-anchor="middle" font-size="9.5" fill="#2e7d32" font-family="monospace">       -f f32le -acodec pcm_f32le pipe:1</text>
+  <text x="252" y="364" text-anchor="middle" font-size="9" fill="#4caf50">Any format → mono 16kHz f32le PCM stream</text>
+
+  <!-- ID Generator (Jenkins Hash) -->
+  <rect x="440" y="292" width="176" height="86" rx="6" fill="#fff" stroke="#f7a41d" stroke-width="1" filter="url(#shadow)"/>
+  <text x="528" y="313" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">ID Generator</text>
+  <text x="528" y="330" text-anchor="middle" font-size="9.5" fill="#78716c">Jenkins one-at-a-time hash</text>
+  <text x="528" y="346" text-anchor="middle" font-size="9" fill="#a8a29e">filename → 32-bit ID</text>
+  <text x="528" y="362" text-anchor="middle" font-size="9" fill="#a8a29e">Stored in id↔name map</text>
+
+  <!-- Thread Manager -->
+  <rect x="634" y="292" width="186" height="86" rx="6" fill="#fff" stroke="#f7a41d" stroke-width="1" filter="url(#shadow)"/>
+  <text x="727" y="313" text-anchor="middle" font-size="11" font-weight="600" fill="#92400e">Thread Manager</text>
+  <text x="727" y="330" text-anchor="middle" font-size="9.5" fill="#78716c">--threads n option</text>
+  <text x="727" y="346" text-anchor="middle" font-size="9" fill="#a8a29e">Parallel query / cache</text>
+  <text x="727" y="362" text-anchor="middle" font-size="9" fill="#a8a29e">--fragmented chunking</text>
+
+  <!-- Zig → C bridge label -->
+  <rect x="82" y="394" width="736" height="22" rx="4" fill="#fef3c7" stroke="#f7a41d" stroke-width="0.5"/>
+  <text x="450" y="409" text-anchor="middle" font-size="10" font-weight="600" fill="#92400e">Zig ↔ C FFI Bridge — raw PCM f32 samples piped into C core via @cImport</text>
+
+  <!-- Arrow down from Zig to C core -->
+  <line x1="450" y1="420" x2="450" y2="440" stroke="#64748b" stroke-width="1.5"/>
+
+  <!-- PCM stream arrows -->
+  <line x1="252" y1="378" x2="252" y2="398" stroke="#388e3c" stroke-width="1.2" marker-end="url(#arrowGreen)"/>
+  <text x="270" y="392" font-size="8" fill="#388e3c">f32 PCM</text>
+
+  <!-- ═══════════════ OLAF C CORE ═══════════════ -->
+  <rect x="60" y="442" width="580" height="198" rx="10" fill="#eff6ff" stroke="#3b82f6" stroke-width="2" filter="url(#shadowLg)"/>
+  <rect x="60" y="442" width="580" height="32" rx="10" fill="url(#coreGrad)"/>
+  <rect x="60" y="462" width="580" height="12" fill="url(#coreGrad)"/>
+  <text x="80" y="464" font-size="14" font-weight="700" fill="#fff">🧊 Olaf C Core</text>
+  <text x="560" y="464" font-size="10" fill="#bfdbfe" text-anchor="end">src/ — pure portable C11</text>
+
+  <!-- FFT / Spectrogram -->
+  <rect x="82" y="486" width="164" height="64" rx="5" fill="#fff" stroke="#93c5fd" stroke-width="1" filter="url(#shadow)"/>
+  <text x="164" y="506" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1e40af">PFFFT (FFT)</text>
+  <text x="164" y="520" text-anchor="middle" font-size="9" fill="#64748b">Audio → Spectrogram</text>
+  <text x="164" y="533" text-anchor="middle" font-size="8.5" fill="#94a3b8">olaf_ep_extractor.c</text>
+
+  <!-- Peak Picker -->
+  <rect x="262" y="486" width="164" height="64" rx="5" fill="#fff" stroke="#93c5fd" stroke-width="1" filter="url(#shadow)"/>
+  <text x="344" y="506" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1e40af">Peak Picker</text>
+  <text x="344" y="520" text-anchor="middle" font-size="9" fill="#64748b">Spectral peak detect</text>
+  <text x="344" y="533" text-anchor="middle" font-size="8.5" fill="#94a3b8">Landmark extraction</text>
+
+  <!-- Fingerprint Hash -->
+  <rect x="442" y="486" width="176" height="64" rx="5" fill="#fff" stroke="#93c5fd" stroke-width="1" filter="url(#shadow)"/>
+  <text x="530" y="506" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1e40af">Fingerprint Hasher</text>
+  <text x="530" y="520" text-anchor="middle" font-size="9" fill="#64748b">Peak pairs → hash + t</text>
+  <text x="530" y="533" text-anchor="middle" font-size="8.5" fill="#94a3b8">olaf_fp_extractor.c</text>
+
+  <!-- Arrows between C modules -->
+  <line x1="246" y1="518" x2="260" y2="518" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#arrowBlue)"/>
+  <line x1="426" y1="518" x2="440" y2="518" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#arrowBlue)"/>
+
+  <!-- Matcher -->
+  <rect x="82" y="562" width="254" height="60" rx="5" fill="#fff" stroke="#93c5fd" stroke-width="1" filter="url(#shadow)"/>
+  <text x="209" y="582" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1e40af">Matcher / Query Engine</text>
+  <text x="209" y="596" text-anchor="middle" font-size="9" fill="#64748b">Hash table + time coherence check</text>
+  <text x="209" y="609" text-anchor="middle" font-size="8.5" fill="#94a3b8">olaf_fp_matcher.c — olaf_fp_db_*.c</text>
+
+  <!-- Config -->
+  <rect x="354" y="562" width="144" height="60" rx="5" fill="#fff" stroke="#93c5fd" stroke-width="1" filter="url(#shadow)"/>
+  <text x="426" y="582" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1e40af">Config</text>
+  <text x="426" y="596" text-anchor="middle" font-size="9" fill="#64748b">Compile-time params</text>
+  <text x="426" y="609" text-anchor="middle" font-size="8.5" fill="#94a3b8">olaf_config.c</text>
+
+  <!-- Arrow from hasher to matcher -->
+  <path d="M530,550 L530,558 L340,558 L340,562" fill="none" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#arrowBlue)"/>
+
+  <!-- ═══════════════ LMDB STORAGE ═══════════════ -->
+  <rect x="660" y="442" width="180" height="198" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2" filter="url(#shadowLg)"/>
+  <rect x="660" y="442" width="180" height="32" rx="10" fill="url(#dbGrad)"/>
+  <rect x="660" y="462" width="180" height="12" fill="url(#dbGrad)"/>
+  <text x="680" y="464" font-size="13" font-weight="700" fill="#fff">💾 LMDB</text>
+
+  <text x="750" y="494" text-anchor="middle" font-size="10" font-weight="600" fill="#5b21b6">B+-Tree KV Store</text>
+  <text x="750" y="512" text-anchor="middle" font-size="9" fill="#7c3aed">Key: fingerprint hash</text>
+  <text x="750" y="526" text-anchor="middle" font-size="9" fill="#7c3aed">Val: audio_id + time</text>
+  <line x1="680" y1="538" x2="820" y2="538" stroke="#c4b5fd" stroke-width="0.5"/>
+  <text x="750" y="556" text-anchor="middle" font-size="9.5" font-weight="600" fill="#5b21b6">~/.olaf/</text>
+  <text x="750" y="572" text-anchor="middle" font-size="8.5" fill="#8b5cf6">olaf_fp_db.mdb</text>
+  <text x="750" y="586" text-anchor="middle" font-size="8.5" fill="#8b5cf6">olaf_fp_db.mdb-lock</text>
+  <line x1="680" y1="596" x2="820" y2="596" stroke="#c4b5fd" stroke-width="0.5"/>
+  <text x="750" y="612" text-anchor="middle" font-size="8.5" fill="#a78bfa">Single writer</text>
+  <text x="750" y="626" text-anchor="middle" font-size="8.5" fill="#a78bfa">Multiple readers</text>
+
+  <!-- Arrow from C core to LMDB -->
+  <line x1="640" y1="540" x2="658" y2="540" stroke="#7c3aed" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+  <text x="649" y="534" font-size="7.5" fill="#7c3aed" text-anchor="middle" transform="rotate(-90,649,534)">read/write</text>
+
+  <!-- ═══════════════ PLATFORM TARGETS FOOTER ═══════════════ -->
+  <rect x="60" y="658" width="780" height="48" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1" filter="url(#shadow)"/>
+  <text x="450" y="676" text-anchor="middle" font-size="10" font-weight="600" fill="#64748b" letter-spacing="1">BUILD TARGETS (via zig build / build.zig)</text>
+  <text x="130" y="696" text-anchor="middle" font-size="10" fill="#334155">🖥 Native (x86/ARM)</text>
+  <text x="320" y="696" text-anchor="middle" font-size="10" fill="#334155">🪟 Windows (cross)</text>
+  <text x="500" y="696" text-anchor="middle" font-size="10" fill="#334155">🌐 WASM (mem db)</text>
+  <text x="680" y="696" text-anchor="middle" font-size="10" fill="#334155">📟 ESP32 (embedded)</text>
+
+  <!-- Vertical separator dots -->
+  <circle cx="225" cy="693" r="1.5" fill="#94a3b8"/>
+  <circle cx="410" cy="693" r="1.5" fill="#94a3b8"/>
+  <circle cx="590" cy="693" r="1.5" fill="#94a3b8"/>
+</svg>
