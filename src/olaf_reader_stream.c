@@ -104,7 +104,7 @@ void olaf_reader_destroy(Olaf_Reader *  reader){
 		fprintf(stderr, "Warning: not reached end of file\n");
 	}	
 
-	// after reading , close the file
+	// after reading, close the file
 	fclose(reader->audio_file);
 	free(reader);
 }
