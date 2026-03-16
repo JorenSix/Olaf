@@ -102,7 +102,7 @@ uint64_t olaf_fp_extractor_hash(struct fingerprint f){
 	float m2 = f.magnitude2;
 	float m3 = f.magnitude3;
 
-	uint64_t f1LargerThanF2 = f2 > f3 ? 1 : 0;
+	uint64_t f1LargerThanF2 = f1 > f2 ? 1 : 0;
 	uint64_t f2LargerThanF3 = f2 > f3 ? 1 : 0;
 	uint64_t f3LargerThanF1 = f3 > f1 ? 1 : 0;
 
