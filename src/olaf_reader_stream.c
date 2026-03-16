@@ -82,7 +82,7 @@ size_t olaf_reader_read(Olaf_Reader *reader ,float * audio_block){
 	number_of_samples_read = fread(startAddress,reader->config->bytesPerAudioSample,step_size,reader->audio_file);
 
 	//When reading the last buffer, make sure that the block is zero filled
-	for(size_t i = number_of_samples_read ; i < step_size ;i++){
+	for(size_t i = overlap_size + number_of_samples_read ; i < overlap_size + step_size ;i++){
 		audio_block[i] = 0;
 	}
 	
