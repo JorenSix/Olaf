@@ -152,8 +152,8 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
     float timeslice[filterSizeTime];
     for(size_t t = 0 ; t < filterSizeTime; t++){
       timeslice[t] = ep_extractor->maxes[t][j];
-      maxVal = olaf_ep_extractor_max_filter_time(timeslice,ep_extractor->config->filterSizeTime);
     }
+	maxVal = olaf_ep_extractor_max_filter_time(timeslice,ep_extractor->config->filterSizeTime);
 		
 		if(currentVal == maxVal){
 			int timeIndex = ep_extractor->audioBlockIndex - halfFilterSizeTime;
