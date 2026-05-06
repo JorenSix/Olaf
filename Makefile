@@ -200,3 +200,5 @@ zig_win:
 #Compile a webassembly version, currently unused, via Zig
 zig_web:
 	zig build -Dtarget=wasm32-freestanding-musl -Drelease-fast
+
+docker:
