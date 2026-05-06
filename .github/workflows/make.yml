@@ -35,6 +35,8 @@ jobs:
     #run the build and tests
     - run: make
     - run: make install
+    - run: make clean
     - run: make mem
+    - run: make clean
     - run: make compile_core
     - run: zig build test
