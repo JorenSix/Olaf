@@ -20,9 +20,21 @@
 #include <stdbool.h>
 #include <string.h>
 #include <inttypes.h>
+#include <pthread.h>
 
 #include "lmdb.h"
 #include "olaf_db.h"
+
+//Process-global writer mutex.
+//
+//The threaded `store`/`delete` paths open a separate `MDB_env` per worker
+//thread. LMDB allows at most one writer transaction across a database file
+//at a time; with multiple env handles racing into `mdb_txn_begin` for a
+//read-write transaction, the second one fails with EINVAL on macOS. The
+//cleanest minimal fix is to serialize the writer transaction lifetime in
+//user space: a worker holds this mutex from `mdb_txn_begin` until its
+//commit in `olaf_db_destroy`. Readers (MDB_RDONLY) skip the mutex.
+static pthread_mutex_t olaf_db_writer_lock = PTHREAD_MUTEX_INITIALIZER;
 
 struct Olaf_DB{
 	//the file name to serialize and deserialize the data
@@ -33,6 +45,7 @@ struct Olaf_DB{
 	MDB_dbi dbi_resource_map; /**< Database handle for resource metadata. */
 
 	bool warning_given; /**< Whether a collision warning has been printed. */
+	bool holds_writer_lock; /**< True when this Olaf_DB owns olaf_db_writer_lock. */
 
 	const char * mdb_folder; /**< Path to the LMDB database folder. */
 };
@@ -60,6 +73,7 @@ Olaf_DB * olaf_db_new(const char * mdb_folder,bool readonly){
 	Olaf_DB *olaf_db = (Olaf_DB *) malloc(sizeof(Olaf_DB));
 
 	olaf_db->warning_given = false;
+	olaf_db->holds_writer_lock = false;
 
 	//configure the max db size in bytes to be 1TB
 	//Fails silently when 1TB is reached
@@ -67,6 +81,15 @@ Olaf_DB * olaf_db_new(const char * mdb_folder,bool readonly){
 	//mdb_env_set_mapsize function in http://www.lmdb.tech/doc/group__mdb.html
 	//
 	size_t max_db_size_in_bytes = (size_t)(1024*1024) * (size_t)(1024*1024);
+
+	//Serialize writers: take the global writer mutex BEFORE creating the env
+	//so the writer holds it for the full env-open + txn-begin + writes + commit
+	//+ env-close lifetime. This makes mdb_txn_begin safe across worker threads
+	//that each open their own MDB_env on the same DB folder.
+	if(!readonly){
+		pthread_mutex_lock(&olaf_db_writer_lock);
+		olaf_db->holds_writer_lock = true;
+	}
 
 	e_ctx(mdb_env_create(&olaf_db->env), "mdb_env_create", mdb_folder);
 	e_ctx(mdb_env_set_maxreaders(olaf_db->env, 10), "mdb_env_set_maxreaders", mdb_folder);
@@ -462,6 +485,12 @@ void olaf_db_destroy(Olaf_DB * olaf_db){
 
 	mdb_txn_commit(olaf_db->txn);
 	mdb_env_close(olaf_db->env);
+
+	//Release the writer mutex AFTER the env is fully closed so the next
+	//worker sees the lock file in a clean state.
+	if(olaf_db->holds_writer_lock){
+		pthread_mutex_unlock(&olaf_db_writer_lock);
+	}
 
 	free(olaf_db);
 }
