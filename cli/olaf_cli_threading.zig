@@ -11,6 +11,11 @@ const olaf_cli_bridge = @import("olaf_cli_bridge.zig");
 const debug = std.log.scoped(.olaf_cli_threading).debug;
 const fs = std.fs;
 
+// Process-local monotonic counter so that two workers spawned in the same
+// millisecond cannot land on the same temp path. The timestamp + pid in the
+// filename are purely cosmetic (debugging); uniqueness comes from the counter.
+var temp_path_counter: std.atomic.Value(u64) = std.atomic.Value(u64).init(0);
+
 // Shared action enum type
 pub const ProcessAction = enum { Query, Store, Delete };
 
@@ -38,7 +43,8 @@ fn createTempRawPath(allocator: std.mem.Allocator) ![]u8 {
         if (e != error.PathAlreadyExists) return e;
     };
 
-    return try std.fmt.allocPrint(allocator, "{s}/olaf_audio_{d}.raw", .{ olaf_cache_dir, std.time.milliTimestamp() });
+    const seq = temp_path_counter.fetchAdd(1, .monotonic);
+    return try std.fmt.allocPrint(allocator, "{s}/olaf_audio_{d}_{d}.raw", .{ olaf_cache_dir, std.c.getpid(), seq });
 }
 
 // Helper function to process an audio file and convert it to raw format
