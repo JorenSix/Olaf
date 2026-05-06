@@ -171,19 +171,29 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 	}
 	
 	//handle the last event points
-	fingerprints = olaf_fp_extractor_extract(processor->fp_extractor,eventPoints,audioBlockIndex);
+	//If the main loop never ran (e.g. truncated/empty raw audio file from a
+	//racy temp path or just a very short input), eventPoints is still NULL.
+	//Skip the final extract in that case to avoid a NULL deref. The empty
+	//fingerprints buffer below is fine for the metadata-only paths.
+	if(eventPoints != NULL && eventPoints->eventPointIndex > 0){
+		fingerprints = olaf_fp_extractor_extract(processor->fp_extractor,eventPoints,audioBlockIndex);
+	}
 	double audioDuration = (double) olaf_reader_total_samples_read(processor->reader) / (double) processor->config->audioSampleRate;
 
 	if(processor->runner->mode == OLAF_RUNNER_MODE_QUERY){
 		//use the fingerprints to match with the reference database
 		//report matches if found
-		olaf_fp_matcher_match(fp_matcher,fingerprints);
+		if(fingerprints != NULL){
+			olaf_fp_matcher_match(fp_matcher,fingerprints);
+		}
 		olaf_fp_matcher_print_header(fp_matcher);
 		olaf_fp_matcher_print_results(fp_matcher);
 		olaf_fp_matcher_destroy(fp_matcher);
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_STORE){
 		//use the fp's to store in the db
-		olaf_fp_db_writer_store(fp_db_writer,fingerprints);
+		if(fingerprints != NULL){
+			olaf_fp_db_writer_store(fp_db_writer,fingerprints);
+		}
 		olaf_fp_db_writer_destroy(fp_db_writer,true);
 		Olaf_Resource_Meta_data meta_data;
 		meta_data.duration = (float) audioDuration;
@@ -195,7 +205,9 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		meta_data.fingerprints = olaf_fp_extractor_total(processor->fp_extractor);
 		olaf_db_store_meta_data(processor->runner->db,&processor->audio_identifier,&meta_data);
 	} else if(processor->runner->mode == OLAF_RUNNER_MODE_DELETE){
-		olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
+		if(fingerprints != NULL){
+			olaf_fp_db_writer_delete(fp_db_writer,fingerprints);
+		}
 		olaf_fp_db_writer_destroy(fp_db_writer,false);
 		olaf_db_delete_meta_data(processor->runner->db,&processor->audio_identifier);
 	} else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT){
