@@ -16,6 +16,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # Opt into Node.js 24 for JS-based actions (mlugg/setup-zig@v2 still ships on Node 20).
+  # Default flips on 2026-06-02; this avoids the deprecation warning until upstream updates.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   build:
 
