@@ -21,15 +21,14 @@
 #include "olaf_config.h"
 #include "olaf_reader.h"
 
-//have we reached the end of the file?
-volatile bool end_of_file_reached;
-
 struct Olaf_Reader{
 	Olaf_Config* config; /**< The Olaf configuration */
 
 	FILE* audio_file; /**< The file currently being read */
 
 	size_t total_samples_read; /**< Total number of audio samples read so far */
+
+	bool end_of_file_reached; /**< Per-reader EOF flag (was a process-global, unsafe under threads) */
 };
 
 //void olaf_reader_trap(int signal){
@@ -45,6 +44,7 @@ Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source){
 	Olaf_Reader *reader = (Olaf_Reader *) malloc(sizeof(Olaf_Reader));
 	reader->config = config;
 	reader->total_samples_read = 0;
+	reader->end_of_file_reached = false;
 
 	FILE* file = NULL;
 	if(source == NULL){
@@ -53,10 +53,11 @@ Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source){
 		file = fopen(source,"rb");  // r for read, b for binary
 		if (file==NULL) {
 			fprintf(stderr,"Audio file %s not found or unreadable.\n",source);
-			exit(1);
+			free(reader);
+			return NULL;
 		}
 	}
-	
+
 	reader->audio_file = file;
 
 	return reader;
@@ -87,7 +88,7 @@ size_t olaf_reader_read(Olaf_Reader *reader ,float * audio_block){
 	}
 	
 	if(feof(reader->audio_file)) {
-		end_of_file_reached = true;
+		reader->end_of_file_reached = true;
     }
 	reader->total_samples_read+=number_of_samples_read;
 
@@ -100,9 +101,9 @@ size_t olaf_reader_total_samples_read(Olaf_Reader * reader){
 
 void olaf_reader_destroy(Olaf_Reader *  reader){
 
-	if(!end_of_file_reached){
+	if(!reader->end_of_file_reached){
 		fprintf(stderr, "Warning: not reached end of file\n");
-	}	
+	}
 
 	// after reading, close the file
 	fclose(reader->audio_file);

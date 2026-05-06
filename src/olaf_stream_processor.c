@@ -37,6 +37,14 @@ struct Olaf_Stream_Processor{
 
 Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner * runner,const char* raw_path,const char* orig_path){
 
+	//Open the audio reader first; if it fails (e.g. missing/unreadable file)
+	//bail out before allocating anything else so a single bad input cannot
+	//take down the entire process from a worker thread.
+	Olaf_Reader * reader = olaf_reader_new(runner->config, raw_path);
+	if(reader == NULL){
+		return NULL;
+	}
+
 	Olaf_Stream_Processor * processor = (Olaf_Stream_Processor *) malloc(sizeof(Olaf_Stream_Processor));
 
 	processor->orig_path = orig_path;
@@ -51,9 +59,9 @@ Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner * runner,const cha
 	processor->config = runner->config;
 	processor->ep_extractor = olaf_ep_extractor_new(processor->config);
 	processor->fp_extractor = olaf_fp_extractor_new(processor->config);
-	processor->reader = olaf_reader_new(processor->config,raw_path);
+	processor->reader = reader;
 	processor->audio_data = (float *) calloc(processor->config->audioBlockSize , sizeof(float)); //Input audio samples
-	
+
 	return processor;
 }
 

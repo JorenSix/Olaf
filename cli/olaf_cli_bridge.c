@@ -218,9 +218,13 @@ void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char 
 
 	//create a new runner
 	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_QUERY, config, NULL,NULL);
-	
-	//create a new stream processor
+
+	//create a new stream processor; NULL means the raw audio file could not be opened
 	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
+	if(processor == NULL){
+		olaf_runner_destroy(runner);
+		return;
+	}
 
 	olaf_query_print_context.q_index = q_index;
     olaf_query_print_context.q_total = q_total;
@@ -234,7 +238,7 @@ void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char 
 
 	//process the audio file
 	olaf_stream_processor_process(processor);
-	
+
 	//destroy the stream processor
 	olaf_stream_processor_destroy(processor);
 
@@ -258,8 +262,12 @@ void olaf_delete(Olaf_Config* config,const char* raw_audio_path, const char* aud
 	//create a new runner
 	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_DELETE, config, NULL,NULL);
 
-	//create a new stream processor
+	//create a new stream processor; NULL means the raw audio file could not be opened
 	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
+	if(processor == NULL){
+		olaf_runner_destroy(runner);
+		return;
+	}
 
 	//process the audio file
 	olaf_stream_processor_process(processor);
@@ -280,8 +288,12 @@ void olaf_print_to_file(Olaf_Config* config, const char* raw_audio_path, const c
 
 	//create a new runner in PRINT mode
 	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_CACHE, config, fp_cache_file,fp_meta_file);
-	//create a new stream processor
+	//create a new stream processor; NULL means the raw audio file could not be opened
 	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
+	if(processor == NULL){
+		olaf_runner_destroy(runner);
+		return;
+	}
 
 	//process the audio file (this will print to stdout)
 	olaf_stream_processor_process(processor);
@@ -314,20 +326,24 @@ void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* ori
 	
 	//create a new runner
 	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_STORE, config, NULL,NULL);
-	
-	//create a new stream processor
+
+	//create a new stream processor; NULL means the raw audio file could not be opened
 	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,orig_audio_path);
-	
+	if(processor == NULL){
+		olaf_runner_destroy(runner);
+		return;
+	}
+
 	//process the audio file
 	olaf_stream_processor_process(processor);
-	
+
 	//destroy the stream processor
 	olaf_stream_processor_destroy(processor);
 
 	//destroy the runner
 	olaf_runner_destroy(runner);
-	
-	
+
+
 }
 
 int olaf_main(int argc, const char* argv[]){
@@ -366,18 +382,23 @@ int olaf_main(int argc, const char* argv[]){
 		runner->config->keepMatchesFor = 10;//keep matches for 7 seconds
 		fprintf(stderr,"Start listening for incoming raw audio samples piped in over STDIN.\n");
 		Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,NULL,"stdin");
-		olaf_stream_processor_process(processor);
-		olaf_stream_processor_destroy(processor);
+		if(processor != NULL){
+			olaf_stream_processor_process(processor);
+			olaf_stream_processor_destroy(processor);
+		}
 	}else{
 		if(argc % 2 == 1 ){
 			fprintf(stderr,"Error: You need to provide converted raw audio and the original file name, for example:\n\tolaf query audio.raw original_filename.mp3\n");
-			exit(-3);	
+			exit(-3);
 		}
 		//for each audio file
 		for(int arg_index = 2 ; arg_index + 1 < argc ; arg_index+=2){
 			const char* raw_path =  argv[arg_index];
 			const char* orig_path = argv[arg_index + 1];
 			Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_path,orig_path);
+			if(processor == NULL){
+				continue;
+			}
 			olaf_stream_processor_process(processor);
 			olaf_stream_processor_destroy(processor);
 		}
