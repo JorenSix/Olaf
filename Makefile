@@ -16,12 +16,20 @@ uninstall:
 
 clean:
 	rm -rf .zig-cache zig-out
+	-rm -f *.o
 
+#Cleans the temporary files
+clean_core:
+	-rm -f *.o
+	-rm -f bin/*
+	-rm -f wasm/js/olaf.js
+	-rm -f wasm/js/olaf.html
+	-rm -f wasm/js/olaf.wasm
+	-rm -f olaf_cffi*
 
 
 #Compiles the default olaf version for use on traditional computers
 compile_core:
-	rm -f *.o #avoid linker collisions with leftover .o from `make mem` / `make lib`
 	gcc -c src/pffft.c 					-W -Wall -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
 	gcc -c src/midl.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/mdb.c 					-W -Wall -std=c11 -pedantic -O2
@@ -44,18 +52,10 @@ compile_core:
 	mkdir -p bin
 	gcc -o bin/olaf_core *.o 			-lc -lm -ffast-math -pthread
 
-#Cleans the temporary files
-clean_core:
-	-rm -f *.o
-	-rm -f bin/*
-	-rm -f wasm/js/olaf.js
-	-rm -f wasm/js/olaf.html
-	-rm -f wasm/js/olaf.wasm
-	-rm -f olaf_cffi*
+
 	
 
 lib:
-	rm -f *.o #avoid linker collisions with leftover .o from other GCC targets
 	gcc -c src/pffft.c 					-W -Wall -fPIC -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
 	gcc -c src/midl.c 					-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/mdb.c 					-W -Wall -fPIC -std=c11 -pedantic -O2
@@ -81,7 +81,6 @@ lib:
 
 #A compilation with support for profiling
 compile_gprof:
-	rm -f *.o #avoid linker collisions with leftover .o from other GCC targets
 	gcc -c src/pffft.c 					-pg -W -Wall -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
 	gcc -c src/midl.c 					-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/mdb.c 					-pg -W -Wall -std=c11 -pedantic -O2
@@ -107,7 +106,6 @@ compile_gprof:
 #The memory database version is equal to the embedded version
 #pass the -D to load the correct 
 mem:
-	rm -f *.o #avoid linker collisions with leftover .o from `make compile_core` / `make lib`
 	gcc -c src/pffft.c 					 -Dmem -W -Wall -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
 	gcc -c src/hash-table.c     	 	 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/queue.c  		   		 -Dmem -W -Wall -std=c11 -pedantic -O2
@@ -205,5 +203,3 @@ zig_win:
 #Compile a webassembly version, currently unused, via Zig
 zig_web:
 	zig build -Dtarget=wasm32-freestanding-musl -Drelease-fast
-
-docker:
