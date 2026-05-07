@@ -30,7 +30,7 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v5
     #setup ffmpeg and zig
-    - uses: FedericoCarboni/setup-ffmpeg@v2
+    - uses: FedericoCarboni/setup-ffmpeg@v3
       id: setup-ffmpeg
       with:
         token: "${{ secrets.GITHUB_TOKEN }}"
