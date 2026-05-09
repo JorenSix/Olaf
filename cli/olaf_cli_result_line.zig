@@ -16,12 +16,12 @@ const OlafResultLine = struct {
     ref_stop: f32,
 
     fn parse(allocator: std.mem.Allocator, line: []const u8) !OlafResultLine {
-        var parts = std.ArrayList([]const u8).init(allocator);
-        defer parts.deinit();
+        var parts: std.ArrayList([]const u8) = .{};
+        defer parts.deinit(allocator);
 
         var it = std.mem.tokenizeAny(u8, line, ",");
         while (it.next()) |part| {
-            try parts.append(std.mem.trim(u8, part, " \t\n\r"));
+            try parts.append(allocator, std.mem.trim(u8, part, " \t\n\r"));
         }
 
         if (parts.items.len != 11) {

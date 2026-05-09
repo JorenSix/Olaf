@@ -23,6 +23,21 @@ fn print(comptime fmt: []const u8, args: anytype) void {
     _ = stdout.flush() catch {};
 }
 
+fn readMetaPath(allocator: std.mem.Allocator, meta_file_path: []const u8) !?[]u8 {
+    const content = try fs.cwd().readFileAlloc(allocator, meta_file_path, 64 * 1024);
+    defer allocator.free(content);
+
+    var lines = std.mem.tokenizeAny(u8, content, "\r\n");
+    while (lines.next()) |line| {
+        if (std.mem.startsWith(u8, line, "path=")) {
+            const value = std.mem.trim(u8, line["path=".len..], " \t");
+            if (value.len == 0) return null;
+            return try allocator.dupe(u8, value);
+        }
+    }
+    return null;
+}
+
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     const config = args.config.?;
 
@@ -72,25 +87,16 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         const index = i + 1;
         const total = file_count;
 
-        // Read first line to extract audio filename
-        const audio_filename = blk: {
-            // Read entire file (cache files contain only metadata, so they're small)
-            const content = try fs.cwd().readFileAlloc(allocator, cache_file_path, 1024 * 1024); // 1MB max
-            defer allocator.free(content);
+        // Read sibling .meta file to recover audio file path.
+        // Cache writes "{id}.tdb" (fingerprints) + "{id}.meta" (path=, duration=, fingerprints=).
+        const stem_len = entry.name.len - ".tdb".len;
+        const meta_basename = entry.name[0..stem_len];
+        const meta_file_path = try std.fmt.allocPrint(allocator, "{s}/{s}.meta", .{ cache_folder_expanded, meta_basename });
+        defer allocator.free(meta_file_path);
 
-            // Get first line
-            const first_line_end = std.mem.indexOfScalar(u8, content, '\n') orelse content.len;
-            const first_line = content[0..first_line_end];
-
-            // Parse format: index/total,full_path,fingerprint_data
-            var parts = std.mem.tokenizeScalar(u8, first_line, ',');
-            _ = parts.next(); // skip index/total
-            if (parts.next()) |path_part| {
-                const trimmed = std.mem.trim(u8, path_part, " \t");
-                break :blk try allocator.dupe(u8, trimmed);
-            }
-
-            break :blk null;
+        const audio_filename = readMetaPath(allocator, meta_file_path) catch |err| {
+            print("{d}/{d}, WARNING: {s} could not be read ({}): skipping\n", .{ index, total, meta_file_path, err });
+            continue;
         };
 
         if (audio_filename) |filename| {
@@ -110,11 +116,15 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             // Store cached fingerprints
             debug("Processing cache file {d}/{d}: {s}\n", .{ index, total, cache_file_path });
 
-            try olaf_cli_bridge.olaf_store_cached_files(allocator, &[_][]const u8{cache_file_path}, config);
+            try olaf_cli_bridge.olaf_store_cached_files(
+                allocator,
+                &[_]olaf_cli_bridge.CachedFile{.{ .cache_path = cache_file_path, .audio_path = filename }},
+                config,
+            );
 
             print("{d}/{d}, {s}, stored from cache\n", .{ index, total, filename });
         } else {
-            print("{d}/{d}, WARNING: {s} could not be parsed (no audio filename found)\n", .{ index, total, cache_file_path });
+            print("{d}/{d}, WARNING: {s} has no path= entry: skipping\n", .{ index, total, meta_file_path });
         }
     }
 

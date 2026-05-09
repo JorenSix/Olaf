@@ -95,6 +95,10 @@ pub fn build(b: *std.Build) void {
 
             const run_tests = b.addRunArtifact(tests);
             run_tests.setCwd(b.path("."));
+            // Functional tests shell out to the installed `olaf` binary.
+            // Build+install it first and tell the test where to find it.
+            run_tests.step.dependOn(b.getInstallStep());
+            run_tests.setEnvironmentVariable("OLAF_BIN", b.getInstallPath(.bin, "olaf"));
             test_step.dependOn(&run_tests.step);
         }
     }

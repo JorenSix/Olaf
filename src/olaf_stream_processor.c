@@ -210,8 +210,8 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		}
 		olaf_fp_db_writer_destroy(fp_db_writer,false);
 		olaf_db_delete_meta_data(processor->runner->db,&processor->audio_identifier);
-	} else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT){
-		
+	} else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT || processor->runner->mode == OLAF_RUNNER_MODE_CACHE){
+
 		Olaf_Resource_Meta_data meta_data;
 		meta_data.duration = (float) audioDuration;
 		if(processor->orig_path == NULL){

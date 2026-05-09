@@ -169,7 +169,7 @@ In a more copy-paste friendly way the following demonstrates example use of Olaf
 git clone https://github.com/JorenSix/Olaf
 cd Olaf
 make && make install
-ruby eval/download_dataset.rb
+zig build test
 
 #store all audio in a folder and execute a query
 olaf store dataset/ref
@@ -177,14 +177,6 @@ olaf query dataset/queries/1051039_34s-54s.mp3
 
 #print statistics of the index:
 olaf stats
-
-#Deduplication of a folder with duplicate material
-ffmpeg -i dataset/ref/173050.mp3 dataset/ref/173050_dup.ogg
-olaf dedup dataset/ref
-
-#delete the duplicate from the index:
-olaf delete dataset/ref/173050_dup.ogg
-rm  dataset/ref/173050_dup.ogg
 ```
 
 ### Store fingerprints
@@ -265,13 +257,6 @@ olaf dedup [--threads n] [--fragmented] field_recordings/archive
 
 **--fragmented** this tells Olaf to split the query file into steps of x seconds during matching. When working in steps of 5 seconds, then the first five seconds are matched with the reference database and matches are reported. Subsequently it goes on with the next 5 seconds and so forth. This is practical for partial matches with the reference database.
 
-### Database stats
-
-To get statistics on the database use `stats`. It prints information on the b-tree structure backing the storage.
-
-```bash
-olaf stats
-```
 
 ### Cache fingerprints and store cached fingerprints
 
@@ -284,7 +269,18 @@ olaf cache [--threads n] *.mp3
 olaf store_cached
 ```
 
-Note that for multi-threading to work, the `threach` ruby gem is required. Install this with `gem install threach`. Also a default is the storage place for cached items: `~/.olaf/cache`. These default can be changed in the `/usr/local/bin/olaf` ruby file. The configuration can be found at the top.
+Also a default is the storage place for cached items: `~/.olaf/cache`. The configuration can be found at the top.
+
+
+### Database stats
+
+To get statistics on the database use `stats`. It prints information on the b-tree structure backing the storage.
+
+```bash
+olaf stats
+```
+
+
 
 ## Configuring Olaf
 
@@ -308,7 +304,7 @@ The first thing this checks is whether Olaf compiles correctly. Afterwards, a sm
 git clone https://github.com/JorenSix/Olaf
 cd Olaf
 make && make install
-ruby eval/olaf_functional_tests.rb
+zig build test
 ```
 
 Less interesting are the unit tests, these are mainly of interest for developing Olaf. The unit test can be compiled with `make test` and ran with `./bin/olaf_tests`.
@@ -350,7 +346,7 @@ The [documentation of Olaf](https://jorensix.github.io/Olaf) is generated with [
 * Audio decoding is done externally. The core of Olaf does fingerprinting. ffmpeg or similar audio decoding software is required to decode and resample various audio formats.
 * ~~Removing items from the reference database is currently not supported. The underlying database does support deletion of items so it should be relatively easy to add this functionality.~~
 * Performance implications when removing many items from the database are currently unclear. In other words: how balanced does the B+tree remain when removing many leaves.
-* Olaf is single threaded. The main reasons are simplicity and limitations of embedded platforms. The single threaded design keeps the code simple. On embedded platforms with single core CPU's multithreading makes no sense. On traditional computers there might be a performance gain by implementing multi-threading. However, the time spent on decoding audio and storing fingerprints is much larger than analysis/extraction so the gain might be limited. As an work-around multiple processes can be used simultaniously to query the database.
+* ~~Olaf is single threaded. The main reasons are simplicity and limitations of embedded platforms. The single threaded design keeps the code simple. On embedded platforms with single core CPU's multithreading makes no sense. On traditional computers there might be a performance gain by implementing multi-threading. However, the time spent on decoding audio and storing fingerprints is much larger than analysis/extraction so the gain might be limited. As an work-around multiple processes can be used simultaniously to query the database.~~
 * The limitation of the number of tracks that can be indexed and queried on a single computer is not known. Olaf has been used to index and query the [fma_full dataset](https://github.com/mdeff/fma). This dataset contains 100 000 tracks totaling more than 340 days of audio. The dataset, around 800GB of mp3s, were indexed in a 15GB database and query speed remained at a respectable 80 times realtime: it only takes a single second to query 80 seconds of audio. With the datastructure having logaritmic complexity the limit of the number of songs per pc might be a couple of times higher.
 
 ## Further Reading
