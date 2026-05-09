@@ -32,6 +32,12 @@ struct Olaf_Stream_Processor{
 
 	//Input audio samples
 	float *audio_data; /**< Buffer holding input audio samples */
+
+	//Stats captured at end of process(); accessible via accessors below.
+	double last_audio_duration; /**< Total audio duration in seconds. */
+	double last_cpu_time_used; /**< CPU time spent in process() in seconds. */
+	size_t last_total_fingerprints; /**< Total fingerprints extracted/matched. */
+	bool suppress_summary_print; /**< If true, skip the summary line on stderr. */
 };
 
 
@@ -54,6 +60,10 @@ Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner * runner,const cha
 
 	processor->result_callback = olaf_fp_matcher_callback_print_result;
 	processor->result_header = NULL;
+	processor->last_audio_duration = 0.0;
+	processor->last_cpu_time_used = 0.0;
+	processor->last_total_fingerprints = 0;
+	processor->suppress_summary_print = false;
 
 	processor->runner = runner;
 	processor->config = runner->config;
@@ -241,5 +251,26 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		verb = "Cached";
 	}
 	double fingerprintspersecond = olaf_fp_extractor_total(processor->fp_extractor) / audioDuration;
-    fprintf(stderr,"%s %lu fp's from %.1fs (%.0f fp/s) in %.3fs (%.0f times realtime)\n",verb,olaf_fp_extractor_total(processor->fp_extractor), audioDuration,fingerprintspersecond,cpu_time_used,ratio);
+	processor->last_audio_duration = audioDuration;
+	processor->last_cpu_time_used = cpu_time_used;
+	processor->last_total_fingerprints = olaf_fp_extractor_total(processor->fp_extractor);
+	if(!processor->suppress_summary_print){
+		fprintf(stderr,"%s %lu fp's from %.1fs (%.0f fp/s) in %.3fs (%.0f times realtime)\n",verb,olaf_fp_extractor_total(processor->fp_extractor), audioDuration,fingerprintspersecond,cpu_time_used,ratio);
+	}
+}
+
+double olaf_stream_processor_audio_duration(Olaf_Stream_Processor * processor){
+	return processor->last_audio_duration;
+}
+
+double olaf_stream_processor_cpu_time(Olaf_Stream_Processor * processor){
+	return processor->last_cpu_time_used;
+}
+
+size_t olaf_stream_processor_total_fingerprints(Olaf_Stream_Processor * processor){
+	return processor->last_total_fingerprints;
+}
+
+void olaf_stream_processor_set_suppress_summary(Olaf_Stream_Processor * processor, bool suppress){
+	processor->suppress_summary_print = suppress;
 }

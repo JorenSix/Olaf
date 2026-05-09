@@ -174,6 +174,105 @@ typedef struct {
 
 static _Thread_local Olaf_Query_Print_Context olaf_query_print_context = {0};
 
+/** A single accumulated match used by the JSON output path. */
+typedef struct {
+	int matchCount;
+	float queryStart;
+	float queryStop;
+	char *path;
+	uint32_t matchIdentifier;
+	float referenceStart;
+	float referenceStop;
+} Olaf_JSON_Match;
+
+typedef struct {
+	Olaf_JSON_Match *items;
+	size_t len;
+	size_t cap;
+} Olaf_JSON_Match_List;
+
+static _Thread_local Olaf_JSON_Match_List olaf_json_matches = {0};
+
+static void olaf_json_match_list_reset(Olaf_JSON_Match_List *list){
+	for(size_t i = 0; i < list->len; i++){
+		free(list->items[i].path);
+	}
+	list->len = 0;
+}
+
+static void olaf_json_match_list_push(Olaf_JSON_Match_List *list, const Olaf_JSON_Match *m){
+	if(list->len == list->cap){
+		size_t new_cap = list->cap == 0 ? 16 : list->cap * 2;
+		Olaf_JSON_Match *resized = (Olaf_JSON_Match *) realloc(list->items, new_cap * sizeof(Olaf_JSON_Match));
+		if(resized == NULL){
+			fprintf(stderr,"Out of memory growing JSON match list.\n");
+			return;
+		}
+		list->items = resized;
+		list->cap = new_cap;
+	}
+	list->items[list->len] = *m;
+	list->items[list->len].path = m->path ? strdup(m->path) : NULL;
+	list->len++;
+}
+
+static void olaf_cli_collect_match(int matchCount,
+                                    float queryStart,
+                                    float queryStop,
+                                    const char *path,
+                                    uint32_t matchIdentifier,
+                                    float referenceStart,
+                                    float referenceStop){
+	// Identity filter, mirroring the print path.
+	if (olaf_query_print_context.exclude_identifier != 0
+	    && matchCount > 0
+	    && matchIdentifier == olaf_query_print_context.exclude_identifier) {
+		return;
+	}
+	// Skip the synthetic "no results" sentinel (matchCount == 0). The JSON
+	// emitter just produces an empty matches array if the list stays empty.
+	if(matchCount == 0) return;
+
+	Olaf_JSON_Match m = {
+		.matchCount = matchCount,
+		.queryStart = queryStart,
+		.queryStop = queryStop,
+		.path = (char *) path,
+		.matchIdentifier = matchIdentifier,
+		.referenceStart = referenceStart,
+		.referenceStop = referenceStop,
+	};
+	olaf_json_match_list_push(&olaf_json_matches, &m);
+}
+
+/** Escape `s` for inclusion as a JSON string body. Writes to fp. */
+static void json_print_escaped(FILE *fp, const char *s){
+	if(s == NULL){
+		fputs("\"\"", fp);
+		return;
+	}
+	fputc('"', fp);
+	for(const char *p = s; *p != '\0'; p++){
+		unsigned char c = (unsigned char) *p;
+		switch(c){
+			case '"':  fputs("\\\"", fp); break;
+			case '\\': fputs("\\\\", fp); break;
+			case '\b': fputs("\\b", fp); break;
+			case '\f': fputs("\\f", fp); break;
+			case '\n': fputs("\\n", fp); break;
+			case '\r': fputs("\\r", fp); break;
+			case '\t': fputs("\\t", fp); break;
+			default:
+				if(c < 0x20){
+					fprintf(fp, "\\u%04x", c);
+				}else{
+					fputc(c, fp);
+				}
+		}
+	}
+	fputc('"', fp);
+}
+
 static void olaf_cli_print_match(int matchCount,
                                  float queryStart,
                                  float queryStop,
@@ -254,6 +353,84 @@ void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char 
 	olaf_stream_processor_destroy(processor);
 
 	//destroy the runner
+	olaf_runner_destroy(runner);
+}
+
+void olaf_query_json(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier){
+	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
+	if(db == NULL){
+		fprintf(stderr,"Error: Could not open database %s.\n",config->dbFolder);
+		exit(-1);
+		olaf_db_destroy(db);
+		return;
+	}
+	olaf_db_destroy(db);
+
+	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_QUERY, config, NULL,NULL);
+	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
+	if(processor == NULL){
+		olaf_runner_destroy(runner);
+		return;
+	}
+
+	olaf_query_print_context.q_index = q_index;
+	olaf_query_print_context.q_total = q_total;
+	olaf_query_print_context.query_path = query_path;
+	olaf_query_print_context.q_offset = 0.0f;
+	olaf_query_print_context.exclude_identifier = exclude_identifier;
+
+	// Reset & install the collector callback. Suppress the human-readable
+	// summary line so the JSON document is the only thing on stdout/stderr
+	// that downstream parsers need to handle.
+	olaf_json_match_list_reset(&olaf_json_matches);
+	olaf_stream_processor_set_result_callback(processor, olaf_cli_collect_match);
+	olaf_stream_processor_set_result_header(processor, NULL);
+	olaf_stream_processor_set_suppress_summary(processor, true);
+
+	olaf_stream_processor_process(processor);
+
+	double audio_duration = olaf_stream_processor_audio_duration(processor);
+	double cpu_time_used = olaf_stream_processor_cpu_time(processor);
+	size_t total_fp = olaf_stream_processor_total_fingerprints(processor);
+	double fp_per_second = audio_duration > 0.0 ? (double) total_fp / audio_duration : 0.0;
+	double realtime_factor = cpu_time_used > 0.0 ? audio_duration / cpu_time_used : 0.0;
+
+	// Emit the JSON object. One object per query, no trailing newline so
+	// callers that concatenate multiple queries see a stream of objects
+	// they can pretty-print themselves.
+	printf("{\n");
+	printf("  \"query_index\": %zu,\n", q_index + 1);
+	printf("  \"total_queries\": %zu,\n", q_total);
+	printf("  \"query_path\": ");
+	json_print_escaped(stdout, query_path);
+	printf(",\n");
+	printf("  \"query_offset\": %.3f,\n", 0.0);
+	printf("  \"fingerprints_matched\": %zu,\n", total_fp);
+	printf("  \"query_duration_seconds\": %.3f,\n", audio_duration);
+	printf("  \"fingerprints_per_second\": %.3f,\n", fp_per_second);
+	printf("  \"search_time_seconds\": %.3f,\n", cpu_time_used);
+	printf("  \"realtime_factor\": %.3f,\n", realtime_factor);
+	printf("  \"matches\": [");
+	for(size_t i = 0; i < olaf_json_matches.len; i++){
+		Olaf_JSON_Match *m = &olaf_json_matches.items[i];
+		printf("%s\n    {\n", i == 0 ? "" : ",");
+		printf("      \"match_count\": %d,\n", m->matchCount);
+		printf("      \"query_start\": %.3f,\n", m->queryStart);
+		printf("      \"query_stop\": %.3f,\n", m->queryStop);
+		printf("      \"path\": ");
+		json_print_escaped(stdout, m->path);
+		printf(",\n");
+		printf("      \"match_identifier\": %u,\n", m->matchIdentifier);
+		printf("      \"reference_start\": %.3f,\n", m->referenceStart);
+		printf("      \"reference_stop\": %.3f\n", m->referenceStop);
+		printf("    }");
+	}
+	if(olaf_json_matches.len > 0) printf("\n  ");
+	printf("]\n}\n");
+
+	olaf_json_match_list_reset(&olaf_json_matches);
+
+	olaf_stream_processor_destroy(processor);
 	olaf_runner_destroy(runner);
 }
 

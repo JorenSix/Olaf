@@ -97,7 +97,9 @@ pub fn olaf_store(allocator: std.mem.Allocator, raw_audio_path: []const u8, audi
     olaf.olaf_store(c_config, c_raw_audio_path, c_audio_identifier);
 }
 
-pub fn olaf_query(allocator: std.mem.Allocator, q_index: usize, q_total: usize, query_path: []const u8, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config, exclude_identifier: u32) !void {
+pub const OutputFormat = enum { csv, json };
+
+pub fn olaf_query(allocator: std.mem.Allocator, q_index: usize, q_total: usize, query_path: []const u8, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config, exclude_identifier: u32, format: OutputFormat) !void {
     const c_config = olaf.olaf_default_config(); // Ensure the default config is set
     try copy_to_c_config(config, c_config);
 
@@ -124,7 +126,10 @@ pub fn olaf_query(allocator: std.mem.Allocator, q_index: usize, q_total: usize, 
     const c_query_path = try allocator.dupeZ(u8, query_path);
     defer allocator.free(c_query_path);
 
-    olaf.olaf_query(c_config, q_index, q_total, c_query_path, c_raw_audio_path, c_audio_identifier, exclude_identifier);
+    switch (format) {
+        .csv => olaf.olaf_query(c_config, q_index, q_total, c_query_path, c_raw_audio_path, c_audio_identifier, exclude_identifier),
+        .json => olaf.olaf_query_json(c_config, q_index, q_total, c_query_path, c_raw_audio_path, c_audio_identifier, exclude_identifier),
+    }
 }
 
 pub fn olaf_delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {

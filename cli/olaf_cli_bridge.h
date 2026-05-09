@@ -23,6 +23,10 @@ void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* aud
 // Pass 0 for no filtering.
 void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier);
 
+// Same as olaf_query but prints a single JSON object per query to stdout
+// (instead of CSV lines) and suppresses the human-readable summary on stderr.
+void olaf_query_json(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier);
+
 // Delete fingerprints from the database by audio identifier
 void olaf_delete(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
 

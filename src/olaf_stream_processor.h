@@ -74,12 +74,28 @@
 	void olaf_stream_processor_set_result_callback(Olaf_Stream_Processor * olaf_stream_processor,Olaf_FP_Matcher_Result_Callback callback);
 
 
-    /** 
+    /**
      * @brief      Set the result header for the stream processor.
      * @param      processor   The stream processor
      * @param      result_header  The result header string
      */
     void olaf_stream_processor_set_result_header(Olaf_Stream_Processor * processor,const char * result_header);
+
+    /** Total audio duration (seconds) consumed during the last process() call. */
+    double olaf_stream_processor_audio_duration(Olaf_Stream_Processor * processor);
+
+    /** CPU time (seconds) spent in the last process() call. */
+    double olaf_stream_processor_cpu_time(Olaf_Stream_Processor * processor);
+
+    /** Total fingerprints extracted during the last process() call. */
+    size_t olaf_stream_processor_total_fingerprints(Olaf_Stream_Processor * processor);
+
+    /**
+     * Suppress the human-readable summary line normally printed to stderr at
+     * end of process(). Use this when an alternative formatter (e.g. JSON)
+     * needs deterministic output free of stderr chatter.
+     */
+    void olaf_stream_processor_set_suppress_summary(Olaf_Stream_Processor * processor, bool suppress);
 
 
 #endif // OLAF_STREAM_PROCESSOR_H

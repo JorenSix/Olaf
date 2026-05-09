@@ -46,6 +46,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             args.audio_files.items.len,
             .Delete,
             0,
+            .csv,
         ) catch |err| {
             return err;
         };

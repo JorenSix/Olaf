@@ -221,6 +221,22 @@ pub fn main() !void {
             args.fragmented = true;
         } else if (std.mem.eql(u8, arg, "--skip-store") or std.mem.eql(u8, arg, "--skip_store")) {
             args.skip_store = true;
+        } else if (std.mem.eql(u8, arg, "--format")) {
+            if (i + 1 < args_list.len) {
+                const fmt = args_list[i + 1];
+                if (std.mem.eql(u8, fmt, "json")) {
+                    args.output_format = .json;
+                } else if (std.mem.eql(u8, fmt, "csv")) {
+                    args.output_format = .csv;
+                } else {
+                    print("Unknown --format value '{s}', expected 'csv' or 'json'.\n", .{fmt});
+                    return;
+                }
+                i += 1;
+            } else {
+                print("Expected an argument for '--format': 'olaf query --format json file.mp3'\n", .{});
+                return;
+            }
         } else if (std.mem.eql(u8, arg, "-f")) {
             args.force = true;
         } else {

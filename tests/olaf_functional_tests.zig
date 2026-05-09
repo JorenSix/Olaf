@@ -623,6 +623,120 @@ test "functional: dedup ignores self-matches and surfaces duplicates" {
     }
 }
 
+test "functional: query --json emits a parseable object with summary + matches" {
+    const allocator = testing.allocator;
+
+    const olaf_bin = try resolveOlafBinAndDeps(allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+
+    try dataset.ensureDataset(allocator, .ref_and_queries);
+
+    var env = try setupTestEnv(allocator, "json");
+    defer env.deinit();
+
+    const ref_rel = "dataset/ref/1051039.mp3";
+    const query_rel = "dataset/queries/1051039_34s-54s.mp3";
+
+    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_abs = try fs.cwd().realpath(ref_rel, &ref_buf);
+
+    {
+        const r = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "store", ref_abs }, error.OlafStoreFailed);
+        allocator.free(r.stdout);
+        allocator.free(r.stderr);
+    }
+
+    var q_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const q_abs = try fs.cwd().realpath(query_rel, &q_buf);
+
+    const result = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "query", "--format", "json", q_abs }, error.OlafQueryFailed);
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+
+    var parsed = std.json.parseFromSlice(std.json.Value, allocator, result.stdout, .{}) catch |err| {
+        std.debug.print("\nFailed to parse JSON ({}):\n{s}\n", .{ err, result.stdout });
+        return error.InvalidJsonOutput;
+    };
+    defer parsed.deinit();
+
+    const root = parsed.value;
+    if (root != .object) return error.JsonRootNotObject;
+    const obj = root.object;
+
+    // Required summary fields.
+    const required_keys = [_][]const u8{
+        "query_index",            "total_queries",
+        "query_path",             "query_offset",
+        "fingerprints_matched",   "query_duration_seconds",
+        "fingerprints_per_second", "search_time_seconds",
+        "realtime_factor",        "matches",
+    };
+    for (required_keys) |key| {
+        if (obj.get(key) == null) {
+            std.debug.print("\nMissing JSON key '{s}' in:\n{s}\n", .{ key, result.stdout });
+            return error.MissingJsonKey;
+        }
+    }
+
+    const matches = obj.get("matches").?;
+    if (matches != .array) return error.MatchesNotArray;
+    if (matches.array.items.len == 0) {
+        std.debug.print("\nExpected at least one match for {s}, got empty array.\n", .{query_rel});
+        return error.NoMatchesInJson;
+    }
+
+    // Validate the shape of the first match entry.
+    const first = matches.array.items[0];
+    if (first != .object) return error.MatchEntryNotObject;
+    const match_keys = [_][]const u8{
+        "match_count",     "query_start",      "query_stop",
+        "path",            "match_identifier",
+        "reference_start", "reference_stop",
+    };
+    for (match_keys) |key| {
+        if (first.object.get(key) == null) {
+            std.debug.print("\nMissing match key '{s}' in:\n{s}\n", .{ key, result.stdout });
+            return error.MissingMatchKey;
+        }
+    }
+
+    // The matched ref path basename should equal the original.
+    const ref_path_value = first.object.get("path").?;
+    if (ref_path_value != .string) return error.MatchPathNotString;
+    const ref_base = std.fs.path.basename(ref_path_value.string);
+    const want_base = std.fs.path.basename(ref_rel);
+    if (!std.mem.eql(u8, ref_base, want_base)) {
+        std.debug.print("\nFirst match path '{s}' (basename '{s}') doesn't match expected '{s}'.\n", .{ ref_path_value.string, ref_base, want_base });
+        return error.WrongMatchedRef;
+    }
+}
+
+test "functional: query --json on empty DB returns empty matches array" {
+    const allocator = testing.allocator;
+
+    const olaf_bin = try resolveOlafBinAndDeps(allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+
+    try dataset.ensureDataset(allocator, .ref_and_queries);
+
+    var env = try setupTestEnv(allocator, "json_empty");
+    defer env.deinit();
+
+    var q_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const q_abs = try fs.cwd().realpath("dataset/queries/1051039_34s-54s.mp3", &q_buf);
+
+    const result = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "query", "--format", "json", q_abs }, error.OlafQueryFailed);
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+
+    var parsed = try std.json.parseFromSlice(std.json.Value, allocator, result.stdout, .{});
+    defer parsed.deinit();
+
+    const matches = parsed.value.object.get("matches") orelse return error.MissingMatchesKey;
+    if (matches != .array) return error.MatchesNotArray;
+    try testing.expectEqual(@as(usize, 0), matches.array.items.len);
+}
+
 /// Parse "Number of songs (#):\t<n>" out of `olaf stats` output.
 fn parseSongCount(stats_output: []const u8) !u32 {
     const marker = "Number of songs (#):";

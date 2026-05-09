@@ -33,6 +33,8 @@ pub const AudioProcessTask = struct {
     /// Pass 0 to disable; non-zero suppresses query result lines whose
     /// match_identifier equals this value (used for dedup self-match filter).
     exclude_identifier: u32,
+    /// Output format for query results. Ignored for non-query actions.
+    output_format: olaf_cli_bridge.OutputFormat,
     error_mutex: *Mutex,
     error_list: *std.ArrayList([]const u8),
 };
@@ -62,6 +64,7 @@ pub fn processAudioFile(
     total: usize,
     action: ProcessAction,
     exclude_identifier: u32,
+    output_format: olaf_cli_bridge.OutputFormat,
 ) !void {
     debug("Processing audio file {d}/{d}: {s}", .{ index + 1, total, audio_file_with_id.path });
 
@@ -72,7 +75,7 @@ pub fn processAudioFile(
     try olaf_cli_util_audio.convertToRaw(allocator, audio_file_with_id.path, raw_audio_path, config.target_sample_rate);
 
     switch (action) {
-        .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier),
+        .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier, output_format),
         .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, config),
         .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, audio_file_with_id.identifier, config),
     }
@@ -87,6 +90,7 @@ pub fn processAudioFileThreaded(task: AudioProcessTask) void {
         task.total,
         task.action,
         task.exclude_identifier,
+        task.output_format,
     ) catch |process_err| {
         task.error_mutex.lock();
         defer task.error_mutex.unlock();
@@ -108,6 +112,7 @@ pub fn executeParallel(
     action: ProcessAction,
     num_threads: u32,
     allow_identity_match: bool,
+    output_format: olaf_cli_bridge.OutputFormat,
 ) !void {
     const filter_identity = (action == .Query) and !allow_identity_match;
     const actual_threads = @min(num_threads, audio_files.len);
@@ -120,7 +125,7 @@ pub fn executeParallel(
                 try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier)
             else
                 @as(u32, 0);
-            try processAudioFile(allocator, audio_file, config, i, audio_files.len, action, exclude);
+            try processAudioFile(allocator, audio_file, config, i, audio_files.len, action, exclude, output_format);
         }
     } else {
         // Multi-threaded execution
@@ -155,6 +160,7 @@ pub fn executeParallel(
                 .total = audio_files.len,
                 .action = action,
                 .exclude_identifier = exclude,
+                .output_format = output_format,
                 .error_mutex = &error_mutex,
                 .error_list = &error_list,
             };
@@ -181,6 +187,7 @@ fn processAudioFragment(
     fragment_duration: u32,
     action: ProcessAction,
     exclude_identifier: u32,
+    output_format: olaf_cli_bridge.OutputFormat,
 ) !void {
     debug("Processing fragment at {d}s for {d}s from {s}", .{ fragment_start, fragment_duration, audio_file_with_id.path });
 
@@ -214,7 +221,7 @@ fn processAudioFragment(
     defer allocator.free(fragment_identifier);
 
     switch (action) {
-        .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, fragment_identifier, config, exclude_identifier),
+        .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, fragment_identifier, config, exclude_identifier, output_format),
         .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.path, config),
         .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, fragment_identifier, config),
     }
@@ -229,6 +236,7 @@ pub fn executeFragmentedParallel(
     num_threads: u32,
     fragment_duration: u32,
     allow_identity_match: bool,
+    output_format: olaf_cli_bridge.OutputFormat,
 ) !void {
     const filter_identity = (action == .Query) and !allow_identity_match;
     debug("Processing {d} audio files in fragments of {d}s with {d} threads (filter_identity={})", .{
@@ -265,6 +273,7 @@ pub fn executeFragmentedParallel(
                 fragment_duration,
                 action,
                 exclude,
+                output_format,
             );
 
             fragment_start += current_duration;

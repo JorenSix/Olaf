@@ -109,6 +109,7 @@ Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db,Olaf_FP_M
 	fp_matcher->config = config;
 	fp_matcher->db = db;
 	fp_matcher->result_callback = callback;
+	fp_matcher->header = NULL;
 
 	hash_table_register_free_functions(fp_matcher->result_hash_table,NULL, olaf_hash_table_value_free_func);
 
@@ -219,6 +220,7 @@ void olaf_fp_matcher_set_header(Olaf_FP_Matcher * fp_matcher, const char * heade
 }
 
 void olaf_fp_matcher_print_header(Olaf_FP_Matcher * fp_matcher){
+	if(fp_matcher->header == NULL) return;
 	printf("%s", fp_matcher->header);
 }
 

@@ -32,5 +32,6 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         .Store,
         args.threads,
         true,
+        .csv,
     );
 }
