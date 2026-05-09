@@ -166,7 +166,7 @@ destroy_db:
 
 
 #Compile unit tests and run the unit tests
-#The functional tests are run via ruby, see readme
+#The functional tests are run via `zig build test`, see readme
 test:
 	rm -f *.o #avoid linker collisions with leftover .o from other GCC targets
 	gcc -c src/olaf_config.c -W -Wall -std=c11 -pedantic -O2

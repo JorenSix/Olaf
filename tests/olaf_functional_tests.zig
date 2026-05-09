@@ -346,6 +346,7 @@ const ParsedResult = struct {
     query_start: f32,
     query_stop: f32,
     ref_path: []const u8,
+    ref_id: []const u8,
     ref_start: f32,
     ref_stop: f32,
 };
@@ -372,6 +373,7 @@ fn parseResultLine(allocator: std.mem.Allocator, line: []const u8) !?ParsedResul
         .query_start = std.fmt.parseFloat(f32, parts.items[5]) catch return null,
         .query_stop = std.fmt.parseFloat(f32, parts.items[6]) catch return null,
         .ref_path = parts.items[7],
+        .ref_id = parts.items[8],
         .ref_start = std.fmt.parseFloat(f32, parts.items[9]) catch return null,
         .ref_stop = std.fmt.parseFloat(f32, parts.items[10]) catch return null,
     };
@@ -537,6 +539,88 @@ test "functional: delete removes a stored reference" {
         allocator.free(result.stderr);
     }
     try testing.expectEqual(total_refs, try statsSongCount(allocator, olaf_bin, &env));
+}
+
+test "functional: dedup ignores self-matches and surfaces duplicates" {
+    const allocator = testing.allocator;
+
+    const olaf_bin = try resolveOlafBinAndDeps(allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+
+    try dataset.ensureDataset(allocator, .ref_only);
+
+    var env = try setupTestEnv(allocator, "dedup");
+    defer env.deinit();
+
+    // Pick two distinct reference files. Copy the first one to a fresh path
+    // (different file name) so the index sees it as a separate audio item;
+    // dedup should then report the copy as a duplicate of the original.
+    const original = "dataset/ref/11266.mp3";
+    const other = "dataset/ref/852601.mp3";
+
+    var orig_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const orig_abs = try fs.cwd().realpath(original, &orig_buf);
+
+    var other_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const other_abs = try fs.cwd().realpath(other, &other_buf);
+
+    // Place the duplicate inside the test home so cleanup removes it.
+    const dup_path = try std.fmt.allocPrint(allocator, "{s}/dup_11266.mp3", .{env.home});
+    defer allocator.free(dup_path);
+    try fs.cwd().copyFile(orig_abs, fs.cwd(), dup_path, .{});
+    var dup_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const dup_abs = try fs.cwd().realpath(dup_path, &dup_buf);
+
+    const result = try runOlaf(
+        allocator,
+        olaf_bin,
+        &env,
+        &[_][]const u8{ "dedup", orig_abs, dup_abs, other_abs },
+        error.OlafDedupFailed,
+    );
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+
+    // Expectation: we see at least one non-empty match line where the query
+    // is the duplicate and the matched ref is the original (or vice versa),
+    // and no result line has a self-match.
+    var saw_dup_match = false;
+    const dup_base = std.fs.path.basename(dup_path);
+    const orig_base = std.fs.path.basename(original);
+
+    var lines = std.mem.tokenizeAny(u8, result.stdout, "\n");
+    while (lines.next()) |line| {
+        const maybe = parseResultLine(allocator, line) catch continue;
+        const parsed = maybe orelse continue;
+        if (parsed.empty_match) continue;
+
+        // Self-match check: the result's match_identifier must not equal
+        // the hash of the query path. Parse as i64 first to tolerate a
+        // signed-printf representation, then truncate to u32.
+        const ref_id_signed = std.fmt.parseInt(i64, parsed.ref_id, 10) catch continue;
+        const ref_id: u32 = @truncate(@as(u64, @bitCast(ref_id_signed)));
+        const self_id: u32 = c.olaf_db_string_hash(parsed.query.ptr, parsed.query.len);
+
+        if (ref_id == self_id) {
+            std.debug.print("\nUnexpected self-match in dedup output:\n  query={s}\n  ref={s}\n  ref_id={d}\n  line={s}\n", .{ parsed.query, parsed.ref_path, ref_id, line });
+            return error.DedupLeakedSelfMatch;
+        }
+
+        // Detect that the duplicate was found.
+        const ref_base = std.fs.path.basename(parsed.ref_path);
+        const query_base = std.fs.path.basename(parsed.query);
+        if (std.mem.eql(u8, query_base, dup_base) and std.mem.eql(u8, ref_base, orig_base)) {
+            saw_dup_match = true;
+        }
+        if (std.mem.eql(u8, query_base, orig_base) and std.mem.eql(u8, ref_base, dup_base)) {
+            saw_dup_match = true;
+        }
+    }
+
+    if (!saw_dup_match) {
+        std.debug.print("\nDuplicate match between {s} and {s} not reported.\nstdout:\n{s}\n", .{ original, dup_path, result.stdout });
+        return error.DedupMissedDuplicate;
+    }
 }
 
 /// Parse "Number of songs (#):\t<n>" out of `olaf stats` output.

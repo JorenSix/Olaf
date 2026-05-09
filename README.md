@@ -57,7 +57,7 @@ Olaf was featured on [hackaday](https://hackaday.com/2020/08/30/olaf-lets-an-esp
 
 To use Olaf `ffmpeg` need to be installed on your system. While the core of Olaf is in pure c, a Zig wrapper provides an easy to use interface to its capabilities. The Zig wrapper converts audio (with `ffmpeg`), parses command line arguments and reports results in a readable format.
 
-To install ffmpeg on a Debian like system: `apt-get install ffmpeg ruby`. On macOS `ffmpeg` can be installed with [homebrew](https://brew.sh/) by calling `brew install ffmpeg`.
+To install ffmpeg on a Debian like system: `apt-get install ffmpeg`. On macOS `ffmpeg` can be installed with [homebrew](https://brew.sh/) by calling `brew install ffmpeg`.
 
 ### Installation
 
@@ -288,8 +288,6 @@ Olaf has a number of configuration parameters. Currently these are done during c
 
 The configuration includes the amount of fingerprints extracted, the location of the data directory, configuration related to matching, ... Each configuration setting has a small description. There is a default configuration for `mem`, `web` and `default` cases which slightly differ.
 
-The olaf.rb Ruby script also contains a few settings related to how audio is decoded, where data is expected, the number of threads which can be used,... To change these settings, edit the script itself (typically located at `/usr/local/bin/olaf`. Changes to configuration there are immediately applied.
-
 ## Testing, Evaluating and Benchmarking Olaf
 
 The tests check **whether Olaf works**. The evaluation verifies **how well** Olaf works. The benchmark checks **how fast** Olaf works and how it deals with scalability.
@@ -298,7 +296,7 @@ The tests check **whether Olaf works**. The evaluation verifies **how well** Ola
 
 ### Testing Olaf
 
-The first thing this checks is whether Olaf compiles correctly. Afterwards, a small dataset is indexed and some queries are fired. The result of the queries is evaluated for correctness. Also the memory version of Olaf is checked. To run this yourself, with Ruby, `ffmpeg` and `ffprobe` installed:
+The first thing this checks is whether Olaf compiles correctly. Afterwards, a small dataset is indexed and some queries are fired. The result of the queries is evaluated for correctness. Also the memory version of Olaf is checked. To run this yourself, with `ffmpeg` and `ffprobe` installed:
 
 ```bash
 git clone https://github.com/JorenSix/Olaf

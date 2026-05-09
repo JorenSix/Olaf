@@ -45,6 +45,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             index,
             args.audio_files.items.len,
             .Delete,
+            0,
         ) catch |err| {
             return err;
         };

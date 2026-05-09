@@ -18,7 +18,10 @@ Olaf_Config* olaf_default_config();
 // It processes the audio file and stores the fingerprints in the database.
 void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
 
-void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, const char* raw_audio_path, const char* audio_identifier);
+// `exclude_identifier`: when non-zero, suppress result lines whose
+// match_identifier equals this hash (used to filter self-matches in dedup).
+// Pass 0 for no filtering.
+void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier);
 
 // Delete fingerprints from the database by audio identifier
 void olaf_delete(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);

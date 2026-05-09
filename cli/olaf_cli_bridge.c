@@ -169,6 +169,7 @@ typedef struct {
     size_t q_total;
     const char *query_path;
 	float q_offset;
+	uint32_t exclude_identifier; // when non-zero, drop matches with this id
 } Olaf_Query_Print_Context;
 
 static _Thread_local Olaf_Query_Print_Context olaf_query_print_context = {0};
@@ -180,6 +181,15 @@ static void olaf_cli_print_match(int matchCount,
                                  uint32_t matchIdentifier,
                                  float referenceStart,
                                  float referenceStop) {
+	// Filter self-matches when an exclude_identifier is set.
+	// matchCount == 0 is the synthetic "no results" line; let it through
+	// even when filtering, so callers still see an end-of-query marker.
+	if (olaf_query_print_context.exclude_identifier != 0
+	    && matchCount > 0
+	    && matchIdentifier == olaf_query_print_context.exclude_identifier) {
+		return;
+	}
+
 	// query info
 	// "#{index} , #{total} , #{query} , #{query_offset} ,
     printf("%d ,%d ,%s, %.3f, ",
@@ -187,15 +197,15 @@ static void olaf_cli_print_match(int matchCount,
 			(uint32_t) olaf_query_print_context.q_total,
 			olaf_query_print_context.query_path,
 			olaf_query_print_context.q_offset);
-	
+
 	// match info
-	// #{match_count} , #{query_start} , #{query_stop}, 
+	// #{match_count} , #{query_start} , #{query_stop},
 	printf("%d ,%.3f ,%.3f, ",
 		   matchCount,
 		   queryStart,
 		   queryStop);
-	
-	printf("%s, %d, %.3f, %.3f\n",
+
+	printf("%s, %u, %.3f, %.3f\n",
 		   path,
 		   matchIdentifier,
 		   referenceStart,
@@ -203,7 +213,7 @@ static void olaf_cli_print_match(int matchCount,
 }
 
 
-void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, const char* raw_audio_path, const char* audio_identifier){
+void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier){
 	//store the fingerprints in the database
 	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
 	if(db == NULL){
@@ -230,6 +240,7 @@ void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char 
     olaf_query_print_context.q_total = q_total;
     olaf_query_print_context.query_path = query_path;
 	olaf_query_print_context.q_offset = 0.0f;
+	olaf_query_print_context.exclude_identifier = exclude_identifier;
 
 	Olaf_FP_Matcher_Result_Callback result_callback = olaf_cli_print_match;
 	olaf_stream_processor_set_result_callback(processor, result_callback);

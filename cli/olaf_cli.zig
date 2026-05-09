@@ -17,6 +17,7 @@ const cmd_clear = @import("olaf_cli_commands/olaf_cli_cmd_clear.zig");
 const cmd_delete = @import("olaf_cli_commands/olaf_cli_cmd_delete.zig");
 const cmd_cache = @import("olaf_cli_commands/olaf_cli_cmd_cache.zig");
 const cmd_store_cached = @import("olaf_cli_commands/olaf_cli_cmd_store_cached.zig");
+const cmd_dedup = @import("olaf_cli_commands/olaf_cli_cmd_dedup.zig");
 
 const debug = std.log.scoped(.olaf_cli).debug;
 
@@ -110,6 +111,13 @@ const commands = [_]Command{
         .help = cmd_store_cached.CommandInfo.help,
         .needs_audio_files = cmd_store_cached.CommandInfo.needs_audio_files,
         .func = cmd_store_cached.execute,
+    },
+    .{
+        .name = cmd_dedup.CommandInfo.name,
+        .description = cmd_dedup.CommandInfo.description,
+        .help = cmd_dedup.CommandInfo.help,
+        .needs_audio_files = cmd_dedup.CommandInfo.needs_audio_files,
+        .func = cmd_dedup.execute,
     },
 };
 

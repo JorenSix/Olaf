@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const OlafResultLine = struct {
+pub const OlafResultLine = struct {
     valid: bool,
     empty_match: bool,
     index: u32,
@@ -15,7 +15,7 @@ const OlafResultLine = struct {
     ref_start: f32,
     ref_stop: f32,
 
-    fn parse(allocator: std.mem.Allocator, line: []const u8) !OlafResultLine {
+    pub fn parse(allocator: std.mem.Allocator, line: []const u8) !OlafResultLine {
         var parts: std.ArrayList([]const u8) = .{};
         defer parts.deinit(allocator);
 
