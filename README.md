@@ -12,7 +12,6 @@ Please be aware of the patents US7627477 B2 and US6990453 and perhaps others. Th
 2. [Olaf on traditional computers](#olaf-on-traditional-computers)
    - [Compilation and installation](#compilation-and-installation)
    - [Compilation with Zig](#compilation-with-zig)
-   - [Olaf on Windows](#olaf-on-windows)
    - [Olaf on Docker](#olaf-on-docker)
 3. [Olaf in the browser](#olaf-in-the-browser)
 4. [Embedded Olaf](#embedded-olaf)
@@ -103,9 +102,8 @@ zig build -Dtarget=wasm32-wasi-musl -Doptimize=ReleaseSmall
 file zig-out/bin/olaf.wasm #WebAssembly (wasm) binary module version 0x1 (MVP)
 ```
 
-### Olaf on Windows
 
-Olaf has been designed with a UNIX like environment in mind but also works on Windows. A pre-built windows executable can be found in the `pre-built` folder. There is additional [documentation for running Olaf on Windows](pre-built/README.textile).
+Olaf has been designed with a UNIX like environment in mind but also works on Windows thanks to the Zig cross compilation. It is less tested on Windows.
 
 ### Olaf on Docker
 
@@ -156,6 +154,7 @@ bin/olaf_mem store olaf_audio_your_audio_file.raw "arandomidentifier" > your_hea
 ```
 
 To test and debug this header file, use the `mem` version of Olaf on your computer. The ESP32 version is basically the same as the `mem` version, only the audio comes from microphone input and not from a file.
+
 
 ## Olaf Usage
 
