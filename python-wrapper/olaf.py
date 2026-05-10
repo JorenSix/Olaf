@@ -31,6 +31,12 @@ def olaf_python_wrapper_handle_result( matchCount,  queryStart,  queryStop, path
 	return None
 
 class Olaf:
+	# Note: ``results`` is a class-level list because the CFFI matcher
+	# callback ``olaf_python_wrapper_handle_result`` is a module-level
+	# function and has no way to address a particular Olaf instance.
+	# Concretely: only one ``Olaf(OlafCommand.QUERY, ...)`` may be in
+	# flight at a time. Concurrent QUERYs from multiple threads/instances
+	# would race on this list.
 	results = []
 
 	# Initializing
@@ -38,7 +44,8 @@ class Olaf:
 		#Initialize the OLAF objects
 		self.path = path
 		self.command = command
-		self.audio_identifier = lib.olaf_db_string_hash(ffi.new("char []", str.encode(self.path)),len(path));
+		path_bytes = str.encode(self.path)
+		self.audio_identifier = lib.olaf_db_string_hash(ffi.new("char []", path_bytes), len(path_bytes));
 		self.config = lib.olaf_config_default()
 		self.fft = lib.olaf_fft_new(self.config)
 		self.ep_extractor = lib.olaf_ep_extractor_new(self.config)
@@ -150,16 +157,23 @@ class Olaf:
 			#Increase the audio block counter
 			audio_block_index = audio_block_index + 1
 
-		#Extract last fingerprints from remaining event points
-		fps = lib.olaf_fp_extractor_extract(self.fp_extractor,eps,audio_block_index);
-		
+		#Extract last fingerprints from remaining event points. Skip the
+		#trailing extract entirely if the audio was shorter than one block
+		#(loop never executed → eps is still None). Mirrors the guard in
+		#src/olaf_stream_processor.c:178-180.
+		if eps is not None and eps.eventPointIndex > 0:
+			fps = lib.olaf_fp_extractor_extract(self.fp_extractor,eps,audio_block_index);
+
 		#return the requested info based on command:
 		if self.command == OlafCommand.STORE:
-			lib.olaf_fp_db_writer_store(self.fp_db_writer,fps);
+			if fps is not None:
+				lib.olaf_fp_db_writer_store(self.fp_db_writer,fps);
 
-			#also store meta-data for the file
+			#also store meta-data for the file. Duration in seconds is
+			#blocks * step / sample_rate (each iteration of the main loop
+			#advances by audioStepSize samples, not audioBlockSize).
 			meta_data = ffi.new("Olaf_Resource_Meta_data *")
-			meta_data.duration = audio_block_index / self.config.audioSampleRate * self.config.audioBlockSize;
+			meta_data.duration = audio_block_index * self.config.audioStepSize / self.config.audioSampleRate;
 
 			meta_data.path = ffi.new("char [512]", str.encode(self.path))
 			meta_data.fingerprints = lib.olaf_fp_extractor_total(self.fp_extractor);
@@ -173,18 +187,21 @@ class Olaf:
 
 			return True
 		if self.command == OlafCommand.QUERY:
-			lib.olaf_fp_matcher_match(self.fp_matcher,fps);
+			if fps is not None:
+				lib.olaf_fp_matcher_match(self.fp_matcher,fps);
 			#lib.olaf_fp_matcher_callback_print_header();
 			lib.olaf_fp_matcher_print_results(self.fp_matcher);
 			if len(Olaf.results) == 0 :
 				return None
 			return Olaf.results
-			
+
 		if self.command == OlafCommand.EXTRACT_EVENT_POINTS:
 			return event_points
 		if self.command == OlafCommand.EXTRACT_MAGNITUDES:
 			return magnitudes
 		if self.command == OlafCommand.EXTRACT_FINGERPRINTS:
+			if fps is None:
+				return fingerprints
 			for i in range(fps.fingerprintIndex):
 				f = fps.fingerprints[i]
 				fp_hash = lib.olaf_fp_extractor_hash(f)

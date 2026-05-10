@@ -5,9 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "cffi==1.15.0",
-    "librosa==0.8.1",
-    "matplotlib==3.7.1",
-    "numpy==1.22.4",
-    "setuptools<58.0.0",
+    "cffi>=1.15",
+    "librosa>=0.10",
+    "matplotlib>=3.7",
+    "numpy>=1.22",
 ]

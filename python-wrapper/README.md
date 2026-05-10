@@ -6,22 +6,23 @@ Olaf is a C application or library for content-based audio search. Olaf is able 
 The full set of commands to download Olaf, make sure the @~/.olaf@ directory exists, build the library and Python cffi wrapper and finally use the wrapper looks as follows:
 
 <pre>
-# clone the repository  
+# clone the repository
 git clone --depth 1 https://github.com/JorenSix/Olaf
 cd Olaf
 # To automatically setup folders for Olaf files
 make
 make install
-#Build the library version of Olaf libolaf.so
+# Build the library version of Olaf bin/libolaf.so. This MUST run
+# before building the CFFI wrapper — the wrapper links against it.
 make clean
 make lib
-# Install the python requirements, librosa and numpy are 
-# not strictly necessary but very practical
-pip install -r python-wrapper/requirements.txt
+# Install the python requirements (declared in pyproject.toml).
+# librosa and numpy are not strictly necessary but very practical.
+pip install ./python-wrapper        # or: uv sync --project python-wrapper
 # Build the CFFI python library
 python python-wrapper/setup.py
-# Makes sure that libolaf.so can be found 
-export LD_LIBRARY_PATH=`pwd`/bin
+# Make sure that libolaf.so can be found at runtime
+export LD_LIBRARY_PATH=`pwd`/bin    # macOS: also set DYLD_LIBRARY_PATH
 # Test the python wrapper
 python python-wrapper/spectrogram_example.py
 </pre>

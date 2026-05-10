@@ -25,7 +25,7 @@ extern "Python" void olaf_python_wrapper_handle_result(
 
 	typedef struct Olaf_Config Olaf_Config;
 	struct Olaf_Config{
-		char * dbFolder;
+		char * dbFolder; 
 		int audioBlockSize;
 		int audioSampleRate;
 		int audioStepSize;
@@ -35,7 +35,7 @@ extern "Python" void olaf_python_wrapper_handle_result(
 		int filterSizeTime;
 		int halfFilterSizeTime;
 		int filterSizeFrequency;
-		int halfFilterSizeFrequency;
+		int halfFilterSizeFrequency; 
 		float minEventPointMagnitude;
 		int minFrequencyBin;
 		int maxEventPointUsages;
@@ -71,14 +71,14 @@ extern "Python" void olaf_python_wrapper_handle_result(
 	};
 
 	struct eventpoint {
-		int frequencyBin;
-		int timeIndex;
-		float magnitude;
-		int usages;
+		int frequencyBin; 
+		int timeIndex; 
+		float magnitude; 
+		int usages; 
 	};
 	struct extracted_event_points{
-		struct eventpoint * eventPoints;
-		int eventPointIndex;
+		struct eventpoint * eventPoints; 
+		int eventPointIndex; 
 	};
 	typedef struct Olaf_EP_Extractor Olaf_EP_Extractor;
 	Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config);
@@ -88,19 +88,19 @@ extern "Python" void olaf_python_wrapper_handle_result(
 	void olaf_ep_extractor_destroy(Olaf_EP_Extractor * olaf_ep_extractor );
 
 	struct fingerprint{
-		int frequencyBin1;
-		int timeIndex1;
-		float magnitude1;
-		int frequencyBin2;
-		int timeIndex2;
-		float magnitude2;
-		int frequencyBin3;
-		int timeIndex3;
-		float magnitude3;
+		int frequencyBin1; 
+		int timeIndex1; 
+		float magnitude1; 
+		int frequencyBin2; 
+		int timeIndex2; 
+		float magnitude2; 
+		int frequencyBin3; 
+		int timeIndex3; 
+		float magnitude3; 
 	};
 	struct extracted_fingerprints{
-		struct fingerprint * fingerprints;
-		size_t fingerprintIndex;
+		struct fingerprint * fingerprints; 
+		size_t fingerprintIndex; 
 	};
 	typedef struct Olaf_FP_Extractor Olaf_FP_Extractor;
 	Olaf_FP_Extractor * olaf_fp_extractor_new(Olaf_Config * config);

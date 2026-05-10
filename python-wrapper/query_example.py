@@ -28,10 +28,10 @@ print(results)
 y_long = np.concatenate((np.zeros(int(diff_in_seconds*sr)),y))
 
 fig, ax = plt.subplots(nrows=2, sharex=True, sharey=True)
-librosa.display.waveplot(original, sr=sr, ax=ax[0])
+librosa.display.waveshow(original, sr=sr, ax=ax[0])
 ax[0].set(title='Original')
 ax[0].label_outer()
 
-librosa.display.waveplot(y_long, sr=sr, ax=ax[1])
+librosa.display.waveshow(y_long, sr=sr, ax=ax[1])
 ax[1].set(title='Modified')
 plt.show()
