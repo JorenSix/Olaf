@@ -226,10 +226,15 @@ pub fn main() !void {
                 const fmt = args_list[i + 1];
                 if (std.mem.eql(u8, fmt, "json")) {
                     args.output_format = .json;
+                    args.store_format = .json;
                 } else if (std.mem.eql(u8, fmt, "csv")) {
                     args.output_format = .csv;
+                    args.store_format = .csv;
+                } else if (std.mem.eql(u8, fmt, "human")) {
+                    // Only meaningful for store; query has no human format.
+                    args.store_format = .human;
                 } else {
-                    print("Unknown --format value '{s}', expected 'csv' or 'json'.\n", .{fmt});
+                    print("Unknown --format value '{s}', expected 'csv', 'json', or 'human'.\n", .{fmt});
                     return;
                 }
                 i += 1;

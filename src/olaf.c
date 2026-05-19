@@ -126,7 +126,7 @@ int olaf_has(int argc, const char* argv[]){
 	printf("audio file path; internal identifier; duration (s); fingerprints (#)\n");
 	for(int arg_index = 2 ; arg_index < argc ; arg_index++){
 		const char* orig_path = argv[arg_index];
-		uint32_t audio_id = olaf_db_string_hash(orig_path,strlen(orig_path));
+		uint32_t audio_id = olaf_db_identifier_id(orig_path,strlen(orig_path));
 		if(olaf_db_has_meta_data(db,&audio_id)){
 			Olaf_Resource_Meta_data e;
 			olaf_db_find_meta_data(db,&audio_id,&e);
@@ -192,8 +192,8 @@ int main(int argc, const char* argv[]){
 	} else if(strcmp(command,"print") == 0){
 		runner_mode = OLAF_RUNNER_MODE_PRINT;
 	} else if(strcmp(command,"name_to_id") == 0){
-		//print the hash and exit
-		printf("%u\n",olaf_db_string_hash(argv[2],strlen(argv[2])));
+		//print the on-disk numeric id and exit
+		printf("%u\n",olaf_db_identifier_id(argv[2],strlen(argv[2])));
 		olaf_config_destroy(config);
 		exit(0);
 		return 0;

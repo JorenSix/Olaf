@@ -138,6 +138,24 @@ uint32_t olaf_db_string_hash(const char *key, size_t len){
 	return hash;
 }
 
+// Reject empty input and multi-digit values with a leading zero so that
+// "0123" and "123" don't collapse to the same key. Anything that doesn't
+// look like a clean decimal number in u32 range falls back to the hash.
+uint32_t olaf_db_identifier_id(const char *identifier, size_t len){
+	if(identifier == NULL || len == 0) return olaf_db_string_hash(identifier, len);
+	if(len > 1 && identifier[0] == '0') return olaf_db_string_hash(identifier, len);
+	if(len > 10) return olaf_db_string_hash(identifier, len); // u32 max is 4294967295 (10 digits)
+
+	uint64_t value = 0;
+	for(size_t i = 0; i < len; i++){
+		char c = identifier[i];
+		if(c < '0' || c > '9') return olaf_db_string_hash(identifier, len);
+		value = value * 10 + (uint64_t)(c - '0');
+		if(value > 0xFFFFFFFFULL) return olaf_db_string_hash(identifier, len);
+	}
+	return (uint32_t)value;
+}
+
 void olaf_db_store_internal(Olaf_DB * olaf_db,uint64_t * keys,uint64_t * values, size_t size,unsigned int flags){
 	MDB_val mdb_key, mdb_value;
 

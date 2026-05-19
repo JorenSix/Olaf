@@ -35,6 +35,8 @@ pub const AudioProcessTask = struct {
     exclude_identifier: u32,
     /// Output format for query results. Ignored for non-query actions.
     output_format: olaf_cli_bridge.OutputFormat,
+    /// Output format for store summaries. Ignored for non-store actions.
+    store_format: olaf_cli_bridge.StoreFormat,
     error_mutex: *Mutex,
     error_list: *std.ArrayList([]const u8),
 };
@@ -65,6 +67,7 @@ pub fn processAudioFile(
     action: ProcessAction,
     exclude_identifier: u32,
     output_format: olaf_cli_bridge.OutputFormat,
+    store_format: olaf_cli_bridge.StoreFormat,
 ) !void {
     debug("Processing audio file {d}/{d}: {s}", .{ index + 1, total, audio_file_with_id.path });
 
@@ -76,7 +79,7 @@ pub fn processAudioFile(
 
     switch (action) {
         .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier, output_format),
-        .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, config),
+        .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, config, index, total, store_format),
         .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, audio_file_with_id.identifier, config),
     }
 }
@@ -91,6 +94,7 @@ pub fn processAudioFileThreaded(task: AudioProcessTask) void {
         task.action,
         task.exclude_identifier,
         task.output_format,
+        task.store_format,
     ) catch |process_err| {
         task.error_mutex.lock();
         defer task.error_mutex.unlock();
@@ -113,6 +117,7 @@ pub fn executeParallel(
     num_threads: u32,
     allow_identity_match: bool,
     output_format: olaf_cli_bridge.OutputFormat,
+    store_format: olaf_cli_bridge.StoreFormat,
 ) !void {
     const filter_identity = (action == .Query) and !allow_identity_match;
     const actual_threads = @min(num_threads, audio_files.len);
@@ -125,7 +130,7 @@ pub fn executeParallel(
                 try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier)
             else
                 @as(u32, 0);
-            try processAudioFile(allocator, audio_file, config, i, audio_files.len, action, exclude, output_format);
+            try processAudioFile(allocator, audio_file, config, i, audio_files.len, action, exclude, output_format, store_format);
         }
     } else {
         // Multi-threaded execution
@@ -161,6 +166,7 @@ pub fn executeParallel(
                 .action = action,
                 .exclude_identifier = exclude,
                 .output_format = output_format,
+                .store_format = store_format,
                 .error_mutex = &error_mutex,
                 .error_list = &error_list,
             };
@@ -188,6 +194,7 @@ fn processAudioFragment(
     action: ProcessAction,
     exclude_identifier: u32,
     output_format: olaf_cli_bridge.OutputFormat,
+    store_format: olaf_cli_bridge.StoreFormat,
 ) !void {
     debug("Processing fragment at {d}s for {d}s from {s}", .{ fragment_start, fragment_duration, audio_file_with_id.path });
 
@@ -222,7 +229,7 @@ fn processAudioFragment(
 
     switch (action) {
         .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, fragment_identifier, config, exclude_identifier, output_format),
-        .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.path, config),
+        .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.path, config, index, total, store_format),
         .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, fragment_identifier, config),
     }
 }
@@ -237,6 +244,7 @@ pub fn executeFragmentedParallel(
     fragment_duration: u32,
     allow_identity_match: bool,
     output_format: olaf_cli_bridge.OutputFormat,
+    store_format: olaf_cli_bridge.StoreFormat,
 ) !void {
     const filter_identity = (action == .Query) and !allow_identity_match;
     debug("Processing {d} audio files in fragments of {d}s with {d} threads (filter_identity={})", .{
@@ -274,6 +282,7 @@ pub fn executeFragmentedParallel(
                 action,
                 exclude,
                 output_format,
+                store_format,
             );
 
             fragment_start += current_duration;

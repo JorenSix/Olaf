@@ -14,6 +14,7 @@ pub const Args = struct {
     skip_store: bool = false,
     force: bool = false,
     output_format: olaf_cli_bridge.OutputFormat = .csv,
+    store_format: olaf_cli_bridge.StoreFormat = .human,
     config: ?*const olaf_cli_config.Config = null,
 
     pub fn deinit(self: *Args, allocator: std.mem.Allocator) void {

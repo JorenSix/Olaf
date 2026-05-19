@@ -164,4 +164,17 @@
 	 */
 	uint32_t olaf_db_string_hash(const char *key, size_t len);
 
+	/**
+	 * Resolve an audio identifier string to its 32-bit DB key. If the
+	 * string is purely decimal digits and parses to a value within u32
+	 * range, the parsed number is returned as-is — so callers that pass
+	 * e.g. "173050" via --with-ids get 173050 as the on-disk key. Any
+	 * other string (paths, names with non-digit characters) falls back
+	 * to olaf_db_string_hash. A leading '+' or '-' is NOT accepted; a
+	 * single leading '0' is accepted ("0" -> 0) but multi-digit strings
+	 * with a leading '0' fall back to the hash to avoid silently
+	 * collapsing distinct ids like "0123" and "123".
+	 */
+	uint32_t olaf_db_identifier_id(const char *identifier, size_t len);
+
 #endif // OLAF_DB_H

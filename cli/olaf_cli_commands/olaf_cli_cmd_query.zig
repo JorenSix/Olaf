@@ -37,6 +37,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             args.fragment_duration,
             args.allow_identity_match,
             args.output_format,
+            args.store_format,
         );
     } else {
         try olaf_cli_threading.executeParallel(
@@ -47,6 +48,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             args.threads,
             args.allow_identity_match,
             args.output_format,
+            args.store_format,
         );
     }
 }

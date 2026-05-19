@@ -38,6 +38,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             args.threads,
             true,
             .csv,
+            args.store_format,
         );
     }
 
@@ -52,6 +53,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             args.fragment_duration,
             false,
             args.output_format,
+            args.store_format,
         );
     } else {
         try olaf_cli_threading.executeParallel(
@@ -62,6 +64,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             args.threads,
             false,
             args.output_format,
+            args.store_format,
         );
     }
 }

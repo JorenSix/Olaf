@@ -129,8 +129,8 @@ void olaf_has(Olaf_Config* config,size_t audio_identifiers_len,const char* audio
 	for(size_t arg_index = 0 ; arg_index < audio_identifiers_len ; arg_index++){
 		// retrieve the audio identifier
 		const char* audio_identifier = audio_identifiers[arg_index];
-		// make a numeric hash of the audio identifier
-		uint32_t audio_id_num = olaf_db_string_hash(audio_identifier,strlen(audio_identifier));
+		// resolve the audio identifier to its on-disk numeric id
+		uint32_t audio_id_num = olaf_db_identifier_id(audio_identifier,strlen(audio_identifier));
 		bool found_id = olaf_db_has_meta_data(db,&audio_id_num);
 		if(found_id) {
 			Olaf_Resource_Meta_data e;
@@ -494,7 +494,7 @@ void olaf_print_to_file(Olaf_Config* config, const char* raw_audio_path, const c
 }
 
 uint32_t olaf_name_to_id(const char* audio_identifier){
-	return olaf_db_string_hash(audio_identifier,strlen(audio_identifier));
+	return olaf_db_identifier_id(audio_identifier,strlen(audio_identifier));
 }
 
 void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* orig_audio_path){
@@ -509,7 +509,7 @@ void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* ori
 	//close the database
 	olaf_db_destroy(db);
 
-	printf("Storing audio file '%s' with original path '%s' in database '%s'\n",raw_audio_path,orig_audio_path,config->dbFolder);
+	//printf("Storing audio file '%s' with original path '%s' in database '%s'\n",raw_audio_path,orig_audio_path,config->dbFolder);
 	
 	
 	//create a new runner
@@ -550,8 +550,8 @@ int olaf_main(int argc, const char* argv[]){
 	} else if(strcmp(command,"print") == 0){
 		runner_mode = OLAF_RUNNER_MODE_PRINT;
 	} else if(strcmp(command,"name_to_id") == 0){
-		//print the hash and exit
-		printf("%u\n",olaf_db_string_hash(argv[2],strlen(argv[2])));
+		//print the on-disk numeric id and exit
+		printf("%u\n",olaf_db_identifier_id(argv[2],strlen(argv[2])));
 		exit(0);
 		return 0;
 	} else if(strcmp(command,"stats") == 0){

@@ -56,7 +56,7 @@ Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner * runner,const cha
 	processor->orig_path = orig_path;
 	processor->audio_identifier = 0;
 	if(orig_path!=NULL)
-		processor->audio_identifier = olaf_db_string_hash(orig_path,strlen(orig_path));
+		processor->audio_identifier = olaf_db_identifier_id(orig_path,strlen(orig_path));
 
 	processor->result_callback = olaf_fp_matcher_callback_print_result;
 	processor->result_header = NULL;

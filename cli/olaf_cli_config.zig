@@ -5,6 +5,9 @@ const olaf_cli_util = @import("olaf_cli_util.zig");
 const debug = std.log.scoped(.olaf_cli).debug;
 
 pub const Config = struct {
+    // Absolute path of the config file actually loaded, or null when defaults are used.
+    config_path: ?[]const u8 = null,
+
     // Path configurations
     db_folder: []const u8 = "~/.olaf/db/",
     cache_folder: []const u8 = "~/.olaf/cache",
@@ -57,6 +60,11 @@ pub const Config = struct {
     pub fn deinit(self: *Config, allocator: std.mem.Allocator) void {
         debug("Config deinit", .{});
 
+        if (self.config_path) |p| {
+            debug("Free config_path cleanup", .{});
+            allocator.free(p);
+        }
+
         debug("Free cache_folder cleanup", .{});
         allocator.free(self.cache_folder);
 
@@ -74,6 +82,11 @@ pub const Config = struct {
     }
 
     fn printConfigToWriter(self: *const Config, writer: anytype) !void {
+        if (self.config_path) |p| {
+            try writer.print("Config file: {s}\n", .{p});
+        } else {
+            try writer.print("Config file: <defaults — no config file found>\n", .{});
+        }
         try writer.print("Current Config:\n", .{});
         try writer.print("  db_folder: {s}\n", .{self.db_folder});
         try writer.print("  cache_folder: {s}\n", .{self.cache_folder});
@@ -114,6 +127,11 @@ pub const Config = struct {
     }
 
     pub fn debugPrint(self: *const Config) void {
+        if (self.config_path) |p| {
+            debug("Config file: {s}", .{p});
+        } else {
+            debug("Config file: <defaults — no config file found>", .{});
+        }
         debug("Current Config:", .{});
         debug("  db_folder: {s}", .{self.db_folder});
         debug("  cache_folder: {s}", .{self.cache_folder});
@@ -173,6 +191,15 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !
 
     if (file_result) |file| {
         defer file.close();
+
+        // Record the absolute path of the file actually loaded so we can show it later.
+        var realpath_buf: [std.fs.max_path_bytes]u8 = undefined;
+        if (std.fs.cwd().realpath(path, &realpath_buf)) |abs| {
+            config.config_path = try allocator.dupe(u8, abs);
+        } else |_| {
+            config.config_path = try allocator.dupe(u8, path);
+        }
+        errdefer if (config.config_path) |p| allocator.free(p);
 
         const contents = try file.readToEndAlloc(allocator, 10 * 1024);
         defer allocator.free(contents);

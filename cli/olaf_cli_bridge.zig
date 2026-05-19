@@ -13,7 +13,13 @@ const olaf = @cImport({
     @cInclude("olaf_cli_bridge.h");
     @cInclude("olaf_db.h");
     @cInclude("olaf_fp_db_writer_cache.h");
+    @cInclude("olaf_runner.h");
+    @cInclude("olaf_stream_processor.h");
 });
+
+pub const StoreFormat = enum { human, csv, json };
+
+pub const store_csv_header = "action,file_index,file_total,audio_identifier,internal_id,fingerprints,audio_seconds,cpu_seconds,fingerprints_per_second,realtime_factor\n";
 
 fn olaf_main(allocator: std.mem.Allocator, args_list: []const []const u8) !void {
     var c_argv = try allocator.alloc([*c]const u8, args_list.len);
@@ -70,7 +76,15 @@ fn copy_to_c_config(config: *const olaf_cli_config.Config, c_config: *olaf.Olaf_
     debug("Configuration copy complete", .{});
 }
 
-pub fn olaf_store(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {
+pub fn olaf_store(
+    allocator: std.mem.Allocator,
+    raw_audio_path: []const u8,
+    audio_identifier: []const u8,
+    config: *const olaf_cli_config.Config,
+    index: usize,
+    total: usize,
+    format: StoreFormat,
+) !void {
     const c_config = olaf.olaf_default_config(); // Ensure the default config is set
     try copy_to_c_config(config, c_config);
 
@@ -94,7 +108,159 @@ pub fn olaf_store(allocator: std.mem.Allocator, raw_audio_path: []const u8, audi
     const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
     defer allocator.free(c_audio_identifier);
 
-    olaf.olaf_store(c_config, c_raw_audio_path, c_audio_identifier);
+    // All three formats now go through the same path: suppress the C
+    // stream-processor's hardcoded summary line, run the processor here, and
+    // emit one record from Zig. This lets every format — including .human —
+    // include the file_index / file_total progress prefix.
+    const runner = olaf.olaf_runner_new(olaf.OLAF_RUNNER_MODE_STORE, c_config, null, null);
+    defer olaf.olaf_runner_destroy(runner);
+
+    const processor = olaf.olaf_stream_processor_new(runner, c_raw_audio_path, c_audio_identifier) orelse return;
+    defer olaf.olaf_stream_processor_destroy(processor);
+
+    olaf.olaf_stream_processor_set_suppress_summary(processor, true);
+    olaf.olaf_stream_processor_process(processor);
+
+    const audio_seconds: f64 = olaf.olaf_stream_processor_audio_duration(processor);
+    const cpu_seconds: f64 = olaf.olaf_stream_processor_cpu_time(processor);
+    const fingerprints: usize = olaf.olaf_stream_processor_total_fingerprints(processor);
+    // Resolve the identifier to its on-disk numeric id. olaf_name_to_id
+    // (via olaf_db_identifier_id in C) returns the raw number if the
+    // identifier parses as a u32 decimal, else falls back to the Jenkins
+    // hash. We always pass the identifier we were given — never the raw
+    // file path — so --with-ids file.mp3 173050 yields internal_id 173050,
+    // and the default path-as-identifier form yields hash(path). Either
+    // way the value matches what query results report as match_identifier.
+    const internal_id: u32 = olaf.olaf_name_to_id(c_audio_identifier);
+
+    try writeStoreSummary(format, index, total, audio_identifier, internal_id, fingerprints, audio_seconds, cpu_seconds);
+}
+
+fn writeStoreSummary(
+    format: StoreFormat,
+    index: usize,
+    total: usize,
+    audio_identifier: []const u8,
+    internal_id: u32,
+    fingerprints: usize,
+    audio_seconds: f64,
+    cpu_seconds: f64,
+) !void {
+    const file_index = index + 1; // user-facing index is 1-based
+    const fp_per_second: f64 = if (audio_seconds > 0.0) @as(f64, @floatFromInt(fingerprints)) / audio_seconds else 0.0;
+    const realtime_factor: f64 = if (cpu_seconds > 0.0) audio_seconds / cpu_seconds else 0.0;
+
+    var buf: [4096]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    const w = fbs.writer();
+
+    switch (format) {
+        .human => {
+            // Width is the digit count of `total`, so a 35-file run prints
+            // "01/35", "02/35", ... and a 7-file run prints "1/7".
+            const width = digitWidth(total);
+            // Build the zero-padded prefix manually — Zig's runtime-width
+            // syntax {d:0>[N]} is awkward to combine with later positional
+            // args without bookkeeping mistakes.
+            var idx_buf: [32]u8 = undefined;
+            const idx_str = try std.fmt.bufPrint(&idx_buf, "{d}", .{file_index});
+            const pad = if (idx_str.len < width) width - idx_str.len else 0;
+            var i: usize = 0;
+            while (i < pad) : (i += 1) try w.writeByte('0');
+            try w.writeAll(idx_str);
+            try w.print("/{d} Stored {d} fp's from {d:.1}s ({d:.0} fp/s) in {d:.3}s ({d:.0} times realtime)\n", .{
+                total,
+                fingerprints,
+                audio_seconds,
+                fp_per_second,
+                cpu_seconds,
+                realtime_factor,
+            });
+        },
+        .csv => {
+            try w.print("store,{d},{d},", .{ file_index, total });
+            try writeCsvField(w, audio_identifier);
+            try w.print(",{d},{d},{d:.1},{d:.3},{d:.1},{d:.0}\n", .{
+                internal_id,
+                fingerprints,
+                audio_seconds,
+                cpu_seconds,
+                fp_per_second,
+                realtime_factor,
+            });
+        },
+        .json => {
+            try w.writeAll("{\"action\":\"store\",\"file_index\":");
+            try w.print("{d}", .{file_index});
+            try w.writeAll(",\"file_total\":");
+            try w.print("{d}", .{total});
+            try w.writeAll(",\"audio_identifier\":");
+            try writeJsonString(w, audio_identifier);
+            try w.print(",\"internal_id\":{d},\"fingerprints\":{d},\"audio_seconds\":{d:.1},\"cpu_seconds\":{d:.3},\"fingerprints_per_second\":{d:.1},\"realtime_factor\":{d:.0}", .{
+                internal_id,
+                fingerprints,
+                audio_seconds,
+                cpu_seconds,
+                fp_per_second,
+                realtime_factor,
+            });
+            try w.writeAll("}\n");
+        },
+    }
+
+    // One writeAll per record — POSIX guarantees atomicity for writes
+    // <= PIPE_BUF, so threaded workers don't interleave bytes mid-record.
+    const written = fbs.getWritten();
+    var stderr = std.fs.File.stderr();
+    try stderr.writeAll(written);
+}
+
+fn digitWidth(n: usize) usize {
+    if (n == 0) return 1;
+    var v = n;
+    var w: usize = 0;
+    while (v != 0) : (v /= 10) w += 1;
+    return w;
+}
+
+fn writeCsvField(w: anytype, s: []const u8) !void {
+    // RFC 4180-style quoting: only quote when needed (contains , " or newline).
+    var needs_quotes = false;
+    for (s) |c| {
+        if (c == ',' or c == '"' or c == '\n' or c == '\r') {
+            needs_quotes = true;
+            break;
+        }
+    }
+    if (!needs_quotes) {
+        try w.writeAll(s);
+        return;
+    }
+    try w.writeByte('"');
+    for (s) |c| {
+        if (c == '"') try w.writeByte('"');
+        try w.writeByte(c);
+    }
+    try w.writeByte('"');
+}
+
+fn writeJsonString(w: anytype, s: []const u8) !void {
+    try w.writeByte('"');
+    for (s) |c| switch (c) {
+        '"' => try w.writeAll("\\\""),
+        '\\' => try w.writeAll("\\\\"),
+        '\n' => try w.writeAll("\\n"),
+        '\r' => try w.writeAll("\\r"),
+        '\t' => try w.writeAll("\\t"),
+        0x08 => try w.writeAll("\\b"),
+        0x0C => try w.writeAll("\\f"),
+        else => if (c < 0x20) {
+            try w.print("\\u{x:0>4}", .{c});
+        } else {
+            try w.writeByte(c);
+        },
+    };
+    try w.writeByte('"');
 }
 
 pub const OutputFormat = enum { csv, json };
@@ -331,7 +497,7 @@ pub fn olaf_store_cached_files(allocator: std.mem.Allocator, entries: []const Ca
         const c_audio_path = try allocator.dupeZ(u8, entry.audio_path);
         defer allocator.free(c_audio_path);
 
-        const audio_id: u64 = olaf.olaf_db_string_hash(c_audio_path, entry.audio_path.len);
+        const audio_id: u64 = olaf.olaf_db_identifier_id(c_audio_path, entry.audio_path.len);
 
         const cache_writer = olaf.olaf_fp_db_writer_cache_new(db, c_config, c_cache_file);
         olaf.olaf_fp_db_writer_cache_set_audio_file_info(cache_writer, c_audio_path, audio_id);

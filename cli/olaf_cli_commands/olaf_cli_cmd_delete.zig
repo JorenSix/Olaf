@@ -47,6 +47,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             .Delete,
             0,
             .csv,
+            .human,
         ) catch |err| {
             return err;
         };
