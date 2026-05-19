@@ -188,10 +188,10 @@ docs:
 	doxygen
 
 zig_linux:
-	zig build -Dtarget=x86_64-linux-gnu -Drelease-fast
+	zig build -Dtarget=x86_64-linux-gnu -Doptimize=ReleaseFast
 
 zig_mac_arm:
-	zig build -Dtarget=aarch64-macos.11.0.0-none -Drelease-fast
+	zig build -Dtarget=aarch64-macos.11.0.0-none -Doptimize=ReleaseFast
 
 zig_mac_x86:
 	zig build -Dtarget=x86_64-macos-gnu -Drelease-fast
