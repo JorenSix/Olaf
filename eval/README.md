@@ -97,27 +97,62 @@ ruby eval/olaf_functional_tests.rb
 
 Less interesting are the unit tests, these are mainly of interest for developing Olaf. The unit test can be compiled with `make test` and ran with `./bin/olaf_tests`.
 
-### Evaluating Olaf
+### Evaluating Olaf - **how well** does Olaf recognize audio?
 
-In the `eval` folder there is an evaluation script which takes a folder as input and stores and evaluates queries with several modifications. [SoX](https://sox.sourceforge.net/) needs to be available on the system for this to work.
+The recognition benchmark takes a folder of media files, indexes a fixed fraction of them (80% by default) and then cuts random short audio segments (5-10s) with `ffmpeg` and checks whether Olaf finds them back in the index. It reports a **recognition rate** (true-positive rate) and, optionally, a false-positive rate. This establishes a reproducible baseline to compare before and after tuning fingerprint or matcher parameters.
 
-[True/false negative/positives](https://en.wikipedia.org/wiki/Sensitivity_and_specificity) are reported. There are a few options to make the evaluation more thorough or fit your use case. The number of tracks stored, the number of distractors, the number of true negatives, the severity of the modifications, the duration of the queries, ... can be configured by modifying the first lines of the script. To run the evaluation:
+Each run is controlled: it rebuilds Olaf (`zig build -Doptimize=ReleaseFast`), writes a fixed configuration, and isolates the database in a temporary sandbox by overriding the `HOME` environment variable, so your real `~/.olaf` database is never touched. Only `ffmpeg`/`ffprobe` and Python 3 (standard library only) are required.
 
 ```bash
-ruby eval/olaf_evaluation.rb /folder/with/music
+python3 eval/olaf_recognition_benchmark.py /folder/with/music
 ```
 
-The result of an evaluation depends on the input audio but should be similar to the following for music like signals:
+Useful options (see `--help` for the full list):
 
 ```
-True positive rate for none_0 1.000
-True negative rate for none_0 0.970
-True positive rate for flanger_0 0.859
-True negative rate for flanger_0 0.960
-True positive rate for band_passed_2000Hz 1.000
-True negative rate for band_passed_2000Hz 0.970
-True positive rate for chorus_0 0.860
-True negative rate for chorus_0 0.949
-True positive rate for echo_0 0.970
-True negative rate for echo_0 0.970	
+--index-fraction 0.8       fraction of files added to the index
+--segments-per-file 1      random query segments cut per indexed file
+--min-seg 5 --max-seg 10   segment length bounds in seconds
+--negatives N              also cut N segments from held-out (non-indexed) files,
+                           expected NOT to match (measures false positives)
+--seed 42                  RNG seed for reproducible runs
+--threads N                threads passed to olaf store/query
+--skip-build               reuse the existing zig-out/bin/olaf instead of rebuilding
+--keep-workdir             keep the temp sandbox for inspection
+--csv results.csv          write per-segment results
+--distortions LIST         apply SoX distortions to the positive query segments and
+                           report a recognition rate per distortion (requires sox).
+                           Comma list of flanger,band_passed,chorus,echo,tremolo,
+                           fm_compressed, time_shift_{0_5,1,3}, pitch_shift_{0_5,1,3},
+                           speed_up_{0_5,1,3}, or 'all'. Default: none (clean baseline).
+--log results.log          write a DEBUG-level per-action log (every store, query and
+                           sox invocation, with exit code, elapsed time and match count)
 ```
+
+The fixed configuration lives in the `FIXED_CONFIG` dictionary at the top of the script (the Olaf defaults). To evaluate a recognition-rate change, edit a value there and re-run with the same `--seed`; the recognition rate is directly comparable. The result depends on the input audio but for clean re-encoded segments of music-like signals the recognition rate should be near `1.000`. Each modification gets a full confusion matrix — TPR (recall) with TP/FN, TNR (specificity) with FP/TN, precision (`P`), `F1`, mean match count (`mc`) and the time-accuracy check — followed by an `OVERALL` line that sums every cell:
+
+```
+none           TPR 1.000 (TP=16 FN=0)  TNR 1.000 (FP=0 TN=5)  P 1.000  F1 1.000  mc=53.4 | time 100ms: 1.000 (16/16, max err 0.007s)
+OVERALL        TPR 1.000 (TP=16 FN=0)  TNR 1.000 (FP=0 TN=5)  P 1.000  F1 1.000  acc 1.000
+```
+
+#### Robustness to degraded audio (`--distortions`)
+
+To measure how well Olaf recognizes audio that has been degraded, pass `--distortions`. Each segment is first cut clean (the `none` baseline), then a distorted sibling is produced with [SoX](http://sox.sourceforge.net/) for every requested effect and queried separately. Distortions are applied to **both** the positive segments and the held-out negatives, so every modification gets its own full confusion matrix: the positives drive TPR (does the degradation hurt recall?) while the distorted negatives drive TNR (does the degradation provoke a false positive?):
+
+```bash
+python3 eval/olaf_recognition_benchmark.py /folder/with/music --distortions all --log eval.log
+```
+
+```
+none           TPR 1.000 (TP=16 FN=0)  TNR 1.000 (FP=0 TN=5)  P 1.000  F1 1.000  mc=53.4 | time 100ms: 1.000 (16/16, max err 0.007s)
+flanger        TPR 0.688 (TP=11 FN=5)  TNR 1.000 (FP=0 TN=5)  P 1.000  F1 0.815  mc=16.4 | time 100ms: 0.818 (9/11, max err 26.802s)
+band_passed    TPR 1.000 (TP=16 FN=0)  TNR 1.000 (FP=0 TN=5)  P 1.000  F1 1.000  mc=29.9 | time 100ms: 1.000 (16/16, max err 0.009s)
+chorus         TPR 0.500 (TP=8 FN=8)   TNR 1.000 (FP=0 TN=5)  P 1.000  F1 0.667  mc=12.4 | time 100ms: 0.875 (7/8, max err 1.204s)
+...
+OVERALL        TPR 0.828 (TP=212 FN=44)  TNR 1.000 (FP=0 TN=80)  P 1.000  F1 0.906  acc 0.869
+```
+
+Each row is a confusion matrix for one modification: TPR (recall) with its TP/FN, TNR (specificity) with its FP/TN, precision (`P`), `F1`, mean match count (`mc`), and the time-accuracy check (fraction of correct hits whose reported position lands within 100 ms of the true cut offset). The time-axis distortions (`time_shift`, `speed_up`) scale the timeline, so large time errors there are expected. The `OVERALL` line sums every cell across all modifications and adds accuracy (`acc`).
+
+The distortions are the active set from the historical Ruby evaluator (`flanger`, `band_passed` at 2000 Hz, `chorus`, `echo`, `tremolo`) plus `fm_compressed`, a multiband FM-broadcast processing chain, and three time-axis families at 0.5/1/3 %: `time_shift` (tempo change, pitch preserved), `pitch_shift` (pitch change, duration preserved) and `speed_up` (resample, both change). With `--distortions all` the negative query count grows from `--negatives N` to `N × (1 + number of distortions)`, since each negative is also distorted. The `--log` file records one line per store, query and sox action (command, exit code, elapsed time, and for queries the parsed match count), so a run is auditable and failures are diagnosable.
