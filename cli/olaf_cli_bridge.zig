@@ -76,6 +76,33 @@ fn copy_to_c_config(config: *const olaf_cli_config.Config, c_config: *olaf.Olaf_
     debug("Configuration copy complete", .{});
 }
 
+/// Owns a C `Olaf_Config` plus the Zig-allocated dbFolder that replaces the
+/// C-allocated default. `deinit` performs the two-stage teardown: free the
+/// dbFolder with the Zig allocator, then free the config with the C allocator.
+const CConfig = struct {
+    c_config: *olaf.Olaf_Config,
+    db_folder: [:0]u8,
+    allocator: std.mem.Allocator,
+
+    fn init(allocator: std.mem.Allocator, config: *const olaf_cli_config.Config) !CConfig {
+        const c_config = olaf.olaf_default_config();
+        try copy_to_c_config(config, c_config);
+        // Replace C-allocated dbFolder with a Zig-allocated one. Free the
+        // strdup'd default first so olaf.free(c_config) doesn't double-free it.
+        if (c_config.*.dbFolder) |original_db_folder| {
+            olaf.free(original_db_folder);
+        }
+        const db_folder = try allocator.dupeZ(u8, config.db_folder);
+        c_config.*.dbFolder = db_folder.ptr;
+        return .{ .c_config = c_config, .db_folder = db_folder, .allocator = allocator };
+    }
+
+    fn deinit(self: *CConfig) void {
+        self.allocator.free(self.db_folder);
+        olaf.free(self.c_config);
+    }
+};
+
 pub fn olaf_store(
     allocator: std.mem.Allocator,
     raw_audio_path: []const u8,
@@ -85,22 +112,9 @@ pub fn olaf_store(
     total: usize,
     format: StoreFormat,
 ) !void {
-    const c_config = olaf.olaf_default_config(); // Ensure the default config is set
-    try copy_to_c_config(config, c_config);
-
-    // Path configuration - Replace C-allocated dbFolder with Zig-allocated one
-    if (c_config.*.dbFolder) |original_db_folder| {
-        olaf.free(original_db_folder);
-    }
-
-    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
-    c_config.*.dbFolder = c_db_folder.ptr;
-
-    defer {
-        // Manual cleanup: free dbFolder (with Zig allocator) then config (with C allocator)
-        allocator.free(c_db_folder);
-        olaf.free(c_config);
-    }
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+    const c_config = cc.c_config;
 
     const c_raw_audio_path = try allocator.dupeZ(u8, raw_audio_path);
     defer allocator.free(c_raw_audio_path);
@@ -266,22 +280,9 @@ fn writeJsonString(w: anytype, s: []const u8) !void {
 pub const OutputFormat = enum { csv, json };
 
 pub fn olaf_query(allocator: std.mem.Allocator, q_index: usize, q_total: usize, query_path: []const u8, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config, exclude_identifier: u32, format: OutputFormat) !void {
-    const c_config = olaf.olaf_default_config(); // Ensure the default config is set
-    try copy_to_c_config(config, c_config);
-
-    // Path configuration - Replace C-allocated dbFolder with Zig-allocated one
-    if (c_config.*.dbFolder) |original_db_folder| {
-        olaf.free(original_db_folder);
-    }
-
-    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
-    c_config.*.dbFolder = c_db_folder.ptr;
-
-    defer {
-        // Manual cleanup: free dbFolder (with Zig allocator) then config (with C allocator)
-        allocator.free(c_db_folder);
-        olaf.free(c_config);
-    }
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+    const c_config = cc.c_config;
 
     const c_raw_audio_path = try allocator.dupeZ(u8, raw_audio_path);
     defer allocator.free(c_raw_audio_path);
@@ -312,21 +313,9 @@ pub fn olaf_query_stdin(
     config: *const olaf_cli_config.Config,
 ) !void {
     const audio_identifier = "stdin";
-    const c_config = olaf.olaf_default_config();
-    try copy_to_c_config(config, c_config);
-
-    // Path configuration - Replace C-allocated dbFolder with Zig-allocated one
-    if (c_config.*.dbFolder) |original_db_folder| {
-        olaf.free(original_db_folder);
-    }
-
-    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
-    c_config.*.dbFolder = c_db_folder.ptr;
-
-    defer {
-        allocator.free(c_db_folder);
-        olaf.free(c_config);
-    }
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+    const c_config = cc.c_config;
 
     const c_query_path = try allocator.dupeZ(u8, query_path);
     defer allocator.free(c_query_path);
@@ -339,22 +328,9 @@ pub fn olaf_query_stdin(
 }
 
 pub fn olaf_delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {
-    const c_config = olaf.olaf_default_config(); // Ensure the default config is set
-    try copy_to_c_config(config, c_config);
-
-    // Path configuration - Replace C-allocated dbFolder with Zig-allocated one
-    if (c_config.*.dbFolder) |original_db_folder| {
-        olaf.free(original_db_folder);
-    }
-
-    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
-    c_config.*.dbFolder = c_db_folder.ptr;
-
-    defer {
-        // Manual cleanup: free dbFolder (with Zig allocator) then config (with C allocator)
-        allocator.free(c_db_folder);
-        olaf.free(c_config);
-    }
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+    const c_config = cc.c_config;
 
     const c_raw_audio_path = try allocator.dupeZ(u8, raw_audio_path);
     defer allocator.free(c_raw_audio_path);
@@ -366,22 +342,9 @@ pub fn olaf_delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, aud
 }
 
 pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_cli_config.Config) !void {
-    const c_config = olaf.olaf_default_config(); // Ensure the default config is set
-    try copy_to_c_config(config, c_config);
-
-    // Path configuration - Replace C-allocated dbFolder with Zig-allocated one
-    if (c_config.*.dbFolder) |original_db_folder| {
-        olaf.free(original_db_folder);
-    }
-
-    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
-    c_config.*.dbFolder = c_db_folder.ptr;
-
-    defer {
-        // Manual cleanup: free dbFolder (with Zig allocator) then config (with C allocator)
-        allocator.free(c_db_folder);
-        olaf.free(c_config);
-    }
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+    const c_config = cc.c_config;
 
     std.debug.print("Fetching statistics from database in folder: {s}\n", .{config.db_folder});
 
@@ -419,24 +382,9 @@ pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_cli_config.C
 }
 
 pub fn olaf_print(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {
-    const c_config = olaf.olaf_default_config();
-    try copy_to_c_config(config, c_config);
-
-    // Path configuration - Replace C-allocated dbFolder with Zig-allocated one
-    // Free the original dbFolder allocated by olaf_default_config
-    if (c_config.*.dbFolder) |original_db_folder| {
-        olaf.free(original_db_folder);
-    }
-
-    // Allocate with Zig allocator and store slice for later cleanup
-    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
-    c_config.*.dbFolder = c_db_folder.ptr;
-
-    defer {
-        // Manual cleanup: free dbFolder (with Zig allocator) then config (with C allocator)
-        allocator.free(c_db_folder);
-        olaf.free(c_config);
-    }
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+    const c_config = cc.c_config;
 
     const c_raw_audio_path = try allocator.dupeZ(u8, raw_audio_path);
     defer allocator.free(c_raw_audio_path);
@@ -455,24 +403,9 @@ pub fn olaf_print_to_file(
     fp_cache_file: []const u8,
     fp_meta_file: []const u8,
 ) !void {
-    const c_config = olaf.olaf_default_config();
-    try copy_to_c_config(config, c_config);
-
-    // Path configuration - Replace C-allocated dbFolder with Zig-allocated one
-    // Free the original dbFolder allocated by olaf_default_config
-    if (c_config.*.dbFolder) |original_db_folder| {
-        olaf.free(original_db_folder);
-    }
-
-    // Allocate with Zig allocator and store slice for later cleanup
-    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
-    c_config.*.dbFolder = c_db_folder.ptr;
-
-    defer {
-        // Manual cleanup: free dbFolder (with Zig allocator) then config (with C allocator)
-        allocator.free(c_db_folder);
-        olaf.free(c_config);
-    }
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+    const c_config = cc.c_config;
 
     const c_raw_audio_path = try allocator.dupeZ(u8, raw_audio_path);
     defer allocator.free(c_raw_audio_path);
@@ -510,24 +443,12 @@ pub const CachedFile = struct {
 };
 
 pub fn olaf_store_cached_files(allocator: std.mem.Allocator, entries: []const CachedFile, config: *const olaf_cli_config.Config) !void {
-    const c_config = olaf.olaf_default_config();
-    try copy_to_c_config(config, c_config);
-
-    // Path configuration - replace C-allocated dbFolder with Zig-allocated one.
-    // olaf_default_config strdup's a default; free that before overwriting so
-    // olaf.free(c_config) below doesn't double-free with the Zig allocator.
-    if (c_config.*.dbFolder) |original_db_folder| {
-        olaf.free(original_db_folder);
-    }
-    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
-    c_config.*.dbFolder = c_db_folder.ptr;
-    defer {
-        allocator.free(c_db_folder);
-        olaf.free(c_config);
-    }
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+    const c_config = cc.c_config;
 
     // Open database
-    const db = olaf.olaf_db_new(c_db_folder, false);
+    const db = olaf.olaf_db_new(cc.db_folder, false);
     defer olaf.olaf_db_destroy(db);
 
     // Process each cache file
@@ -547,21 +468,9 @@ pub fn olaf_store_cached_files(allocator: std.mem.Allocator, entries: []const Ca
 }
 
 pub fn olaf_has(allocator: std.mem.Allocator, audio_identifiers: []const []const u8, config: *const olaf_cli_config.Config) ![]bool {
-    const c_config = olaf.olaf_default_config();
-    try copy_to_c_config(config, c_config);
-
-    // Path configuration - replace C-allocated dbFolder with Zig-allocated one.
-    // olaf_default_config strdup's a default; free that before overwriting so
-    // olaf.free(c_config) below doesn't double-free with the Zig allocator.
-    if (c_config.*.dbFolder) |original_db_folder| {
-        olaf.free(original_db_folder);
-    }
-    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
-    c_config.*.dbFolder = c_db_folder.ptr;
-    defer {
-        allocator.free(c_db_folder);
-        olaf.free(c_config);
-    }
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+    const c_config = cc.c_config;
 
     // Convert audio identifiers to C strings
     var c_audio_identifiers = try allocator.alloc([*c]const u8, audio_identifiers.len);

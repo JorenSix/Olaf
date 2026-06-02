@@ -182,6 +182,70 @@ pub fn executeParallel(
     }
 }
 
+/// Run `worker(ctx, item, index, total, allocator)` over every item. When
+/// `num_threads <= 1` items run serially and the first worker error propagates
+/// immediately. Otherwise items run on a thread pool; worker errors are caught,
+/// logged, and counted, and the count is returned (0 = all succeeded). Callers
+/// map a non-zero count to their own error and optional summary line.
+///
+/// The worker owns its own output synchronization. Serial execution is
+/// single-threaded so no locking is needed; the same worker body is safe there
+/// because an uncontended mutex lock is a no-op.
+pub fn forEachParallel(
+    comptime Item: type,
+    comptime Ctx: type,
+    allocator: std.mem.Allocator,
+    items: []const Item,
+    num_threads: u32,
+    ctx: Ctx,
+    comptime worker: fn (Ctx, Item, usize, usize, std.mem.Allocator) anyerror!void,
+) !usize {
+    const actual_threads = @min(num_threads, items.len);
+
+    if (actual_threads <= 1) {
+        for (items, 0..) |item, i| {
+            try worker(ctx, item, i, items.len, allocator);
+        }
+        return 0;
+    }
+
+    var pool: Thread.Pool = undefined;
+    try pool.init(.{ .allocator = allocator, .n_jobs = actual_threads });
+    defer pool.deinit();
+
+    var wait_group: WaitGroup = undefined;
+    wait_group.reset();
+
+    var error_mutex = Mutex{};
+    var error_count: usize = 0;
+
+    const Runner = struct {
+        fn run(
+            c: Ctx,
+            item: Item,
+            index: usize,
+            total: usize,
+            alloc: std.mem.Allocator,
+            mutex: *Mutex,
+            count: *usize,
+        ) void {
+            worker(c, item, index, total, alloc) catch |err| {
+                mutex.lock();
+                defer mutex.unlock();
+                count.* += 1;
+                std.log.err("Worker failed on item {d}/{d}: {}", .{ index + 1, total, err });
+            };
+        }
+    };
+
+    for (items, 0..) |item, i| {
+        pool.spawnWg(&wait_group, Runner.run, .{ ctx, item, i, items.len, allocator, &error_mutex, &error_count });
+    }
+
+    pool.waitAndWork(&wait_group);
+    return error_count;
+}
+
 /// Process a single fragment of an audio file
 fn processAudioFragment(
     allocator: std.mem.Allocator,

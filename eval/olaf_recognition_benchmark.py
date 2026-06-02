@@ -25,9 +25,11 @@ checks whether Olaf finds them back in the index. It reports a recognition rate
 baseline that can be compared before and after tuning fingerprint/matcher
 parameters.
 
-Every run is controlled: it rebuilds Olaf (unless --skip-build), writes a fixed
-configuration, and isolates the database in a temporary sandbox by overriding the
-HOME environment variable, so the user's real ~/.olaf database is never touched.
+Every run is controlled: it always builds Olaf with -Doptimize=ReleaseFast (the
+build is incremental, so this is cheap) to guarantee it never measures a debug
+binary, writes a fixed configuration, and isolates the database in a temporary
+sandbox by overriding the HOME environment variable, so the user's real ~/.olaf
+database is never touched.
 """
 
 import argparse
@@ -386,6 +388,8 @@ def parse_first_match(query_output):
 
 
 def build_olaf():
+    # Always build ReleaseFast: the benchmark must never measure a debug binary.
+    # The zig build is incremental, so this is near-instant when already current.
     print("Building olaf (zig build -Doptimize=ReleaseFast)...", flush=True)
     run(["zig", "build", "-Doptimize=ReleaseFast"], check=True)
     if not os.path.exists(OLAF_BINARY):
@@ -410,7 +414,9 @@ def main():
                         help="Worker threads for ffmpeg/sox cutting and olaf "
                              "store/query (default: CPUs - 2, minimum 1).")
     parser.add_argument("--skip-build", action="store_true",
-                        help="Use the existing binary instead of rebuilding.")
+                        help="Deprecated no-op: the benchmark always runs an "
+                             "incremental ReleaseFast build so it never measures "
+                             "a debug binary. Kept for backwards compatibility.")
     parser.add_argument("--keep-workdir", action="store_true",
                         help="Do not delete the temp sandbox (for debugging).")
     parser.add_argument("--csv", help="Write per-segment results to this CSV file.")
@@ -459,11 +465,12 @@ def main():
 
     rng = random.Random(args.seed)
 
-    if args.skip_build:
-        if not os.path.exists(OLAF_BINARY):
-            sys.exit("Error: --skip-build set but binary missing at {}".format(OLAF_BINARY))
-    else:
-        build_olaf()
+    # Always ensure a ReleaseFast binary: the benchmark must never measure a
+    # debug build. The zig build is incremental, so even with --skip-build this
+    # is near-instant when the binary is already current. --skip-build only
+    # means "don't insist on a present binary up front" — it no longer reuses a
+    # possibly-debug binary as-is.
+    build_olaf()
 
     commit = git_commit()
 

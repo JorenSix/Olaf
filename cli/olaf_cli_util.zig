@@ -6,6 +6,16 @@ const l_err = std.log.scoped(.olaf_cli).err;
 
 const epoch = std.time.epoch;
 
+/// Print formatted text to stdout, flushing immediately. Errors are swallowed,
+/// matching the fire-and-forget CLI output behavior used across commands.
+pub fn print(comptime fmt: []const u8, args: anytype) void {
+    var stdout_buffer: [4096]u8 = undefined;
+    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    const stdout = &stdout_writer.interface;
+    _ = stdout.print(fmt, args) catch {};
+    _ = stdout.flush() catch {};
+}
+
 /// Returns the modification date (year, month, day) of a file at `path`.
 pub fn getFileModificationDate(path: []const u8) !struct { year: i64, month: u32, day: u32 } {
     const stat = try fs.cwd().statFile(path);

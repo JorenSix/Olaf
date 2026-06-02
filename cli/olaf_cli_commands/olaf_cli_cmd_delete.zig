@@ -6,13 +6,7 @@ const util = @import("../olaf_cli_util.zig");
 
 const debug = std.log.scoped(.olaf_cli_delete).debug;
 
-fn print(comptime fmt: []const u8, args: anytype) void {
-    var stdout_buffer: [4096]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-    const stdout = &stdout_writer.interface;
-    _ = stdout.print(fmt, args) catch {};
-    _ = stdout.flush() catch {};
-}
+const print = util.print;
 
 pub const CommandInfo = struct {
     pub const name = "delete";

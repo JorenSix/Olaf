@@ -1,7 +1,4 @@
 const std = @import("std");
-const Thread = std.Thread;
-const Mutex = Thread.Mutex;
-const WaitGroup = Thread.WaitGroup;
 
 const c = @cImport({
     @cInclude("stdio.h");
@@ -11,6 +8,7 @@ const olaf_cli_config = @import("../olaf_cli_config.zig");
 const olaf_cli_util = @import("../olaf_cli_util.zig");
 const olaf_cli_util_audio = @import("../olaf_cli_util_audio.zig");
 const olaf_cli_bridge = @import("../olaf_cli_bridge.zig");
+const olaf_cli_threading = @import("../olaf_cli_threading.zig");
 const types = @import("../olaf_cli_types.zig");
 
 const debug = std.log.scoped(.olaf_cli_cache).debug;
@@ -23,13 +21,7 @@ pub const CommandInfo = struct {
     pub const needs_audio_files = true;
 };
 
-fn print(comptime fmt: []const u8, args: anytype) void {
-    var stdout_buffer: [4096]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-    const stdout = &stdout_writer.interface;
-    _ = stdout.print(fmt, args) catch {};
-    _ = stdout.flush() catch {};
-}
+const print = olaf_cli_util.print;
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     if (args.audio_files.items.len == 0) {
@@ -41,19 +33,24 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         debug("Warning: only using a single thread. Speed up with e.g. --threads 8\n", .{});
     }
 
-    try executeCacheParallel(allocator, args.audio_files.items, args.config.?, args.threads);
+    const error_count = try olaf_cli_threading.forEachParallel(
+        olaf_cli_util.AudioFileWithId,
+        *const olaf_cli_config.Config,
+        allocator,
+        args.audio_files.items,
+        args.threads,
+        args.config.?,
+        cacheWorker,
+    );
+
+    if (error_count > 0) {
+        return error.CachingFailed;
+    }
 }
 
-// Cache task structure
-const CacheTask = struct {
-    allocator: std.mem.Allocator,
-    audio_file: olaf_cli_util.AudioFileWithId,
-    config: *const olaf_cli_config.Config,
-    index: usize,
-    total: usize,
-    error_mutex: *Mutex,
-    error_list: *std.ArrayList([]const u8),
-};
+fn cacheWorker(config: *const olaf_cli_config.Config, audio_file: olaf_cli_util.AudioFileWithId, index: usize, total: usize, allocator: std.mem.Allocator) !void {
+    try cacheAudioFile(allocator, audio_file, config, index, total);
+}
 
 fn createTempRawPath(allocator: std.mem.Allocator) ![]u8 {
     const tmp_dir = if (std.process.getEnvVarOwned(allocator, "TMPDIR")) |dir| dir else |_| try allocator.dupe(u8, "/tmp/");
@@ -138,75 +135,3 @@ fn cacheAudioFile(
     print("{d}/{d}, {s}, {s}\n", .{ index + 1, total, audio_file.path, cache_file_path });
 }
 
-fn cacheAudioFileThreaded(task: CacheTask) void {
-    cacheAudioFile(
-        task.allocator,
-        task.audio_file,
-        task.config,
-        task.index,
-        task.total,
-    ) catch |cache_err| {
-        task.error_mutex.lock();
-        defer task.error_mutex.unlock();
-
-        const err_msg = std.fmt.allocPrint(task.allocator, "Failed to cache {s}: {}", .{ task.audio_file.path, cache_err }) catch "Out of memory";
-        task.error_list.append(task.allocator, err_msg) catch {};
-        std.log.err("{s}", .{err_msg});
-    };
-}
-
-fn executeCacheParallel(
-    allocator: std.mem.Allocator,
-    audio_files: []const olaf_cli_util.AudioFileWithId,
-    config: *const olaf_cli_config.Config,
-    num_threads: u32,
-) !void {
-    const actual_threads = @min(num_threads, audio_files.len);
-
-    if (actual_threads <= 1) {
-        // Single-threaded execution
-        debug("Caching {d} audio files (single-threaded)", .{audio_files.len});
-        for (audio_files, 0..) |audio_file, i| {
-            try cacheAudioFile(allocator, audio_file, config, i, audio_files.len);
-        }
-    } else {
-        // Multi-threaded execution
-        debug("Caching {d} audio files with {d} threads", .{ audio_files.len, actual_threads });
-
-        var pool: Thread.Pool = undefined;
-        try pool.init(.{ .allocator = allocator, .n_jobs = actual_threads });
-        defer pool.deinit();
-
-        var wait_group: WaitGroup = undefined;
-        wait_group.reset();
-
-        var error_mutex = Mutex{};
-        var error_list = std.ArrayList([]const u8){};
-        defer {
-            for (error_list.items) |err_msg| {
-                allocator.free(err_msg);
-            }
-            error_list.deinit(allocator);
-        }
-
-        for (audio_files, 0..) |audio_file, i| {
-            const task = CacheTask{
-                .allocator = allocator,
-                .audio_file = audio_file,
-                .config = config,
-                .index = i,
-                .total = audio_files.len,
-                .error_mutex = &error_mutex,
-                .error_list = &error_list,
-            };
-
-            pool.spawnWg(&wait_group, cacheAudioFileThreaded, .{task});
-        }
-
-        pool.waitAndWork(&wait_group);
-
-        if (error_list.items.len > 0) {
-            return error.CachingFailed;
-        }
-    }
-}

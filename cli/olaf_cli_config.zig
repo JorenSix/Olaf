@@ -4,6 +4,34 @@ const olaf_cli_util = @import("olaf_cli_util.zig");
 
 const debug = std.log.scoped(.olaf_cli).debug;
 
+/// Read an integer JSON field, coercing to `T`. Returns `cur` when the key is
+/// absent or not a JSON integer.
+fn getInt(obj: std.json.ObjectMap, key: []const u8, comptime T: type, cur: T) T {
+    if (obj.get(key)) |val| {
+        if (val == .integer) return @intCast(val.integer);
+    }
+    return cur;
+}
+
+/// Read a boolean JSON field. Returns `cur` when absent or not a JSON bool.
+fn getBool(obj: std.json.ObjectMap, key: []const u8, cur: bool) bool {
+    if (obj.get(key)) |val| {
+        if (val == .bool) return val.bool;
+    }
+    return cur;
+}
+
+/// Read a float JSON field, coercing to `T`. Accepts both JSON float and
+/// integer values (an integer literal like `4` is a valid float config value).
+/// Returns `cur` when absent or neither numeric tag.
+fn getFloat(obj: std.json.ObjectMap, key: []const u8, comptime T: type, cur: T) T {
+    if (obj.get(key)) |val| {
+        if (val == .float) return @floatCast(val.float);
+        if (val == .integer) return @floatFromInt(val.integer);
+    }
+    return cur;
+}
+
 pub const Config = struct {
     // Absolute path of the config file actually loaded, or null when defaults are used.
     config_path: ?[]const u8 = null,
@@ -299,123 +327,49 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !
         }
 
         // Boolean fields
-        if (obj.get("check_incoming_audio")) |val| {
-            if (val == .bool) config.check_incoming_audio = val.bool;
-        }
-        if (obj.get("skip_duplicates")) |val| {
-            if (val == .bool) config.skip_duplicates = val.bool;
-        }
-        if (obj.get("sqrt_magnitude")) |val| {
-            if (val == .bool) config.sqrt_magnitude = val.bool;
-        }
-        if (obj.get("verbose")) |val| {
-            if (val == .bool) config.verbose = val.bool;
-        }
-        if (obj.get("use_magnitude_info")) |val| {
-            if (val == .bool) config.use_magnitude_info = val.bool;
-        }
+        config.check_incoming_audio = getBool(obj, "check_incoming_audio", config.check_incoming_audio);
+        config.skip_duplicates = getBool(obj, "skip_duplicates", config.skip_duplicates);
+        config.sqrt_magnitude = getBool(obj, "sqrt_magnitude", config.sqrt_magnitude);
+        config.verbose = getBool(obj, "verbose", config.verbose);
+        config.use_magnitude_info = getBool(obj, "use_magnitude_info", config.use_magnitude_info);
 
         // Integer fields
-        if (obj.get("fragment_duration_in_seconds")) |val| {
-            if (val == .integer) config.fragment_duration_in_seconds = @intCast(val.integer);
-        }
-        if (obj.get("target_sample_rate")) |val| {
-            if (val == .integer) config.target_sample_rate = @intCast(val.integer);
-        }
-        if (obj.get("audio_block_size")) |val| {
-            if (val == .integer) config.audio_block_size = @intCast(val.integer);
-        }
-        if (obj.get("audio_step_size")) |val| {
-            if (val == .integer) config.audio_step_size = @intCast(val.integer);
-        }
-        if (obj.get("bytes_per_audio_sample")) |val| {
-            if (val == .integer) config.bytes_per_audio_sample = @intCast(val.integer);
-        }
-        if (obj.get("max_event_points")) |val| {
-            if (val == .integer) config.max_event_points = @intCast(val.integer);
-        }
-        if (obj.get("event_point_threshold")) |val| {
-            if (val == .integer) config.event_point_threshold = @intCast(val.integer);
-        }
-        if (obj.get("filter_size_frequency")) |val| {
-            if (val == .integer) config.filter_size_frequency = @intCast(val.integer);
-        }
-        if (obj.get("filter_size_time")) |val| {
-            if (val == .integer) config.filter_size_time = @intCast(val.integer);
-        }
-        if (obj.get("max_event_point_usages")) |val| {
-            if (val == .integer) config.max_event_point_usages = @intCast(val.integer);
-        }
-        if (obj.get("min_frequency_bin")) |val| {
-            if (val == .integer) config.min_frequency_bin = @intCast(val.integer);
-        }
-        if (obj.get("number_of_eps_per_fp")) |val| {
-            if (val == .integer) config.number_of_eps_per_fp = @intCast(val.integer);
-        }
-        if (obj.get("min_time_distance")) |val| {
-            if (val == .integer) config.min_time_distance = @intCast(val.integer);
-        }
-        if (obj.get("max_time_distance")) |val| {
-            if (val == .integer) config.max_time_distance = @intCast(val.integer);
-        }
-        if (obj.get("min_freq_distance")) |val| {
-            if (val == .integer) config.min_freq_distance = @intCast(val.integer);
-        }
-        if (obj.get("max_freq_distance")) |val| {
-            if (val == .integer) config.max_freq_distance = @intCast(val.integer);
-        }
-        if (obj.get("max_fingerprints")) |val| {
-            if (val == .integer) config.max_fingerprints = @intCast(val.integer);
-        }
-        if (obj.get("max_results")) |val| {
-            if (val == .integer) config.max_results = @intCast(val.integer);
-        }
-        if (obj.get("search_range")) |val| {
-            if (val == .integer) config.search_range = @intCast(val.integer);
-        }
-        if (obj.get("min_match_count")) |val| {
-            if (val == .integer) config.min_match_count = @intCast(val.integer);
-        }
-        if (obj.get("max_db_collisions")) |val| {
-            if (val == .integer) config.max_db_collisions = @intCast(val.integer);
-        }
+        config.fragment_duration_in_seconds = getInt(obj, "fragment_duration_in_seconds", @TypeOf(config.fragment_duration_in_seconds), config.fragment_duration_in_seconds);
+        config.target_sample_rate = getInt(obj, "target_sample_rate", @TypeOf(config.target_sample_rate), config.target_sample_rate);
+        config.audio_block_size = getInt(obj, "audio_block_size", @TypeOf(config.audio_block_size), config.audio_block_size);
+        config.audio_step_size = getInt(obj, "audio_step_size", @TypeOf(config.audio_step_size), config.audio_step_size);
+        config.bytes_per_audio_sample = getInt(obj, "bytes_per_audio_sample", @TypeOf(config.bytes_per_audio_sample), config.bytes_per_audio_sample);
+        config.max_event_points = getInt(obj, "max_event_points", @TypeOf(config.max_event_points), config.max_event_points);
+        config.event_point_threshold = getInt(obj, "event_point_threshold", @TypeOf(config.event_point_threshold), config.event_point_threshold);
+        config.filter_size_frequency = getInt(obj, "filter_size_frequency", @TypeOf(config.filter_size_frequency), config.filter_size_frequency);
+        config.filter_size_time = getInt(obj, "filter_size_time", @TypeOf(config.filter_size_time), config.filter_size_time);
+        config.max_event_point_usages = getInt(obj, "max_event_point_usages", @TypeOf(config.max_event_point_usages), config.max_event_point_usages);
+        config.min_frequency_bin = getInt(obj, "min_frequency_bin", @TypeOf(config.min_frequency_bin), config.min_frequency_bin);
+        config.number_of_eps_per_fp = getInt(obj, "number_of_eps_per_fp", @TypeOf(config.number_of_eps_per_fp), config.number_of_eps_per_fp);
+        config.min_time_distance = getInt(obj, "min_time_distance", @TypeOf(config.min_time_distance), config.min_time_distance);
+        config.max_time_distance = getInt(obj, "max_time_distance", @TypeOf(config.max_time_distance), config.max_time_distance);
+        config.min_freq_distance = getInt(obj, "min_freq_distance", @TypeOf(config.min_freq_distance), config.min_freq_distance);
+        config.max_freq_distance = getInt(obj, "max_freq_distance", @TypeOf(config.max_freq_distance), config.max_freq_distance);
+        config.max_fingerprints = getInt(obj, "max_fingerprints", @TypeOf(config.max_fingerprints), config.max_fingerprints);
+        config.max_results = getInt(obj, "max_results", @TypeOf(config.max_results), config.max_results);
+        config.search_range = getInt(obj, "search_range", @TypeOf(config.search_range), config.search_range);
+        config.min_match_count = getInt(obj, "min_match_count", @TypeOf(config.min_match_count), config.min_match_count);
+        config.max_db_collisions = getInt(obj, "max_db_collisions", @TypeOf(config.max_db_collisions), config.max_db_collisions);
 
-        // Float fields
-        if (obj.get("min_event_point_magnitude")) |val| {
-            if (val == .float) {
-                config.min_event_point_magnitude = @floatCast(val.float);
-            } else if (val == .integer) {
-                config.min_event_point_magnitude = @floatFromInt(val.integer);
-            }
-        }
-        if (obj.get("min_match_time_diff")) |val| {
-            if (val == .float) {
-                config.min_match_time_diff = @floatCast(val.float);
-            } else if (val == .integer) {
-                config.min_match_time_diff = @floatFromInt(val.integer);
-            }
-        }
-        if (obj.get("keep_matches_for")) |val| {
-            if (val == .float) {
-                config.keep_matches_for = @floatCast(val.float);
-            } else if (val == .integer) {
-                config.keep_matches_for = @floatFromInt(val.integer);
-            }
-        }
-        if (obj.get("print_result_every")) |val| {
-            if (val == .float) {
-                config.print_result_every = @floatCast(val.float);
-            } else if (val == .integer) {
-                config.print_result_every = @floatFromInt(val.integer);
-            }
-        }
+        // Float fields (accept JSON integer literals too)
+        config.min_event_point_magnitude = getFloat(obj, "min_event_point_magnitude", @TypeOf(config.min_event_point_magnitude), config.min_event_point_magnitude);
+        config.min_match_time_diff = getFloat(obj, "min_match_time_diff", @TypeOf(config.min_match_time_diff), config.min_match_time_diff);
+        config.keep_matches_for = getFloat(obj, "keep_matches_for", @TypeOf(config.keep_matches_for), config.keep_matches_for);
+        config.print_result_every = getFloat(obj, "print_result_every", @TypeOf(config.print_result_every), config.print_result_every);
     } else |err| switch (err) {
         error.FileNotFound => {
             debug("No config file found at \"{s}\" — using defaults.\n", .{path});
 
-            // to keep the config memory use consistent, we dupe the default values
-            config.db_folder = try allocator.dupe(u8, config.db_folder);
-            config.cache_folder = try allocator.dupe(u8, config.cache_folder);
+            // to keep the config memory use consistent, we dupe the default values.
+            // db/cache folders are expanded (~/ -> $HOME) like the file-present
+            // branch so the C layer receives an absolute path, not a literal "~".
+            config.db_folder = try olaf_cli_util.expandPath(allocator, config.db_folder);
+            config.cache_folder = try olaf_cli_util.expandPath(allocator, config.cache_folder);
             config.microphone_input_format = try allocator.dupe(u8, config.microphone_input_format);
             config.microphone_device = try allocator.dupe(u8, config.microphone_device);
             const ext_list = try allocator.alloc([]const u8, config.allowed_audio_file_extensions.len);
