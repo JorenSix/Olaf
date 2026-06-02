@@ -242,7 +242,7 @@ pub fn main() !void {
                 print("Expected an argument for '--format': 'olaf query --format json file.mp3'\n", .{});
                 return;
             }
-        } else if (std.mem.eql(u8, arg, "-f")) {
+        } else if (std.mem.eql(u8, arg, "-f") or std.mem.eql(u8, arg, "--force")) {
             args.force = true;
         } else {
             // It's an unrecognized argument, a file?
