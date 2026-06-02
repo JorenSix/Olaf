@@ -336,10 +336,10 @@ Less interesting are the unit tests, these are mainly of interest for developing
 
 ### Evaluating Olaf
 
-In the `eval` folder there is an evaluation script which takes a folder as input and stores and evaluates queries with several modifications. [SoX](https://sox.sourceforge.net/) needs to be available on the system for this to work.
+In the `eval` folder there is a recognition benchmark which takes a folder as input, indexes a fraction of it and evaluates queries, optionally with several modifications. [SoX](https://sox.sourceforge.net/) needs to be available on the system for the distortions to work.
 
 ```bash
-ruby eval/olaf_evaluation.rb /folder/with/music
+python3 eval/olaf_recognition_benchmark.py /folder/with/music
 ```
 
 ### Benchmarking Olaf
@@ -347,7 +347,7 @@ ruby eval/olaf_evaluation.rb /folder/with/music
 With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the [FMA full](https://github.com/mdeff/fma) dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times real-time with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the [query performance](./eval/olaf_benchmark/olaf_benchmark_query.svg) is also checked. Run the benchmark yourself:
 
 ```bash
-ruby eval/olaf_benchmark/olaf_benchmark.rb /folder/with/music
+python3 eval/olaf_benchmark/olaf_benchmark.py /folder/with/music
 ```
 
 ![Olaf indexing](./eval/olaf_benchmark/olaf_benchmark.svg)

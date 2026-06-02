@@ -6,7 +6,11 @@ The tests check **whether Olaf works**. The evaluation verifies **how well** Ola
 
 The benchmark script stores a large amount of audio in an index and keeps the time it takes to store the audio. Each time the size of the index is doubled a number of queries run to check the time it takes to query the index.
 
-With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the [FMA full](https://github.com/mdeff/fma) dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times real-time with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the [query performance](./eval/olaf_benchmark/olaf_benchmark_query.svg) is also checked. Run the benchmark yourself:
+With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the [FMA full](https://github.com/mdeff/fma) dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times real-time with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the [query performance](./eval/olaf_benchmark/olaf_benchmark_query.svg) is also checked. Run the benchmark yourself (requires only `olaf` and `ffmpeg`, no third-party Python packages):
+
+```bash
+python3 eval/olaf_benchmark/olaf_benchmark.py /folder/with/music
+```
 
 The absolute values might differ significantly from one machine to another and are not that relevant. The fact that store speed and query speed do not halve each time the index size doubles is relevant: this shows that the system is scalable. This relatively limited effect of index size is expected to be similar on all machines.
 
@@ -86,13 +90,12 @@ This reports if any memory leaks are found and where these potentially originate
 
 ## Testing Olaf - check **whether Olaf works**
 
-The first thing this checks is whether Olaf compiles correctly. Afterwards, a small dataset is indexed and some queries are fired. The result of the queries is evaluated for correctness. Also the memory version of Olaf is checked. To run this yourself, with Ruby, `ffmpeg` and `ffprobe` installed:
+The first thing this checks is whether Olaf compiles correctly. Afterwards, a small dataset (downloaded automatically) is indexed and some queries are fired. The result of the queries is evaluated for correctness. The functional tests are written in Zig and run via `zig build test`, which builds and installs `olaf` first. Only the Zig compiler and `ffmpeg` are required:
 
 ```bash
 git clone https://github.com/JorenSix/Olaf
 cd Olaf
-make && make install
-ruby eval/olaf_functional_tests.rb
+zig build test
 ```
 
 Less interesting are the unit tests, these are mainly of interest for developing Olaf. The unit test can be compiled with `make test` and ran with `./bin/olaf_tests`.

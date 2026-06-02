@@ -154,25 +154,28 @@ make test                   # Build C unit tests
 
 Legacy C tests in `tests/olaf_tests.c` test deque, max filter, and reader components.
 
-### Ruby Functional Tests (Legacy)
-```bash
-# Main test suite (requires Ruby, ffmpeg)
-ruby eval/olaf_functional_tests.rb
-
-# Test Zig CLI wrapper (requires ffmpeg)
-ruby eval/olaf_functional_test_zig_wrapper.rb
-```
-
 ### Evaluation & Benchmarking
 ```bash
-# Download test dataset
-ruby eval/olaf_download_dataset.rb
+# Recognition benchmark (indexes a fraction, queries random cuts; requires
+# ffmpeg/ffprobe, optionally SoX for distortions). The test dataset is
+# downloaded automatically by `zig build test`.
+python3 eval/olaf_recognition_benchmark.py /folder/with/music
 
-# Run evaluation with modifications (requires SoX)
-ruby eval/olaf_evaluation.rb /folder/with/music
+# Benchmark indexing and query throughput (requires only olaf + ffmpeg)
+python3 eval/olaf_benchmark/olaf_benchmark.py /folder/with/music
+```
 
-# Benchmark indexing and query performance
-ruby eval/olaf_benchmark/olaf_benchmark.rb /folder/with/music
+### Remaining Ruby (to be ported in later iterations)
+A small tail of Ruby remains in `eval/` and still requires a Ruby interpreter:
+```bash
+# Olaf vs Panako timing comparison (requires panako installed)
+ruby eval/olaf_vs_panako.rb /folder/with/music
+
+# Query memory profiler (requires `make mem` build + macOS /usr/bin/time -l)
+ruby eval/olaf_memory_use.rb /folder/with/music
+
+# CSV result-line utilities (sort/filter/merge/check)
+ruby eval/olaf_result_utils.rb
 ```
 
 ## Development Notes
@@ -274,7 +277,8 @@ The C code uses OOP-inspired patterns:
 - **PFFFT**: Fast FFT library in `src/pffft.c` (BSD license)
 - **Hash table/queue**: Simon Howard's c-algorithms in `src/hash-table.c`, `src/queue.c` (ISC license)
 - **ffmpeg**: External tool for audio decode/resample (not linked, invoked as subprocess)
-- **Ruby**: For testing and evaluation scripts (desktop only)
+- **Python 3**: For evaluation/benchmark scripts (stdlib only, desktop only)
+- **Ruby**: Only for the remaining un-ported eval scripts (`olaf_vs_panako.rb`, `olaf_memory_use.rb`, `olaf_result_utils.rb`); being phased out
 - **Emscripten**: For WebAssembly builds (`make web`)
 - **libsamplerate-js**: Audio resampling for browser version (MIT/BSD license)
 

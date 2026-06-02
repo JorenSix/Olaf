@@ -29,11 +29,15 @@ make test
 ./bin/olaf_tests
 ```
 
-### Ruby Functional Tests
+### Functional Tests (Zig)
+
+The CLI functional tests live in `tests/olaf_functional_tests.zig` and run as
+part of `zig build test`. They build and install `olaf`, download a small test
+dataset automatically, and exercise store/stats/delete/query/dedup and JSON
+output. Only the Zig compiler and `ffmpeg` are required.
 
 ```bash
-# Full functional test suite (requires Ruby, ffmpeg)
-ruby eval/olaf_functional_tests.rb
+zig build test
 ```
 
 ## Writing New Tests
@@ -115,8 +119,7 @@ The test suite can use any audio file if ffmpeg is available for decoding.
 
 Tests are automatically run in CI via GitHub Actions:
 - `make test` builds and runs C tests
-- `zig build test` runs Zig tests
-- Ruby functional tests run on push to main
+- `zig build test` runs Zig unit and functional tests
 
 ## Test Coverage
 
