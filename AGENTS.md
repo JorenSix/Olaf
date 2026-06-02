@@ -173,9 +173,11 @@ ruby eval/olaf_vs_panako.rb /folder/with/music
 
 # Query memory profiler (requires `make mem` build + macOS /usr/bin/time -l)
 ruby eval/olaf_memory_use.rb /folder/with/music
+```
 
-# CSV result-line utilities (sort/filter/merge/check)
-ruby eval/olaf_result_utils.rb
+CSV result-line utilities (sort/filter/merge/check) have been ported to Python:
+```bash
+cat result_output.csv | python3 eval/olaf_result_utils.py sort
 ```
 
 ## Development Notes
@@ -278,7 +280,7 @@ The C code uses OOP-inspired patterns:
 - **Hash table/queue**: Simon Howard's c-algorithms in `src/hash-table.c`, `src/queue.c` (ISC license)
 - **ffmpeg**: External tool for audio decode/resample (not linked, invoked as subprocess)
 - **Python 3**: For evaluation/benchmark scripts (stdlib only, desktop only)
-- **Ruby**: Only for the remaining un-ported eval scripts (`olaf_vs_panako.rb`, `olaf_memory_use.rb`, `olaf_result_utils.rb`); being phased out
+- **Ruby**: Only for the remaining un-ported eval scripts (`olaf_vs_panako.rb`, `olaf_memory_use.rb`); being phased out
 - **Emscripten**: For WebAssembly builds (`make web`)
 - **libsamplerate-js**: Audio resampling for browser version (MIT/BSD license)
 

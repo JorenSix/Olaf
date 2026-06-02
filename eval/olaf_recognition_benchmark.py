@@ -218,7 +218,7 @@ def ffprobe_duration(path):
 
 
 def cut_segment(src, start, length, out_path):
-    """Cut a mono segment with ffmpeg. Mirrors eval/olaf_result_utils.rb:54.
+    """Cut a mono segment with ffmpeg. Mirrors eval/olaf_result_utils.py.
 
     -ss before -i is fast, accurate input seeking. -vn drops any video/cover-art
     stream (embedded album art makes ffmpeg fail when it tries to transcode the
