@@ -155,6 +155,8 @@ bin/olaf_mem store olaf_audio_your_audio_file.raw "arandomidentifier" > your_hea
 
 To test and debug this header file, use the `mem` version of Olaf on your computer. The ESP32 version is basically the same as the `mem` version, only the audio comes from microphone input and not from a file.
 
+For debugging there are also two conversion commands: `olaf to_raw [--threads n] audio_files...` converts audio to RAW format (`f32le`, mono, 16kHz), and `olaf to_wav [--threads n] audio_files...` converts audio to a single channel wav file.
+
 
 ## Olaf Usage
 
@@ -183,8 +185,15 @@ olaf stats
 The store command extracts fingerprints from an audio file and stores them in a reference database. The incoming audio is decoded and resampled using `ffmpeg`. `ffmpeg` needs to be installed on your system and available on the path.
 
 ```bash
-olaf store audio_item...
+olaf store [--threads n] [--format <human|csv|json>] audio_item...
+olaf store --with-ids audio_item identifier [audio_item identifier ...]
 ```
+
+**--threads n** uses multiple threads to extract fingerprints in parallel.
+
+**--format \<human|csv|json>** sets the per-file summary format printed on stderr (default: `human`).
+
+**--with-ids** lets you provide your own identifier for each audio item instead of relying on the automatically generated hash. Items are given as `audio_item identifier` pairs.
 
 The `audio_item` can be:
 
@@ -205,18 +214,20 @@ Internally each audio stream is given an identifier using a one time [Jenkins Ha
 The query command extracts fingerprints and matches them with the database:
 
 ```bash
-olaf query [--threads n] [--fragmented] [--no-identity-match] query.opus
+olaf query [--threads n] [--fragmented] [--no-identity-match] [--format <csv|json>] query.opus
 ```
 
 The query command has several options.
 
 **--threads n** tells Olaf to use multiple threads to query the index. This can significantly speed up matching if multiple cores are available on your system.
 
-**--fragmented** this splits query file into steps of x seconds. When working in steps of 5 seconds, then the first five seconds are matched with the reference database and matches are reported. Subsequently it goes on with the next 5 seconds and so forth. This is practical if an unsegmented audio file needs to be matched with the reference database.
+**--fragmented** this chops the query into 30 second fragments and matches each fragment with the reference database separately. The first 30 seconds are matched and matches are reported, then it goes on with the next 30 seconds and so forth. This is practical if an unsegmented audio file needs to be matched with the reference database.
 
 **--no-identity-match** If the query is present in the index it obviously matches itself. This option prevents identity matches to be reported. This is useful for deduplication.
 
-To query audio coming from the microphone there is the `olaf microphone` command. It uses ffmpeg to access the default microphone. See [the `ffmpeg` input devices docs for your platform](http://www.ffmpeg.org/ffmpeg-devices.html#Input-Devices)
+**--format \<csv|json>** sets the output format (default: `csv`).
+
+To query audio coming from the microphone, pipe `ffmpeg` output into `olaf query`. There is no separate `olaf microphone` command. Use `ffmpeg` to access the default microphone. See [the `ffmpeg` input devices docs for your platform](http://www.ffmpeg.org/ffmpeg-devices.html#Input-Devices)
 
 ```bash
 ffmpeg -f avfoundation -list_devices true -i ""
@@ -232,7 +243,10 @@ Deletion of fingerprints is similar to adding prints:
 
 ```bash
 olaf delete item.mp3
+olaf delete --with-ids item.mp3 identifier
 ```
+
+Use **--with-ids** to delete by explicit identifier (the same identifier used during `olaf store --with-ids`), given as `audio_item identifier` pairs.
 
 Note that it is currently unclear what the performance implications are when adding and removing many items to the db. In other words: how balanced the B+ tree remains with many leaves removed. To make sure the tree remains balanced it is always an option to clear the database and re-index the audio:
 
@@ -249,12 +263,14 @@ This command finds duplicate audio content in a folder. First each audio file is
 A duplicate means that audio from the original is found in another file. The start and stop times of the found fragment are reported. If the match reports a start of nearly zero and a duration similar to the duration of the original audio file then a 'full duplicate' is found: it is almost certainly the same exact track. If only a couple of seconds are reported it means that only a couple of seconds of the original audio are found in the duplicate.
 
 ```bash
-olaf dedup [--threads n] [--fragmented] field_recordings/archive
+olaf dedup [--threads n] [--fragmented] [--skip-store] field_recordings/archive
 ```
 
-**--threads n** tells Olaf to use multiple threads to query the index. This can significantly speed up matching if multiple cores are available on your system.
+**--threads n** tells Olaf to use multiple threads during the store step. This can significantly speed up indexing if multiple cores are available on your system.
 
-**--fragmented** this tells Olaf to split the query file into steps of x seconds during matching. When working in steps of 5 seconds, then the first five seconds are matched with the reference database and matches are reported. Subsequently it goes on with the next 5 seconds and so forth. This is practical for partial matches with the reference database.
+**--fragmented** this tells Olaf to chop each query into 30 second fragments during matching. The first 30 seconds are matched with the reference database and matches are reported, then it goes on with the next 30 seconds and so forth. This is practical for partial matches with the reference database.
+
+**--skip-store** skips the store step. Use this when the index already contains the folder, so dedup only runs the query phase.
 
 
 ### Cache fingerprints and store cached fingerprints
@@ -286,6 +302,8 @@ olaf stats
 Olaf has a number of configuration parameters. Currently these are done during compile time in the `olaf_config.c` file. This is to avoid changing configuration at runtime which could result in an index being not compatible with fingerprints extracted from a query (with different configuration parameters).
 
 The configuration includes the amount of fingerprints extracted, the location of the data directory, configuration related to matching, ... Each configuration setting has a small description. There is a default configuration for `mem`, `web` and `default` cases which slightly differ.
+
+To print the configuration currently compiled into the binary, use `olaf config`.
 
 ## Testing, Evaluating and Benchmarking Olaf
 
