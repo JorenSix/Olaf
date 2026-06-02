@@ -21,6 +21,13 @@ pub const Config = struct {
         ".m4a", ".wav", ".mp4", ".wv", ".ape", ".ogg", ".mp3", ".raw", ".flac", ".wma",
     },
 
+    // Microphone input configurations (used by the `microphone` command).
+    // The default targets the macOS CoreAudio default microphone via ffmpeg's
+    // avfoundation input. On other platforms override these in the config file
+    // (e.g. "alsa" / "default" on Linux).
+    microphone_input_format: []const u8 = "avfoundation",
+    microphone_device: []const u8 = ":default",
+
     // Audio configurations
     audio_block_size: u32 = 1024,
     audio_step_size: u32 = 128,
@@ -71,6 +78,10 @@ pub const Config = struct {
         debug("Free db_folder cleanup", .{});
         allocator.free(self.db_folder);
 
+        debug("Free microphone settings cleanup", .{});
+        allocator.free(self.microphone_input_format);
+        allocator.free(self.microphone_device);
+
         debug("Free allowed_audio_file_extensions cleanup", .{});
         for (self.allowed_audio_file_extensions) |ext| {
             debug("Free allowed_audio_file_extension '{s}'", .{ext});
@@ -94,6 +105,8 @@ pub const Config = struct {
         try writer.print("  skip_duplicates: {}\n", .{self.skip_duplicates});
         try writer.print("  fragment_duration_in_seconds: {}\n", .{self.fragment_duration_in_seconds});
         try writer.print("  target_sample_rate: {}\n", .{self.target_sample_rate});
+        try writer.print("  microphone_input_format: {s}\n", .{self.microphone_input_format});
+        try writer.print("  microphone_device: {s}\n", .{self.microphone_device});
         try writer.print("  allowed_audio_file_extensions:\n", .{});
         for (self.allowed_audio_file_extensions) |ext| {
             try writer.print("    {s}\n", .{ext});
@@ -139,6 +152,8 @@ pub const Config = struct {
         debug("  skip_duplicates: {}", .{self.skip_duplicates});
         debug("  fragment_duration_in_seconds: {}", .{self.fragment_duration_in_seconds});
         debug("  target_sample_rate: {}", .{self.target_sample_rate});
+        debug("  microphone_input_format: {s}", .{self.microphone_input_format});
+        debug("  microphone_device: {s}", .{self.microphone_device});
         debug("  allowed_audio_file_extensions:", .{});
         for (self.allowed_audio_file_extensions) |ext| {
             debug("    {s}", .{ext});
@@ -238,6 +253,25 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !
         }
         defer allocator.free(cache_folder);
         config.cache_folder = try olaf_cli_util.expandPath(allocator, cache_folder);
+
+        // Microphone settings (plain strings, not paths — no expandPath).
+        if (obj.get("microphone_input_format")) |val| {
+            config.microphone_input_format = if (val == .string)
+                try allocator.dupe(u8, val.string)
+            else
+                try allocator.dupe(u8, config.microphone_input_format);
+        } else {
+            config.microphone_input_format = try allocator.dupe(u8, config.microphone_input_format);
+        }
+
+        if (obj.get("microphone_device")) |val| {
+            config.microphone_device = if (val == .string)
+                try allocator.dupe(u8, val.string)
+            else
+                try allocator.dupe(u8, config.microphone_device);
+        } else {
+            config.microphone_device = try allocator.dupe(u8, config.microphone_device);
+        }
 
         // Array field
         if (obj.get("allowed_audio_file_extensions")) |val| {
@@ -382,6 +416,8 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !
             // to keep the config memory use consistent, we dupe the default values
             config.db_folder = try allocator.dupe(u8, config.db_folder);
             config.cache_folder = try allocator.dupe(u8, config.cache_folder);
+            config.microphone_input_format = try allocator.dupe(u8, config.microphone_input_format);
+            config.microphone_device = try allocator.dupe(u8, config.microphone_device);
             const ext_list = try allocator.alloc([]const u8, config.allowed_audio_file_extensions.len);
             for (config.allowed_audio_file_extensions, 0..) |ext, i| {
                 ext_list[i] = try allocator.dupe(u8, ext);

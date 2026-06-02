@@ -227,7 +227,15 @@ The query command has several options.
 
 **--format \<csv|json>** sets the output format (default: `csv`).
 
-To query audio coming from the microphone, pipe `ffmpeg` output into `olaf query`. There is no separate `olaf microphone` command. Use `ffmpeg` to access the default microphone. See [the `ffmpeg` input devices docs for your platform](http://www.ffmpeg.org/ffmpeg-devices.html#Input-Devices)
+To query audio coming from the microphone there is the `olaf microphone` command. It spawns `ffmpeg` to capture the default microphone, streams the audio into the matcher, and prints CSV matches live as they are found.
+
+```bash
+olaf microphone
+```
+
+The input device is platform dependent and is configured via the `microphone_input_format` and `microphone_device` settings (see [Configuring Olaf](#configuring-olaf)). The defaults target the macOS CoreAudio default microphone (`avfoundation` / `:default`). On Linux set them to e.g. `alsa` / `default`. Live capture only supports CSV output.
+
+Alternatively, pipe `ffmpeg` output into `olaf query` yourself. Use `ffmpeg` to access the default microphone; see [the `ffmpeg` input devices docs for your platform](http://www.ffmpeg.org/ffmpeg-devices.html#Input-Devices)
 
 ```bash
 ffmpeg -f avfoundation -list_devices true -i ""
@@ -304,6 +312,8 @@ Olaf has a number of configuration parameters. Currently these are done during c
 The configuration includes the amount of fingerprints extracted, the location of the data directory, configuration related to matching, ... Each configuration setting has a small description. There is a default configuration for `mem`, `web` and `default` cases which slightly differ.
 
 To print the configuration currently compiled into the binary, use `olaf config`.
+
+The `microphone` command reads two additional settings from the JSON config file (`~/.olaf/olaf_config.json` or `olaf_config.json` next to the binary): `microphone_input_format` (the `ffmpeg` input format, e.g. `avfoundation` on macOS, `alsa` on Linux, `dshow` on Windows) and `microphone_device` (the device name passed to `ffmpeg -i`). The defaults are `avfoundation` and `:default`, targeting the macOS CoreAudio default microphone.
 
 ## Testing, Evaluating and Benchmarking Olaf
 

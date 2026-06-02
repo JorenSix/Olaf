@@ -298,6 +298,46 @@ pub fn olaf_query(allocator: std.mem.Allocator, q_index: usize, q_total: usize, 
     }
 }
 
+/// Query the database against raw f32le PCM arriving on this process's stdin.
+/// Passing a NULL raw path makes the C stream reader (olaf_reader_stream.c) read
+/// from stdin, so matches are emitted live as the stream is processed. CSV only.
+///
+/// The audio identifier is hardcoded to "stdin": the C stream processor only
+/// prints its live "Time: …s fps: …" progress line to stderr when orig_path
+/// equals "stdin" (olaf_stream_processor.c). query_path is independent and is
+/// what appears in the CSV rows.
+pub fn olaf_query_stdin(
+    allocator: std.mem.Allocator,
+    query_path: []const u8,
+    config: *const olaf_cli_config.Config,
+) !void {
+    const audio_identifier = "stdin";
+    const c_config = olaf.olaf_default_config();
+    try copy_to_c_config(config, c_config);
+
+    // Path configuration - Replace C-allocated dbFolder with Zig-allocated one
+    if (c_config.*.dbFolder) |original_db_folder| {
+        olaf.free(original_db_folder);
+    }
+
+    const c_db_folder = try allocator.dupeZ(u8, config.db_folder);
+    c_config.*.dbFolder = c_db_folder.ptr;
+
+    defer {
+        allocator.free(c_db_folder);
+        olaf.free(c_config);
+    }
+
+    const c_query_path = try allocator.dupeZ(u8, query_path);
+    defer allocator.free(c_query_path);
+
+    const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
+    defer allocator.free(c_audio_identifier);
+
+    // raw_audio_path = null -> C reader reads stdin; CSV form streams live.
+    olaf.olaf_query(c_config, 0, 1, c_query_path, null, c_audio_identifier, 0);
+}
+
 pub fn olaf_delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {
     const c_config = olaf.olaf_default_config(); // Ensure the default config is set
     try copy_to_c_config(config, c_config);

@@ -18,6 +18,7 @@ const cmd_delete = @import("olaf_cli_commands/olaf_cli_cmd_delete.zig");
 const cmd_cache = @import("olaf_cli_commands/olaf_cli_cmd_cache.zig");
 const cmd_store_cached = @import("olaf_cli_commands/olaf_cli_cmd_store_cached.zig");
 const cmd_dedup = @import("olaf_cli_commands/olaf_cli_cmd_dedup.zig");
+const cmd_microphone = @import("olaf_cli_commands/olaf_cli_cmd_microphone.zig");
 
 const debug = std.log.scoped(.olaf_cli).debug;
 
@@ -42,6 +43,13 @@ const Command = struct {
 };
 
 const commands = [_]Command{
+    .{
+        .name = cmd_microphone.CommandInfo.name,
+        .description = cmd_microphone.CommandInfo.description,
+        .help = cmd_microphone.CommandInfo.help,
+        .needs_audio_files = cmd_microphone.CommandInfo.needs_audio_files,
+        .func = cmd_microphone.execute,
+    },
     .{
         .name = cmd_to_wav.CommandInfo.name,
         .description = cmd_to_wav.CommandInfo.description,
