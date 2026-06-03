@@ -41,8 +41,9 @@ pub const AudioProcessTask = struct {
     error_list: *std.ArrayList([]const u8),
 };
 
-// Helper function to create a temporary raw audio file path
-fn createTempRawPath(allocator: std.mem.Allocator) ![]u8 {
+// Helper function to create a temporary raw audio file path.
+// Uses thread id + an atomic counter so concurrent callers never collide.
+pub fn createTempRawPath(allocator: std.mem.Allocator) ![]u8 {
     const tmp_dir = if (std.process.getEnvVarOwned(allocator, "TMPDIR")) |dir| dir else |_| try allocator.dupe(u8, "/tmp/");
     defer allocator.free(tmp_dir);
 
@@ -246,6 +247,35 @@ pub fn forEachParallel(
     return error_count;
 }
 
+/// Shared body for the `to_raw` / `to_wav` transcoding commands: skip the
+/// conversion if `output_path` already exists, otherwise run `convert`, then
+/// emit one mutex-guarded progress line `index/total,col1,col2`. The two
+/// commands differ only in the convert fn and how they name the output, so
+/// they compute `col1`/`col2`/`output_path` themselves and share this kernel.
+pub fn transcodeAndReport(
+    allocator: std.mem.Allocator,
+    convert: *const fn (std.mem.Allocator, []const u8, []const u8, u32) anyerror!void,
+    input_path: []const u8,
+    output_path: []const u8,
+    sample_rate: u32,
+    index: usize,
+    total: usize,
+    col1: []const u8,
+    col2: []const u8,
+    output_mutex: *Mutex,
+) !void {
+    if (fs.cwd().statFile(output_path)) |_| {
+        debug("Output already exists: {s}, skipping", .{output_path});
+    } else |_| {
+        try convert(allocator, input_path, output_path, sample_rate);
+    }
+
+    // Uncontended no-op when single-threaded.
+    output_mutex.lock();
+    defer output_mutex.unlock();
+    olaf_cli_util.print("{d}/{d},{s},{s}\n", .{ index + 1, total, col1, col2 });
+}
+
 /// Process a single fragment of an audio file
 fn processAudioFragment(
     allocator: std.mem.Allocator,
@@ -293,7 +323,7 @@ fn processAudioFragment(
 
     switch (action) {
         .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, fragment_identifier, config, exclude_identifier, output_format),
-        .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.path, config, index, total, store_format),
+        .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, config, index, total, store_format),
         .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, fragment_identifier, config),
     }
 }

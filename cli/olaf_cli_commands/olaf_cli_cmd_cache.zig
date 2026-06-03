@@ -52,20 +52,6 @@ fn cacheWorker(config: *const olaf_cli_config.Config, audio_file: olaf_cli_util.
     try cacheAudioFile(allocator, audio_file, config, index, total);
 }
 
-fn createTempRawPath(allocator: std.mem.Allocator) ![]u8 {
-    const tmp_dir = if (std.process.getEnvVarOwned(allocator, "TMPDIR")) |dir| dir else |_| try allocator.dupe(u8, "/tmp/");
-    defer allocator.free(tmp_dir);
-
-    const olaf_cache_dir = try std.fmt.allocPrint(allocator, "{s}olaf_raw_audio_cache", .{tmp_dir});
-    defer allocator.free(olaf_cache_dir);
-
-    fs.cwd().makePath(olaf_cache_dir) catch |e| {
-        if (e != error.PathAlreadyExists) return e;
-    };
-
-    return try std.fmt.allocPrint(allocator, "{s}/olaf_audio_{d}.raw", .{ olaf_cache_dir, std.time.milliTimestamp() });
-}
-
 fn cacheAudioFile(
     allocator: std.mem.Allocator,
     audio_file: olaf_cli_util.AudioFileWithId,
@@ -114,7 +100,7 @@ fn cacheAudioFile(
     // }
 
     // Convert to raw audio
-    const raw_audio_path = try createTempRawPath(allocator);
+    const raw_audio_path = try olaf_cli_threading.createTempRawPath(allocator);
     defer allocator.free(raw_audio_path);
     defer fs.cwd().deleteFile(raw_audio_path) catch {};
 

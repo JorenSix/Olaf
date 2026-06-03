@@ -8,8 +8,6 @@ const olaf_cli_util = @import("../olaf_cli_util.zig");
 const olaf_cli_util_audio = @import("../olaf_cli_util_audio.zig");
 const olaf_cli_threading = @import("../olaf_cli_threading.zig");
 
-const debug = std.log.scoped(.olaf_cli_to_wav).debug;
-
 const print = olaf_cli_util.print;
 
 pub const CommandInfo = struct {
@@ -43,17 +41,18 @@ fn wavWorker(ctx: WavCtx, audio_file: olaf_cli_util.AudioFileWithId, index: usiz
         allocator.free(names.wav_filename);
     }
 
-    // Check if file already exists
-    if (fs.cwd().statFile(names.wav_filename)) |_| {
-        debug("Wav file already exists: {s}, skipping", .{names.wav_filename});
-    } else |_| {
-        try olaf_cli_util_audio.convertToWav(allocator, audio_file.path, names.wav_filename, ctx.sample_rate);
-    }
-
-    // Thread-safe output (uncontended no-op when single-threaded).
-    ctx.output_mutex.lock();
-    defer ctx.output_mutex.unlock();
-    print("{d}/{d},{s},{s}\n", .{ index + 1, total, names.basename, names.wav_filename });
+    try olaf_cli_threading.transcodeAndReport(
+        allocator,
+        olaf_cli_util_audio.convertToWav,
+        audio_file.path,
+        names.wav_filename,
+        ctx.sample_rate,
+        index,
+        total,
+        names.basename,
+        names.wav_filename,
+        ctx.output_mutex,
+    );
 }
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
