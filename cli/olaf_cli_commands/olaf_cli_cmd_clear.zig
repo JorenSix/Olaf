@@ -1,4 +1,5 @@
 const std = @import("std");
+const Io = std.Io;
 const types = @import("../olaf_cli_types.zig");
 const util = @import("../olaf_cli_util.zig");
 
@@ -18,6 +19,7 @@ pub const CommandInfo = struct {
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     const config = args.config orelse return error.ConfigNotLoaded;
+    const io = args.io;
 
     const db_folder = config.db_folder;
     const cache_folder = config.cache_folder;
@@ -26,17 +28,17 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     var delete_cache = args.force;
 
     var stdout_buffer: [4096]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    var stdout_writer = Io.File.stdout().writer(io, &stdout_buffer);
     const stdout = &stdout_writer.interface;
 
     if (!args.force) {
         // Prompt for database deletion
-        const db_size = util.folderSize(db_folder) catch 0.0;
+        const db_size = util.folderSize(io, db_folder) catch 0.0;
         _ = try stdout.print("Proceed with deleting the olaf db ({d:.0} MB {s})? (yes/no)\n", .{ db_size, db_folder });
         _ = try stdout.flush();
-        var stdin = std.fs.File.stdin();
+        var stdin = Io.File.stdin();
         var stdin_buffer: [4096]u8 = undefined;
-        var stdin_reader = stdin.reader(&stdin_buffer);
+        var stdin_reader = stdin.reader(io, &stdin_buffer);
         const reader: *std.Io.Reader = &stdin_reader.interface; // ← Access the interface!
 
         const line = reader.takeDelimiterExclusive('\n') catch |err| switch (err) {
@@ -62,7 +64,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         }
 
         // Prompt for cache deletion
-        const cache_size = util.folderSize(cache_folder) catch 0.0;
+        const cache_size = util.folderSize(io, cache_folder) catch 0.0;
         _ = try stdout.print("Proceed with deleting the olaf cache ({d:.0} MB {s})? (yes/no)\n", .{ cache_size, cache_folder });
         _ = try stdout.flush();
 
@@ -91,7 +93,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     if (delete_db) {
         _ = try stdout.print("Clear the database folder.\n", .{});
         _ = try stdout.flush();
-        var dir = std.fs.cwd().openDir(db_folder, .{ .iterate = true }) catch |err| {
+        var dir = Io.Dir.cwd().openDir(io, db_folder, .{ .iterate = true }) catch |err| {
             if (err == error.FileNotFound) {
                 _ = try stdout.print("Database folder does not exist.\n", .{});
                 _ = try stdout.flush();
@@ -99,14 +101,14 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             }
             return err;
         };
-        defer dir.close();
+        defer dir.close(io);
 
         var walker = try dir.walk(allocator);
         defer walker.deinit();
 
-        while (try walker.next()) |entry| {
+        while (try walker.next(io)) |entry| {
             if (entry.kind == .file) {
-                try dir.deleteFile(entry.path);
+                try dir.deleteFile(io, entry.path);
             }
         }
     }
@@ -114,7 +116,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     if (delete_cache) {
         _ = try stdout.print("Clear the cache folder\n", .{});
         _ = try stdout.flush();
-        var dir = std.fs.cwd().openDir(cache_folder, .{ .iterate = true }) catch |err| {
+        var dir = Io.Dir.cwd().openDir(io, cache_folder, .{ .iterate = true }) catch |err| {
             if (err == error.FileNotFound) {
                 _ = try stdout.print("Cache folder does not exist.\n", .{});
                 _ = try stdout.flush();
@@ -122,14 +124,14 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             }
             return err;
         };
-        defer dir.close();
+        defer dir.close(io);
 
         var walker = try dir.walk(allocator);
         defer walker.deinit();
 
-        while (try walker.next()) |entry| {
+        while (try walker.next(io)) |entry| {
             if (entry.kind == .file) {
-                try dir.deleteFile(entry.path);
+                try dir.deleteFile(io, entry.path);
             }
         }
     }

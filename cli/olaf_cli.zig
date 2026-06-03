@@ -1,5 +1,6 @@
 const std = @import("std");
 const fs = std.fs;
+const Io = std.Io;
 const process = std.process;
 
 const types = @import("olaf_cli_types.zig");
@@ -131,15 +132,16 @@ fn printCommandList() void {
     }
 }
 
-fn printHelp() !void {
+fn printHelp(io: Io) !void {
     var exe_path_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const exe_path = std.fs.selfExePath(&exe_path_buf) catch {
+    const exe_path_len = std.process.executablePath(io, &exe_path_buf) catch {
         print("Olaf - Overly Lightweight Audio Fingerprinting\n", .{});
         printCommandList();
         return;
     };
+    const exe_path = exe_path_buf[0..exe_path_len];
 
-    const date = olaf_cli_util.getFileModificationDate(exe_path) catch {
+    const date = olaf_cli_util.getFileModificationDate(io, exe_path) catch {
         print("Olaf - Overly Lightweight Audio Fingerprinting\n", .{});
         printCommandList();
         return;
@@ -149,51 +151,58 @@ fn printHelp() !void {
     printCommandList();
 }
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+pub fn main(init: std.process.Init) !void {
+    const allocator = init.gpa;
+    const io = init.io;
 
-    var config = try olaf_cli_config.olafWrapperConfig(allocator);
+    // Resolve $HOME once (the process environment is no longer globally
+    // accessible in 0.16); threaded into config/path expansion.
+    const home: ?[]const u8 = init.minimal.environ.getAlloc(allocator, "HOME") catch null;
+    defer if (home) |h| allocator.free(h);
+
+    var config = try olaf_cli_config.olafWrapperConfig(allocator, io, home);
     defer {
         debug("Defer config cleanup", .{});
         config.deinit(allocator);
     }
     config.debugPrint();
 
-    const args_list = try process.argsAlloc(allocator);
-    defer process.argsFree(allocator, args_list);
+    const args_list = try init.minimal.args.toSlice(init.arena.allocator());
 
     debug("Number of arguments: {d}", .{args_list.len});
     for (args_list, 0..) |arg, index| {
         debug("args[{d}]: \"{s}\"", .{ index, arg });
     }
 
-    if (args_list.len < 2) {
-        try printHelp();
-        return;
-    }
-
-    // Create directories if they don't exist
-    const db_path = try olaf_cli_util.expandPath(allocator, config.db_folder);
+    // Create directories if they don't exist. Done before the no-args branch
+    // so the TUI can read database stats from an existing db folder.
+    const db_path = try olaf_cli_util.expandPath(allocator, home, config.db_folder);
     debug("DB path: {s}", .{db_path});
     defer allocator.free(db_path);
-    fs.cwd().makePath(db_path) catch |errr| {
+    Io.Dir.cwd().createDirPath(io, db_path) catch |errr| {
         if (errr != error.PathAlreadyExists) return errr;
     };
 
-    const cache_path = try olaf_cli_util.expandPath(allocator, config.cache_folder);
+    const cache_path = try olaf_cli_util.expandPath(allocator, home, config.cache_folder);
     defer allocator.free(cache_path);
     debug("Cache path: {s}", .{cache_path});
-    fs.cwd().makePath(cache_path) catch |errr| {
+    Io.Dir.cwd().createDirPath(io, cache_path) catch |errr| {
         if (errr != error.PathAlreadyExists) return errr;
     };
+
+    // No arguments: launch the interactive TUI (ncdu-style browser + db panel).
+    if (args_list.len < 2) {
+        try @import("tui/olaf_tui.zig").run(allocator, io, init.environ_map, &config);
+        return;
+    }
 
     const command_name = args_list[1];
     debug("Command name: {s}", .{command_name});
 
     var args = types.Args{
-        .audio_files = std.ArrayList(olaf_cli_util.AudioFileWithId){},
+        .audio_files = .empty,
+        .io = io,
+        .home = home,
     };
 
     args.config = &config;
@@ -249,10 +258,10 @@ pub fn main() !void {
         } else {
             // It's an unrecognized argument, a file?
             if (args.use_audio_ids) {
-                try olaf_cli_util.audioFileListWithId(allocator, arg, args_list[i + 1], &args.audio_files, config.allowed_audio_file_extensions);
+                try olaf_cli_util.audioFileListWithId(allocator, io, home, arg, args_list[i + 1], &args.audio_files, config.allowed_audio_file_extensions);
                 i += 1; // Skip the next argument as it is the audio identifier
             } else {
-                try olaf_cli_util.audioFileList(allocator, arg, &args.audio_files, config.allowed_audio_file_extensions);
+                try olaf_cli_util.audioFileList(allocator, io, home, arg, &args.audio_files, config.allowed_audio_file_extensions);
             }
         }
     }
@@ -272,5 +281,5 @@ pub fn main() !void {
     }
 
     // Command not found
-    try printHelp();
+    try printHelp(io);
 }

@@ -1,6 +1,6 @@
 const std = @import("std");
 const testing = std.testing;
-const fs = std.fs;
+const Io = std.Io;
 
 // C imports for Olaf core
 const c = @cImport({
@@ -69,9 +69,10 @@ test "olaf_deque: basic operations" {
 
 test "olaf_reader: read raw audio file" {
     const audio_file_name = "tests/16k_samples.raw";
+    const io = testing.io;
 
     // Check if test file exists
-    fs.cwd().access(audio_file_name, .{}) catch |err| {
+    Io.Dir.cwd().access(io, audio_file_name, .{}) catch |err| {
         std.debug.print("\nSkipping test: {s} not found ({})\n", .{ audio_file_name, err });
         return error.SkipZigTest;
     };

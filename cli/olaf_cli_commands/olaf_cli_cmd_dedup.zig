@@ -26,6 +26,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
 
     if (!args.skip_store) {
         try olaf_cli_threading.executeParallel(
+            args.io,
             allocator,
             args.audio_files.items,
             args.config.?,
@@ -40,6 +41,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     // dedup means "find duplicates" — self-matches are always filtered.
     if (args.fragmented) {
         try olaf_cli_threading.executeFragmentedParallel(
+            args.io,
             allocator,
             args.audio_files.items,
             args.config.?,
@@ -52,6 +54,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         );
     } else {
         try olaf_cli_threading.executeParallel(
+            args.io,
             allocator,
             args.audio_files.items,
             args.config.?,

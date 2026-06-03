@@ -18,7 +18,7 @@ pub fn build(b: *std.Build) void {
         });
 
         addCoreSources(lib, b, &cflags, false, false, false); // false = no LMDB sources
-        lib.linkLibC();
+        lib.root_module.link_libc = true;
         b.installArtifact(lib);
     } else {
 
@@ -33,7 +33,7 @@ pub fn build(b: *std.Build) void {
             });
 
             addCoreSources(exe, b, &cflags, true, true, false);
-            exe.linkLibC();
+            exe.root_module.link_libc = true;
             b.installArtifact(exe);
 
             // run step
@@ -53,10 +53,12 @@ pub fn build(b: *std.Build) void {
                     .root_source_file = b.path("./cli/olaf_cli.zig"),
                 }),
             });
-            exe.addIncludePath(b.path("cli"));
-            exe.addIncludePath(b.path("src"));
+            exe.root_module.addIncludePath(b.path("cli"));
+            exe.root_module.addIncludePath(b.path("src"));
+            const zigzag = b.dependency("zigzag", .{ .target = target, .optimize = optimize });
+            exe.root_module.addImport("zigzag", zigzag.module("zigzag"));
             addCoreSources(exe, b, &cflags, true, false, true); // true = include LMDB sources
-            exe.linkLibC();
+            exe.root_module.link_libc = true;
             b.installArtifact(exe);
 
             // run step
@@ -88,10 +90,10 @@ pub fn build(b: *std.Build) void {
                 }),
             });
 
-            tests.addIncludePath(b.path("cli"));
-            tests.addIncludePath(b.path("src"));
+            tests.root_module.addIncludePath(b.path("cli"));
+            tests.root_module.addIncludePath(b.path("src"));
             addCoreSources(tests, b, &cflags, true, false, false);
-            tests.linkLibC();
+            tests.root_module.link_libc = true;
 
             const run_tests = b.addRunArtifact(tests);
             run_tests.setCwd(b.path("."));
@@ -145,28 +147,28 @@ fn addCoreSources(
 
     // Add all common sources
     for (common_sources) |src| {
-        exe.addCSourceFile(.{ .file = b.path(src), .flags = cflags });
+        exe.root_module.addCSourceFile(.{ .file = b.path(src), .flags = cflags });
     }
 
     // Add LMDB sources if needed
     if (include_lmdb) {
         for (lmdb_sources) |src| {
-            exe.addCSourceFile(.{ .file = b.path(src), .flags = cflags });
+            exe.root_module.addCSourceFile(.{ .file = b.path(src), .flags = cflags });
         }
     }
 
     // Add database sources
     for (db_sources) |src| {
-        exe.addCSourceFile(.{ .file = b.path(src), .flags = cflags });
+        exe.root_module.addCSourceFile(.{ .file = b.path(src), .flags = cflags });
     }
 
     // Optionally add main executable source
     if (include_olaf_main) {
-        exe.addCSourceFile(.{ .file = b.path("./src/olaf.c"), .flags = cflags });
+        exe.root_module.addCSourceFile(.{ .file = b.path("./src/olaf.c"), .flags = cflags });
     }
 
     // Optionally add wrapper bridge
     if (include_cli) {
-        exe.addCSourceFile(.{ .file = b.path("./cli/olaf_cli_bridge.c"), .flags = cflags });
+        exe.root_module.addCSourceFile(.{ .file = b.path("./cli/olaf_cli_bridge.c"), .flags = cflags });
     }
 }

@@ -12,7 +12,12 @@ const olaf_cli_threading = @import("../olaf_cli_threading.zig");
 const types = @import("../olaf_cli_types.zig");
 
 const debug = std.log.scoped(.olaf_cli_cache).debug;
-const fs = std.fs;
+const Io = std.Io;
+
+const CacheCtx = struct {
+    io: Io,
+    config: *const olaf_cli_config.Config,
+};
 
 pub const CommandInfo = struct {
     pub const name = "cache";
@@ -35,11 +40,12 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
 
     const error_count = try olaf_cli_threading.forEachParallel(
         olaf_cli_util.AudioFileWithId,
-        *const olaf_cli_config.Config,
+        CacheCtx,
+        args.io,
         allocator,
         args.audio_files.items,
         args.threads,
-        args.config.?,
+        .{ .io = args.io, .config = args.config.? },
         cacheWorker,
     );
 
@@ -48,11 +54,12 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     }
 }
 
-fn cacheWorker(config: *const olaf_cli_config.Config, audio_file: olaf_cli_util.AudioFileWithId, index: usize, total: usize, allocator: std.mem.Allocator) !void {
-    try cacheAudioFile(allocator, audio_file, config, index, total);
+fn cacheWorker(ctx: CacheCtx, audio_file: olaf_cli_util.AudioFileWithId, index: usize, total: usize, allocator: std.mem.Allocator) !void {
+    try cacheAudioFile(ctx.io, allocator, audio_file, ctx.config, index, total);
 }
 
 fn cacheAudioFile(
+    io: Io,
     allocator: std.mem.Allocator,
     audio_file: olaf_cli_util.AudioFileWithId,
     config: *const olaf_cli_config.Config,
@@ -65,11 +72,11 @@ fn cacheAudioFile(
     const audio_id = try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier);
 
     // Create cache file path
-    const cache_folder_expanded = try olaf_cli_util.expandPath(allocator, config.cache_folder);
+    const cache_folder_expanded = try olaf_cli_util.expandPath(allocator, config.home, config.cache_folder);
     defer allocator.free(cache_folder_expanded);
 
     // Ensure cache folder exists
-    fs.cwd().makePath(cache_folder_expanded) catch |e| {
+    Io.Dir.cwd().createDirPath(io, cache_folder_expanded) catch |e| {
         if (e != error.PathAlreadyExists) return e;
     };
 
@@ -77,7 +84,7 @@ fn cacheAudioFile(
     defer allocator.free(cache_file_path);
 
     // Check if cache file already exists
-    if (fs.cwd().access(cache_file_path, .{})) |_| {
+    if (Io.Dir.cwd().access(io, cache_file_path, .{})) |_| {
         print("{d}/{d}, {s}, {s}, SKIPPED: cache file already present\n", .{ index + 1, total, audio_file.path, cache_file_path });
         return;
     } else |_| {}
@@ -100,19 +107,19 @@ fn cacheAudioFile(
     // }
 
     // Convert to raw audio
-    const raw_audio_path = try olaf_cli_threading.createTempRawPath(allocator);
+    const raw_audio_path = try olaf_cli_threading.createTempRawPath(io, allocator);
     defer allocator.free(raw_audio_path);
-    defer fs.cwd().deleteFile(raw_audio_path) catch {};
+    defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch {};
 
-    try olaf_cli_util_audio.convertToRaw(allocator, audio_file.path, raw_audio_path, config.target_sample_rate);
+    try olaf_cli_util_audio.convertToRaw(allocator, io, audio_file.path, raw_audio_path, config.target_sample_rate);
 
     // Create temporary file for capturing olaf_print output
     const temp_output_path = try std.fmt.allocPrint(allocator, "{s}.tmp", .{cache_file_path});
     defer allocator.free(temp_output_path);
-    defer fs.cwd().deleteFile(temp_output_path) catch {};
+    defer Io.Dir.cwd().deleteFile(io, temp_output_path) catch {};
 
-    const temp_file = try fs.cwd().createFile(temp_output_path, .{});
-    defer temp_file.close();
+    const temp_file = try Io.Dir.cwd().createFile(io, temp_output_path, .{});
+    defer temp_file.close(io);
 
     // Call olaf_print (this will write to the file)
     try olaf_cli_bridge.olaf_print_to_file(allocator, raw_audio_path, audio_file.identifier, config, cache_file_path, meta_file_path);

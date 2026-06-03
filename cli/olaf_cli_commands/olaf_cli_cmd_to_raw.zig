@@ -1,7 +1,5 @@
 const std = @import("std");
-const Thread = std.Thread;
-const Mutex = Thread.Mutex;
-const fs = std.fs;
+const Io = std.Io;
 
 const types = @import("../olaf_cli_types.zig");
 const olaf_cli_util = @import("../olaf_cli_util.zig");
@@ -18,13 +16,18 @@ pub const CommandInfo = struct {
 };
 
 const RawCtx = struct {
+    io: Io,
     sample_rate: u32,
-    output_mutex: *Mutex,
+    output_mutex: *Io.Mutex,
 };
 
 // Helper function to generate output filename for raw conversion
-fn generateRawFilename(allocator: std.mem.Allocator, audio_path: []const u8) !struct { basename: []u8, raw_filename: []u8 } {
-    const full_basename = try fs.cwd().realpathAlloc(allocator, audio_path);
+fn generateRawFilename(io: Io, allocator: std.mem.Allocator, audio_path: []const u8) !struct { basename: []u8, raw_filename: []u8 } {
+    // Dupe a non-sentinel slice: realPathFileAlloc returns a [:0]u8 of n+1 bytes,
+    // which would mismatch a later free of the n-length basename slice.
+    var abs_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const abs_len = try Io.Dir.cwd().realPathFile(io, audio_path, &abs_buf);
+    const full_basename = try allocator.dupe(u8, abs_buf[0..abs_len]);
 
     const ext_start = std.mem.lastIndexOf(u8, full_basename, ".");
     const basename = if (ext_start) |idx| full_basename[0..idx] else full_basename;
@@ -39,13 +42,14 @@ fn generateRawFilename(allocator: std.mem.Allocator, audio_path: []const u8) !st
 }
 
 fn rawWorker(ctx: RawCtx, audio_file: olaf_cli_util.AudioFileWithId, index: usize, total: usize, allocator: std.mem.Allocator) !void {
-    const names = try generateRawFilename(allocator, audio_file.path);
+    const names = try generateRawFilename(ctx.io, allocator, audio_file.path);
     defer {
         allocator.free(names.basename);
         allocator.free(names.raw_filename);
     }
 
     try olaf_cli_threading.transcodeAndReport(
+        ctx.io,
         allocator,
         olaf_cli_util_audio.convertToRaw,
         audio_file.path,
@@ -60,12 +64,13 @@ fn rawWorker(ctx: RawCtx, audio_file: olaf_cli_util.AudioFileWithId, index: usiz
 }
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
-    var output_mutex = Mutex{};
-    const ctx = RawCtx{ .sample_rate = args.config.?.target_sample_rate, .output_mutex = &output_mutex };
+    var output_mutex: Io.Mutex = .init;
+    const ctx = RawCtx{ .io = args.io, .sample_rate = args.config.?.target_sample_rate, .output_mutex = &output_mutex };
 
     const error_count = try olaf_cli_threading.forEachParallel(
         olaf_cli_util.AudioFileWithId,
         RawCtx,
+        args.io,
         allocator,
         args.audio_files.items,
         args.threads,

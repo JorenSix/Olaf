@@ -1,9 +1,11 @@
 const std = @import("std");
+const Io = std.Io;
 const process = std.process;
 const debug = std.log.scoped(.olaf_cli_bridge).debug;
-const File = std.fs.File;
+const File = std.Io.File;
 
 const olaf_cli_config = @import("olaf_cli_config.zig");
+const olaf_cli_util = @import("olaf_cli_util.zig");
 
 const olaf = @cImport({
     @cInclude("string.h");
@@ -18,6 +20,24 @@ const olaf = @cImport({
 });
 
 pub const StoreFormat = enum { human, csv, json };
+
+/// Aggregated database statistics, returned by `olaf_stats_struct`.
+pub const Stats = struct {
+    song_count: u32,
+    total_duration: f32,
+    total_fingerprints: i64,
+};
+
+/// A single query match, returned by `olaf_query_collect`.
+pub const QueryMatch = struct {
+    match_count: i32,
+    query_start: f32,
+    query_stop: f32,
+    match_identifier: u32,
+    reference_start: f32,
+    reference_stop: f32,
+    path: []const u8,
+};
 
 pub const store_csv_header = "action,file_index,file_total,audio_identifier,internal_id,fingerprints,audio_seconds,cpu_seconds,fingerprints_per_second,realtime_factor\n";
 
@@ -150,6 +170,48 @@ pub fn olaf_store(
     try writeStoreSummary(format, index, total, audio_identifier, internal_id, fingerprints, audio_seconds, cpu_seconds);
 }
 
+/// Result of storing an audio file, returned by `olaf_store_collect`.
+pub const StoreResult = struct {
+    internal_id: u32,
+    fingerprints: usize,
+    audio_seconds: f64,
+    cpu_seconds: f64,
+};
+
+/// Store an audio file and return a result struct (no stdout/stderr output).
+/// Used by the TUI, which owns the terminal and cannot let summaries print.
+pub fn olaf_store_collect(
+    allocator: std.mem.Allocator,
+    raw_audio_path: []const u8,
+    audio_identifier: []const u8,
+    config: *const olaf_cli_config.Config,
+) !StoreResult {
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+    const c_config = cc.c_config;
+
+    const c_raw_audio_path = try allocator.dupeZ(u8, raw_audio_path);
+    defer allocator.free(c_raw_audio_path);
+    const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
+    defer allocator.free(c_audio_identifier);
+
+    const runner = olaf.olaf_runner_new(olaf.OLAF_RUNNER_MODE_STORE, c_config, null, null);
+    defer olaf.olaf_runner_destroy(runner);
+
+    const processor = olaf.olaf_stream_processor_new(runner, c_raw_audio_path, c_audio_identifier) orelse return error.AudioOpenFailed;
+    defer olaf.olaf_stream_processor_destroy(processor);
+
+    olaf.olaf_stream_processor_set_suppress_summary(processor, true);
+    olaf.olaf_stream_processor_process(processor);
+
+    return .{
+        .internal_id = olaf.olaf_name_to_id(c_audio_identifier),
+        .fingerprints = olaf.olaf_stream_processor_total_fingerprints(processor),
+        .audio_seconds = olaf.olaf_stream_processor_audio_duration(processor),
+        .cpu_seconds = olaf.olaf_stream_processor_cpu_time(processor),
+    };
+}
+
 fn writeStoreSummary(
     format: StoreFormat,
     index: usize,
@@ -165,8 +227,8 @@ fn writeStoreSummary(
     const realtime_factor: f64 = if (cpu_seconds > 0.0) audio_seconds / cpu_seconds else 0.0;
 
     var buf: [4096]u8 = undefined;
-    var fbs = std.io.fixedBufferStream(&buf);
-    const w = fbs.writer();
+    var fbs = Io.Writer.fixed(&buf);
+    const w = &fbs;
 
     switch (format) {
         .human => {
@@ -224,9 +286,9 @@ fn writeStoreSummary(
 
     // One writeAll per record — POSIX guarantees atomicity for writes
     // <= PIPE_BUF, so threaded workers don't interleave bytes mid-record.
-    const written = fbs.getWritten();
-    var stderr = std.fs.File.stderr();
-    try stderr.writeAll(written);
+    const written = fbs.buffered();
+    const io = olaf_cli_util.defaultIo();
+    try File.stderr().writeStreamingAll(io, written);
 }
 
 fn digitWidth(n: usize) usize {
@@ -352,8 +414,9 @@ pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_cli_config.C
     const db_file_path = try std.fmt.allocPrint(allocator, "{s}data.mdb", .{config.db_folder});
     defer allocator.free(db_file_path);
 
+    const io = olaf_cli_util.defaultIo();
     const file_exists = blk: {
-        std.fs.cwd().access(db_file_path, .{}) catch {
+        Io.Dir.cwd().access(io, db_file_path, .{}) catch {
             break :blk false;
         };
         break :blk true;
@@ -362,7 +425,7 @@ pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_cli_config.C
     if (!file_exists) {
         // Print empty stats when database doesn't exist
         var stdout_buffer: [4096]u8 = undefined;
-        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        var stdout_writer = File.stdout().writer(io, &stdout_buffer);
         const stdout = &stdout_writer.interface;
         _ = try stdout.print("Number of songs (#):\t0\n", .{});
         _ = try stdout.flush();
@@ -379,6 +442,134 @@ pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_cli_config.C
 
     // Call the C stats function
     _ = olaf.olaf_stats(c_config);
+}
+
+/// Return aggregated database statistics as a struct (no stdout output).
+/// When the database file does not exist yet, returns a zeroed `Stats`.
+pub fn olaf_stats_struct(allocator: std.mem.Allocator, config: *const olaf_cli_config.Config) !Stats {
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+
+    const db_file_path = try std.fmt.allocPrint(allocator, "{s}data.mdb", .{config.db_folder});
+    defer allocator.free(db_file_path);
+
+    const io = olaf_cli_util.defaultIo();
+    const file_exists = blk: {
+        Io.Dir.cwd().access(io, db_file_path, .{}) catch break :blk false;
+        break :blk true;
+    };
+    if (!file_exists) return .{ .song_count = 0, .total_duration = 0, .total_fingerprints = 0 };
+
+    var c_stats: olaf.Olaf_DB_Stats = undefined;
+    if (olaf.olaf_stats_struct(cc.c_config, &c_stats) != 0) return error.StatsFailed;
+
+    return .{
+        .song_count = c_stats.song_count,
+        .total_duration = c_stats.total_duration,
+        .total_fingerprints = @intCast(c_stats.total_fingerprints),
+    };
+}
+
+/// Metadata for a stored resource, looked up by numeric audio id.
+pub const ResourceMeta = struct {
+    duration: f32,
+    fingerprints: i64,
+    path: []const u8,
+};
+
+/// Look up metadata for a stored audio id. Returns `null` when the database
+/// does not exist yet or has no entry for the id. Caller owns `path`.
+pub fn olaf_lookup_meta(allocator: std.mem.Allocator, config: *const olaf_cli_config.Config, id: u32) !?ResourceMeta {
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+
+    const db_file_path = try std.fmt.allocPrint(allocator, "{s}data.mdb", .{config.db_folder});
+    defer allocator.free(db_file_path);
+
+    const io = olaf_cli_util.defaultIo();
+    const file_exists = blk: {
+        Io.Dir.cwd().access(io, db_file_path, .{}) catch break :blk false;
+        break :blk true;
+    };
+    if (!file_exists) return null;
+
+    const db = olaf.olaf_db_new(cc.db_folder, true);
+    defer olaf.olaf_db_destroy(db);
+
+    var key: u32 = id;
+    if (!olaf.olaf_db_has_meta_data(db, &key)) return null;
+
+    var meta: olaf.Olaf_Resource_Meta_data = undefined;
+    olaf.olaf_db_find_meta_data(db, &key, &meta);
+
+    const path_slice = std.mem.sliceTo(&meta.path, 0);
+    return .{
+        .duration = meta.duration,
+        .fingerprints = @intCast(meta.fingerprints),
+        .path = try allocator.dupe(u8, path_slice),
+    };
+}
+
+/// Run a query and collect matches into an owned slice (no stdout output).
+/// Caller owns the returned slice and each match's `path`; free with
+/// `freeQueryMatches`.
+pub fn olaf_query_collect(
+    allocator: std.mem.Allocator,
+    query_path: []const u8,
+    raw_audio_path: []const u8,
+    audio_identifier: []const u8,
+    config: *const olaf_cli_config.Config,
+    exclude_identifier: u32,
+) ![]QueryMatch {
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+
+    const c_query_path = try allocator.dupeZ(u8, query_path);
+    defer allocator.free(c_query_path);
+    const c_raw_audio_path = try allocator.dupeZ(u8, raw_audio_path);
+    defer allocator.free(c_raw_audio_path);
+    const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
+    defer allocator.free(c_audio_identifier);
+
+    const max_matches: usize = 256;
+    const c_matches = try allocator.alloc(olaf.Olaf_Query_Match, max_matches);
+    defer allocator.free(c_matches);
+
+    const count = olaf.olaf_query_collect(
+        cc.c_config,
+        c_query_path,
+        c_raw_audio_path,
+        c_audio_identifier,
+        exclude_identifier,
+        c_matches.ptr,
+        max_matches,
+    );
+
+    var out = try allocator.alloc(QueryMatch, count);
+    errdefer allocator.free(out);
+    var filled: usize = 0;
+    errdefer for (out[0..filled]) |m| allocator.free(m.path);
+
+    while (filled < count) : (filled += 1) {
+        const cm = c_matches[filled];
+        const path_slice = std.mem.sliceTo(&cm.path, 0);
+        out[filled] = .{
+            .match_count = cm.match_count,
+            .query_start = cm.query_start,
+            .query_stop = cm.query_stop,
+            .match_identifier = cm.match_identifier,
+            .reference_start = cm.reference_start,
+            .reference_stop = cm.reference_stop,
+            .path = try allocator.dupe(u8, path_slice),
+        };
+    }
+
+    return out;
+}
+
+pub fn freeQueryMatches(allocator: std.mem.Allocator, matches: []QueryMatch) void {
+    for (matches) |m| allocator.free(m.path);
+    allocator.free(matches);
 }
 
 pub fn olaf_print(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {

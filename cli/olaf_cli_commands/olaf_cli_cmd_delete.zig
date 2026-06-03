@@ -33,6 +33,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     for (args.audio_files.items, 0..) |audio_file, index| {
         debug("Delete audio file: {s} with identifier: {s}", .{ audio_file.path, audio_file.identifier });
         olaf_cli_threading.processAudioFile(
+            args.io,
             allocator,
             audio_file,
             args.config.?,

@@ -47,20 +47,24 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         sample_rate_str,
     });
 
-    var child = std.process.Child.init(&argv, allocator);
-    child.stdin_behavior = .Ignore;
-    child.stdout_behavior = .Pipe;
-    child.stderr_behavior = .Inherit;
-
-    try child.spawn();
+    const io = args.io;
+    var child = try std.process.spawn(io, .{
+        .argv = &argv,
+        .stdin = .ignore,
+        .stdout = .pipe,
+        .stderr = .inherit,
+    });
 
     // Redirect ffmpeg's PCM output onto this process's stdin (fd 0) so the C
     // stream reader (olaf_reader_stream.c) picks it up via freopen(NULL,...).
-    try std.posix.dup2(child.stdout.?.handle, std.posix.STDIN_FILENO);
+    // std.posix.dup2 was removed in 0.16; libc dup2 is available since we link libc.
+    if (std.c.dup2(child.stdout.?.handle, std.posix.STDIN_FILENO) == -1) {
+        return error.Dup2Failed;
+    }
 
     // Blocks, matching and printing CSV rows live until the stream ends
     // (Ctrl+C / ffmpeg exit / EOF).
     try olaf_cli_bridge.olaf_query_stdin(allocator, "microphone", config);
 
-    _ = child.wait() catch {};
+    _ = child.wait(io) catch {};
 }

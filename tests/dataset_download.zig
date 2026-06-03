@@ -1,5 +1,5 @@
 const std = @import("std");
-const fs = std.fs;
+const Io = std.Io;
 const http = std.http;
 
 const REF_URL = "https://0110.be/releases/Panako/Panako-test-dataset/reference/";
@@ -85,39 +85,40 @@ pub const DatasetKind = enum {
 
 /// Ensures the dataset files are downloaded and valid.
 /// Skips files that are already cached locally.
-pub fn ensureDataset(allocator: std.mem.Allocator, kind: DatasetKind) !void {
-    var client = http.Client{ .allocator = allocator };
+pub fn ensureDataset(io: Io, allocator: std.mem.Allocator, kind: DatasetKind) !void {
+    var client = http.Client{ .allocator = allocator, .io = io };
     defer client.deinit();
 
-    try downloadFiles(allocator, &client, REF_URL, REF_TARGET_FOLDER, &REF_FILES);
-    try checkFiles(REF_TARGET_FOLDER, 100 * 1024);
+    try downloadFiles(io, allocator, &client, REF_URL, REF_TARGET_FOLDER, &REF_FILES);
+    try checkFiles(io, REF_TARGET_FOLDER, 100 * 1024);
 
     if (kind == .ref_only) return;
 
-    try downloadFiles(allocator, &client, QUERY_URL, QUERY_TARGET_FOLDER, &QUERY_FILES);
-    try checkFiles(QUERY_TARGET_FOLDER, 100 * 1024);
+    try downloadFiles(io, allocator, &client, QUERY_URL, QUERY_TARGET_FOLDER, &QUERY_FILES);
+    try checkFiles(io, QUERY_TARGET_FOLDER, 100 * 1024);
 
     if (kind == .ref_and_queries) return;
 
-    try downloadFiles(allocator, &client, QUERY_OTA_URL, QUERY_OTA_TARGET_FOLDER, &QUERY_OTA_FILES);
-    try checkFiles(QUERY_OTA_TARGET_FOLDER, 50 * 1024);
+    try downloadFiles(io, allocator, &client, QUERY_OTA_URL, QUERY_OTA_TARGET_FOLDER, &QUERY_OTA_FILES);
+    try checkFiles(io, QUERY_OTA_TARGET_FOLDER, 50 * 1024);
 }
 
 fn downloadFiles(
+    io: Io,
     allocator: std.mem.Allocator,
     client: *http.Client,
     base_url: []const u8,
     target_folder: []const u8,
     files: []const []const u8,
 ) !void {
-    fs.cwd().makePath(target_folder) catch {};
+    Io.Dir.cwd().createDirPath(io, target_folder) catch {};
 
     for (files) |file| {
         const target = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ target_folder, file });
         defer allocator.free(target);
 
         // Skip if already cached
-        if (fs.cwd().statFile(target)) |_| {
+        if (Io.Dir.cwd().statFile(io, target, .{})) |_| {
             std.debug.print("Found cached file {s}\n", .{target});
             continue;
         } else |_| {}
@@ -126,17 +127,17 @@ fn downloadFiles(
         defer allocator.free(url);
 
         std.debug.print("Downloading {s}\n", .{target});
-        try downloadFile(client, url, target);
+        try downloadFile(io, client, url, target);
         std.debug.print("Downloaded {s}\n", .{target});
     }
 }
 
-fn downloadFile(client: *http.Client, url: []const u8, target: []const u8) !void {
-    var out_file = try fs.cwd().createFile(target, .{});
-    defer out_file.close();
+fn downloadFile(io: Io, client: *http.Client, url: []const u8, target: []const u8) !void {
+    var out_file = try Io.Dir.cwd().createFile(io, target, .{});
+    defer out_file.close(io);
 
     var write_buf: [8192]u8 = undefined;
-    var file_writer = out_file.writer(&write_buf);
+    var file_writer = out_file.writer(io, &write_buf);
 
     const result = try client.fetch(.{
         .location = .{ .url = url },
@@ -151,18 +152,18 @@ fn downloadFile(client: *http.Client, url: []const u8, target: []const u8) !void
     }
 }
 
-fn checkFiles(folder: []const u8, min_size: u64) !void {
-    var dir = fs.cwd().openDir(folder, .{ .iterate = true }) catch |err| {
+fn checkFiles(io: Io, folder: []const u8, min_size: u64) !void {
+    var dir = Io.Dir.cwd().openDir(io, folder, .{ .iterate = true }) catch |err| {
         std.debug.print("Cannot open {s}: {}\n", .{ folder, err });
         return error.DatasetCheckFailed;
     };
-    defer dir.close();
+    defer dir.close(io);
 
     var iter = dir.iterate();
-    while (try iter.next()) |entry| {
+    while (try iter.next(io)) |entry| {
         if (!std.mem.endsWith(u8, entry.name, ".mp3")) continue;
 
-        const stat = try dir.statFile(entry.name);
+        const stat = try dir.statFile(io, entry.name, .{});
         if (stat.size < min_size) {
             std.debug.print("{s}/{s} too small: {d} bytes\n", .{ folder, entry.name, stat.size });
             return error.DatasetCheckFailed;

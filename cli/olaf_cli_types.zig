@@ -16,6 +16,8 @@ pub const Args = struct {
     output_format: olaf_cli_bridge.OutputFormat = .csv,
     store_format: olaf_cli_bridge.StoreFormat = .human,
     config: ?*const olaf_cli_config.Config = null,
+    io: std.Io = undefined,
+    home: ?[]const u8 = null,
 
     pub fn deinit(self: *Args, allocator: std.mem.Allocator) void {
         for (self.audio_files.items) |item| {

@@ -234,7 +234,12 @@ void olaf_db_find_meta_data(Olaf_DB * olaf_db, uint32_t * key, Olaf_Resource_Met
 	}
 }
 
-void olaf_db_stats_meta_data(Olaf_DB * olaf_db,bool verbose){
+// Walk the resource-map cursor, aggregating per-song meta-data. When
+// verbose is true the per-row detail is printed; the totals are always
+// returned so both the printing path and the struct accessor share one walk.
+static Olaf_DB_Stats olaf_db_stats_walk(Olaf_DB * olaf_db, bool verbose, bool print_rows){
+	Olaf_DB_Stats stats = {0, 0.0f, 0};
+
 	int rc;
 	MDB_cursor *cursor;
 	MDB_val mdb_key, mdb_value;
@@ -254,17 +259,12 @@ void olaf_db_stats_meta_data(Olaf_DB * olaf_db,bool verbose){
 	rc = mdb_cursor_get(cursor, &mdb_key, &mdb_value, MDB_SET_RANGE);
 
 	if(rc != 0){
-		printf("Number of songs (#):\t%u\n",0);
-		printf("Total duration (s):\t%.3f\n",0.0f);
-		printf("Avg prints/s (fp/s):\t%.3f\n",0.0f);
-		return;
+		return stats;
 	}
 
-	float total_seconds = 0;
-	long total_prints = 0;
-	uint32_t number_of_items = 0;
-
-	printf("  key  \tduration(s)\tPrints(#)\tPrints(#/s)\tpath\n");
+	if(print_rows){
+		printf("  key  \tduration(s)\tPrints(#)\tPrints(#/s)\tpath\n");
+	}
 	//query
 	do {
 		uint32_t keyInt = *((uint32_t *) (mdb_key.mv_data));
@@ -272,22 +272,39 @@ void olaf_db_stats_meta_data(Olaf_DB * olaf_db,bool verbose){
 
 		float fps_per_second =  (float) val.fingerprints / val.duration;
 
-		total_seconds+= val.duration;
-		total_prints+= val.fingerprints;
-		number_of_items += 1;
+		stats.total_duration += val.duration;
+		stats.total_fingerprints += val.fingerprints;
+		stats.song_count += 1;
 
-		if(verbose){
+		if(print_rows && verbose){
 			printf("%12u\t%.3fs\t%6ldfps\t%.3ffps/s\t'%s'\n",keyInt,val.duration,val.fingerprints,fps_per_second,val.path);
 		}
-		
+
 		rc = mdb_cursor_get(cursor, &mdb_key, &mdb_value, MDB_NEXT);
 
 	} while (rc == 0);
 
-	float fps_per_second =  (float) total_prints / total_seconds;
+	return stats;
+}
 
-	printf("Number of songs (#):\t%u\n",number_of_items);
-	printf("Total duration (s):\t%.3f\n",total_seconds);
+Olaf_DB_Stats olaf_db_stats_struct(Olaf_DB * olaf_db){
+	return olaf_db_stats_walk(olaf_db, false, false);
+}
+
+void olaf_db_stats_meta_data(Olaf_DB * olaf_db,bool verbose){
+	Olaf_DB_Stats stats = olaf_db_stats_walk(olaf_db, verbose, true);
+
+	if(stats.song_count == 0){
+		printf("Number of songs (#):\t%u\n",0);
+		printf("Total duration (s):\t%.3f\n",0.0f);
+		printf("Avg prints/s (fp/s):\t%.3f\n",0.0f);
+		return;
+	}
+
+	float fps_per_second =  (float) stats.total_fingerprints / stats.total_duration;
+
+	printf("Number of songs (#):\t%u\n",stats.song_count);
+	printf("Total duration (s):\t%.3f\n",stats.total_duration);
 	printf("Avg prints/s (fp/s):\t%.3f\n",fps_per_second);
 	printf("\n");
 }

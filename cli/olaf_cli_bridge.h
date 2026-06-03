@@ -2,12 +2,36 @@
 #define OLAF_CLI_BRIDGE_H
 
 #include <stdint.h>
+#include <stddef.h>
 
 #include "olaf_config.h"
+#include "olaf_db.h"
 
 
 // Print database statistics
 int olaf_stats(const Olaf_Config* config);
+
+// Aggregate database statistics into a struct instead of printing them.
+// Returns 0 on success, -1 if the db folder is misconfigured. On success
+// `*out` is filled; on the empty-db case the struct is zeroed.
+int olaf_stats_struct(const Olaf_Config* config, Olaf_DB_Stats* out);
+
+// A single query match, returned (not printed) by olaf_query_collect.
+typedef struct {
+	int match_count;
+	float query_start;
+	float query_stop;
+	uint32_t match_identifier;
+	float reference_start;
+	float reference_stop;
+	char path[512];
+} Olaf_Query_Match;
+
+// Run a query and write matches into the caller-provided `out` array
+// (capacity `max_matches`). Returns the number of matches written, which
+// may be less than the true count if the buffer is too small. No stdout
+// output is produced.
+size_t olaf_query_collect(Olaf_Config* config, const char * query_path, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier, Olaf_Query_Match* out, size_t max_matches);
 
 
 // Get the default Olaf configuration

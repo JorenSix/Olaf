@@ -101,6 +101,26 @@
 
 
 	/**
+	 * @struct Olaf_DB_Stats
+	 * @brief Aggregated database statistics, returned instead of printed.
+	 */
+	typedef struct Olaf_DB_Stats {
+		/** Number of indexed audio files. */
+		uint32_t song_count;
+		/** Total duration of all indexed audio in seconds. */
+		float total_duration;
+		/** Total number of stored fingerprints across all audio. */
+		long total_fingerprints;
+	} Olaf_DB_Stats;
+
+	/**
+	 * Aggregate meta database statistics into a struct (no output).
+	 * @param db The database.
+	 * @return The aggregated statistics; zeroed when the store is empty.
+	 */
+	Olaf_DB_Stats olaf_db_stats_struct(Olaf_DB * db);
+
+	/**
 	 * Print meta database statistics.
 	 * @param db The database.
 	 * @param verbose Print more information than usual.

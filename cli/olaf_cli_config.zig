@@ -1,4 +1,5 @@
 const std = @import("std");
+const Io = std.Io;
 const json = std.json;
 const olaf_cli_util = @import("olaf_cli_util.zig");
 
@@ -35,6 +36,11 @@ fn getFloat(obj: std.json.ObjectMap, key: []const u8, comptime T: type, cur: T) 
 pub const Config = struct {
     // Absolute path of the config file actually loaded, or null when defaults are used.
     config_path: ?[]const u8 = null,
+
+    // Resolved value of $HOME (owned, dup'd), captured once at config load so
+    // path expansion ("~/...") works without global env access (removed in 0.16).
+    // Null when HOME is unset. Borrowed by expandPath callers; freed in deinit.
+    home: ?[]const u8 = null,
 
     // Path configurations
     db_folder: []const u8 = "~/.olaf/db/",
@@ -98,6 +104,11 @@ pub const Config = struct {
         if (self.config_path) |p| {
             debug("Free config_path cleanup", .{});
             allocator.free(p);
+        }
+
+        if (self.home) |h| {
+            debug("Free home cleanup", .{});
+            allocator.free(h);
         }
 
         debug("Free cache_folder cleanup", .{});
@@ -215,8 +226,9 @@ pub const Config = struct {
     }
 
     pub fn infoPrint(self: *const Config) !void {
+        const io = olaf_cli_util.defaultIo();
         var stdout_buffer: [4096]u8 = undefined;
-        var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+        var stdout_writer = Io.File.stdout().writer(io, &stdout_buffer);
         const stdout = &stdout_writer.interface;
         try self.printConfigToWriter(stdout);
         try stdout.flush();
@@ -227,24 +239,31 @@ pub const Config = struct {
 /// If the config keys are not present or invalid, it uses default values.
 /// Every string is duplicated to ensure memory safety. Even if the defaults are used, they are duplicated to avoid dangling memory issues.
 /// Returns an error if the JSON is invalid or if the file cannot be read.
-pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !Config {
+pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, path: []const u8) !Config {
     var config = Config{}; // start with defaults
+    config.home = if (home) |h| try allocator.dupe(u8, h) else null;
+    errdefer if (config.home) |h| allocator.free(h);
 
-    const file_result = std.fs.cwd().openFile(path, .{});
+    const file_result = Io.Dir.cwd().openFile(io, path, .{});
 
     if (file_result) |file| {
-        defer file.close();
+        defer file.close(io);
 
         // Record the absolute path of the file actually loaded so we can show it later.
-        var realpath_buf: [std.fs.max_path_bytes]u8 = undefined;
-        if (std.fs.cwd().realpath(path, &realpath_buf)) |abs| {
-            config.config_path = try allocator.dupe(u8, abs);
+        // Dupe a non-sentinel slice so deinit's allocator.free length matches the
+        // allocation (realPathFileAlloc returns a [:0]u8 of n+1 bytes, which would
+        // mismatch a free of the n-length slice).
+        var abs_buf: [std.fs.max_path_bytes]u8 = undefined;
+        if (Io.Dir.cwd().realPathFile(io, path, &abs_buf)) |abs_len| {
+            config.config_path = try allocator.dupe(u8, abs_buf[0..abs_len]);
         } else |_| {
             config.config_path = try allocator.dupe(u8, path);
         }
         errdefer if (config.config_path) |p| allocator.free(p);
 
-        const contents = try file.readToEndAlloc(allocator, 10 * 1024);
+        var read_buf: [16 * 1024]u8 = undefined;
+        var file_reader = file.reader(io, &read_buf);
+        const contents = try file_reader.interface.allocRemaining(allocator, .limited(10 * 1024));
         defer allocator.free(contents);
 
         const parsed = try json.parseFromSlice(json.Value, allocator, contents, .{});
@@ -267,7 +286,7 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !
             db_folder = try allocator.dupe(u8, config.db_folder);
         }
         defer allocator.free(db_folder);
-        config.db_folder = try olaf_cli_util.expandPath(allocator, db_folder);
+        config.db_folder = try olaf_cli_util.expandPath(allocator, config.home, db_folder);
 
         var cache_folder: []u8 = undefined;
         if (obj.get("cache_folder")) |val| {
@@ -280,7 +299,7 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !
             cache_folder = try allocator.dupe(u8, config.cache_folder);
         }
         defer allocator.free(cache_folder);
-        config.cache_folder = try olaf_cli_util.expandPath(allocator, cache_folder);
+        config.cache_folder = try olaf_cli_util.expandPath(allocator, config.home, cache_folder);
 
         // Microphone settings (plain strings, not paths — no expandPath).
         if (obj.get("microphone_input_format")) |val| {
@@ -368,8 +387,8 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !
             // to keep the config memory use consistent, we dupe the default values.
             // db/cache folders are expanded (~/ -> $HOME) like the file-present
             // branch so the C layer receives an absolute path, not a literal "~".
-            config.db_folder = try olaf_cli_util.expandPath(allocator, config.db_folder);
-            config.cache_folder = try olaf_cli_util.expandPath(allocator, config.cache_folder);
+            config.db_folder = try olaf_cli_util.expandPath(allocator, config.home, config.db_folder);
+            config.cache_folder = try olaf_cli_util.expandPath(allocator, config.home, config.cache_folder);
             config.microphone_input_format = try allocator.dupe(u8, config.microphone_input_format);
             config.microphone_device = try allocator.dupe(u8, config.microphone_device);
             const ext_list = try allocator.alloc([]const u8, config.allowed_audio_file_extensions.len);
@@ -385,21 +404,21 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, path: []const u8) !
 }
 
 /// Attempts to load config from ~/.olaf/olaf_config.json, then from olaf_config.json in the executable's directory.
+/// `home` is the resolved $HOME value (or null), captured by the caller from
+/// the process environment (no longer globally accessible in 0.16).
 /// Returns the config and the path used, or an error if neither is found.
-pub fn olafWrapperConfig(allocator: std.mem.Allocator) !Config {
+pub fn olafWrapperConfig(allocator: std.mem.Allocator, io: Io, home: ?[]const u8) !Config {
     // 1. Try ~/.olaf/olaf_config.json
     var home_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const home = std.process.getEnvVarOwned(allocator, "HOME") catch null;
 
     if (home) |h| {
-        defer allocator.free(h);
         const config_home_dir = try std.fmt.bufPrint(&home_buf, "{s}/.olaf/olaf_config.json", .{h});
 
-        if (std.fs.cwd().openFile(config_home_dir, .{})) |file| {
-            file.close();
+        if (Io.Dir.cwd().openFile(io, config_home_dir, .{})) |file| {
+            file.close(io);
 
             debug("Config: found config at: {s}", .{config_home_dir});
-            return try readJsonConfigOrDefault(allocator, config_home_dir);
+            return try readJsonConfigOrDefault(allocator, io, home, config_home_dir);
         } else |err| switch (err) {
             error.FileNotFound => {
                 debug("Config: No config in home dir: {s}", .{config_home_dir});
@@ -410,17 +429,19 @@ pub fn olafWrapperConfig(allocator: std.mem.Allocator) !Config {
 
     // 2. Try olaf_config.json in the executable's directory
     var exe_path_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const exe_path = try std.fs.selfExePath(&exe_path_buf);
+    const exe_path_len = try std.process.executablePath(io, &exe_path_buf);
+    const exe_path = exe_path_buf[0..exe_path_len];
     const exe_dir = std.fs.path.dirname(exe_path) orelse ".";
     var config_path2_buf: [std.fs.max_path_bytes]u8 = undefined;
     const config_exe_dir = try std.fmt.bufPrint(&config_path2_buf, "{s}/olaf_config.json", .{exe_dir});
     debug("Try reading config at: {s}", .{config_exe_dir});
-    return try readJsonConfigOrDefault(allocator, config_exe_dir);
+    return try readJsonConfigOrDefault(allocator, io, home, config_exe_dir);
 }
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
-    var config = try olafWrapperConfig(allocator);
+    const io = std.Io.Threaded.global_single_threaded.io();
+    var config = try olafWrapperConfig(allocator, io, null);
     defer config.deinit(allocator);
 
     config.debugPrint();

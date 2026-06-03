@@ -1,4 +1,5 @@
 const std = @import("std");
+const Io = std.Io;
 const testing = std.testing;
 
 // You can define your own debug function or import it from another module
@@ -7,66 +8,9 @@ const info = std.log.scoped(.olaf_wrapper_util_audio).info;
 
 /// Runs a command given by `argv`, capturing stdout and stderr output.
 /// Returns the process termination status and output as slices.
-pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struct {
-    term: std.process.Child.Term,
-    stdout: []u8,
-    stderr: []u8,
-} {
-    var child = std.process.Child.init(argv, allocator);
-    child.stdout_behavior = .Pipe;
-    child.stderr_behavior = .Pipe;
-
-    // Log the command being run (with proper quoting for clarity)
-    var command_str = std.ArrayList(u8){};
-    defer command_str.deinit(allocator);
-
-    try command_str.appendSlice(allocator, "Running command:");
-
-    for (argv) |arg| {
-        // Quote arguments that contain spaces or special characters
-        if (std.mem.indexOfAny(u8, arg, " &'\"()[]{}$") != null) {
-            try command_str.writer(allocator).print(" '{s}'", .{arg});
-        } else {
-            try command_str.writer(allocator).print(" {s}", .{arg});
-        }
-    }
-
-    debug("{s}", .{command_str.items});
-
-    try child.spawn();
-
-    // Use ArrayList to collect output as it streams in
-    var stdout_list = std.ArrayList(u8){};
-    defer stdout_list.deinit(allocator);
-    var stderr_list = std.ArrayList(u8){};
-    defer stderr_list.deinit(allocator);
-
-    var stdout_reader_buf: [4096]u8 = undefined;
-    var stderr_reader_buf: [4096]u8 = undefined;
-
-    var stdout_reader = child.stdout.?.reader(&stdout_reader_buf);
-    var stderr_reader = child.stderr.?.reader(&stderr_reader_buf);
-
-    const stdout_io: *std.Io.Reader = &stdout_reader.interface;
-    const stderr_io: *std.Io.Reader = &stderr_reader.interface;
-
-    // Read all remaining data from both streams using the new Zig 0.15 API
-    stdout_io.appendRemainingUnlimited(allocator, &stdout_list) catch |err| switch (err) {
-        error.OutOfMemory => return error.OutOfMemory,
-        error.ReadFailed => return error.ReadFailed,
-    };
-    stderr_io.appendRemainingUnlimited(allocator, &stderr_list) catch |err| switch (err) {
-        error.OutOfMemory => return error.OutOfMemory,
-        error.ReadFailed => return error.ReadFailed,
-    };
-
-    const term = try child.wait();
-
-    return .{
-        .term = term,
-        .stdout = try stdout_list.toOwnedSlice(allocator),
-        .stderr = try stderr_list.toOwnedSlice(allocator),
-    };
+/// Caller owns the returned stdout/stderr memory.
+pub fn runCommand(allocator: std.mem.Allocator, io: Io, argv: []const []const u8) !std.process.RunResult {
+    return std.process.run(allocator, io, .{ .argv = argv });
 }
 
 /// Audio processing options
@@ -91,6 +35,7 @@ pub const AudioOptions = struct {
 /// Returns the path to the output file
 pub fn convertToRaw(
     allocator: std.mem.Allocator,
+    io: Io,
     audio_file: []const u8,
     output_path: []const u8,
     sample_rate: u32,
@@ -101,12 +46,13 @@ pub fn convertToRaw(
         .output_format = "f32le",
         .output_codec = "pcm_f32le",
     };
-    try convertAudioWithOptions(allocator, audio_file, output_path, options);
+    try convertAudioWithOptions(allocator, io, audio_file, output_path, options);
 }
 
 /// Converts a raw PCM file to WAV format
 pub fn convertRawToWav(
     allocator: std.mem.Allocator,
+    io: Io,
     raw_file: []const u8,
     wav_file: []const u8,
     sample_rate: u32,
@@ -121,12 +67,13 @@ pub fn convertRawToWav(
         .input_codec = "pcm_f32le",
         .input_channels = 1,
     };
-    try convertAudioWithOptions(allocator, raw_file, wav_file, options);
+    try convertAudioWithOptions(allocator, io, raw_file, wav_file, options);
 }
 
 /// Converts any audio file to WAV format
 pub fn convertToWav(
     allocator: std.mem.Allocator,
+    io: Io,
     audio_file: []const u8,
     wav_file: []const u8,
     sample_rate: u32,
@@ -137,12 +84,12 @@ pub fn convertToWav(
         .output_format = "wav",
         .output_codec = "pcm_s16le", // Standard WAV codec
     };
-    try convertAudioWithOptions(allocator, audio_file, wav_file, options);
+    try convertAudioWithOptions(allocator, io, audio_file, wav_file, options);
 }
 
 /// Gets the duration of an audio file in seconds
-pub fn getAudioDuration(allocator: std.mem.Allocator, audio_file: []const u8) !f32 {
-    const result = try runCommand(allocator, &.{
+pub fn getAudioDuration(allocator: std.mem.Allocator, io: Io, audio_file: []const u8) !f32 {
+    const result = try runCommand(allocator, io, &.{
         "ffprobe", "-i",    audio_file, "-show_entries", "format=duration",
         "-v",      "quiet", "-of",      "csv=p=0",
     });
@@ -158,15 +105,16 @@ pub fn getAudioDuration(allocator: std.mem.Allocator, audio_file: []const u8) !f
 /// Converts audio with custom options
 pub fn convertAudioWithOptions(
     allocator: std.mem.Allocator,
+    io: Io,
     input_file: []const u8,
     output_file: []const u8,
     options: AudioOptions,
 ) !void {
-    var args = std.ArrayList([]const u8){};
+    var args: std.ArrayList([]const u8) = .empty;
     defer args.deinit(allocator);
 
     // Keep track of allocated strings to free them later
-    var allocated_strings = std.ArrayList([]u8){};
+    var allocated_strings: std.ArrayList([]u8) = .empty;
     defer {
         for (allocated_strings.items) |str| {
             allocator.free(str);
@@ -233,7 +181,7 @@ pub fn convertAudioWithOptions(
         output_file,
     });
 
-    const result = try runCommand(allocator, args.items);
+    const result = try runCommand(allocator, io, args.items);
     defer {
         allocator.free(result.stdout);
         allocator.free(result.stderr);
@@ -241,7 +189,7 @@ pub fn convertAudioWithOptions(
 
     // Check if the command succeeded
     switch (result.term) {
-        .Exited => |code| {
+        .exited => |code| {
             if (code != 0) {
                 std.debug.print("ffmpeg exited with code: {d}\n", .{code});
                 std.debug.print("stderr: {s}\n", .{result.stderr});
@@ -253,17 +201,17 @@ pub fn convertAudioWithOptions(
 }
 
 // Helper function to clean up test files
-fn cleanupTestFiles(files: []const []const u8) void {
+fn cleanupTestFiles(io: Io, files: []const []const u8) void {
     for (files) |file| {
-        std.fs.cwd().deleteFile(file) catch {
+        Io.Dir.cwd().deleteFile(io, file) catch {
             // Ignore errors, file might not exist
         };
     }
 }
 
 // Helper function to check if test file exists
-fn checkTestFileExists() !void {
-    const file = std.fs.cwd().openFile("input.mp3", .{}) catch |err| switch (err) {
+fn checkTestFileExists(io: Io) !void {
+    const file = Io.Dir.cwd().openFile(io, "input.mp3", .{}) catch |err| switch (err) {
         error.FileNotFound => {
             std.debug.print("\nSkipping tests: 'input.mp3' not found in current directory.\n", .{});
             std.debug.print("Please provide a test audio file named 'input.mp3' (ideally ~10 seconds long) to run tests.\n\n", .{});
@@ -271,27 +219,27 @@ fn checkTestFileExists() !void {
         },
         else => return err,
     };
-    file.close();
+    file.close(io);
 }
 
 // Test: Original file duration
 test "audio duration remains consistent after conversion" {
-    try checkTestFileExists();
-
+    const io = testing.io;
     const allocator = testing.allocator;
+    try checkTestFileExists(io);
 
     const test_files = [_][]const u8{
         "test_output.wav",
         "test_output.raw",
     };
-    defer cleanupTestFiles(&test_files);
+    defer cleanupTestFiles(io, &test_files);
 
     // Get original duration
-    const original_duration = try getAudioDuration(allocator, "input.mp3");
+    const original_duration = try getAudioDuration(allocator, io, "input.mp3");
 
     // Convert to WAV
-    try convertToWav(allocator, "input.mp3", "test_output.wav", 16000);
-    const wav_duration = try getAudioDuration(allocator, "test_output.wav");
+    try convertToWav(allocator, io, "input.mp3", "test_output.wav", 16000);
+    const wav_duration = try getAudioDuration(allocator, io, "test_output.wav");
 
     // Duration should be within 0.1 seconds
     try testing.expect(@abs(wav_duration - original_duration) < 0.1);
@@ -299,23 +247,23 @@ test "audio duration remains consistent after conversion" {
 
 // Test: MP3 to RAW to WAV conversion chain
 test "conversion chain preserves duration" {
-    try checkTestFileExists();
-
+    const io = testing.io;
     const allocator = testing.allocator;
+    try checkTestFileExists(io);
 
     const test_files = [_][]const u8{
         "test_chain.raw",
         "test_chain.wav",
     };
-    defer cleanupTestFiles(&test_files);
+    defer cleanupTestFiles(io, &test_files);
 
-    const original_duration = try getAudioDuration(allocator, "input.mp3");
+    const original_duration = try getAudioDuration(allocator, io, "input.mp3");
 
     // Convert MP3 -> RAW -> WAV
-    try convertToRaw(allocator, "input.mp3", "test_chain.raw", 16000);
-    try convertRawToWav(allocator, "test_chain.raw", "test_chain.wav", 16000);
+    try convertToRaw(allocator, io, "input.mp3", "test_chain.raw", 16000);
+    try convertRawToWav(allocator, io, "test_chain.raw", "test_chain.wav", 16000);
 
-    const final_duration = try getAudioDuration(allocator, "test_chain.wav");
+    const final_duration = try getAudioDuration(allocator, io, "test_chain.wav");
 
     // Duration should be preserved
     try testing.expect(@abs(final_duration - original_duration) < 0.1);
@@ -323,15 +271,15 @@ test "conversion chain preserves duration" {
 
 // Test: Extract specific time segment
 test "extract audio segment with correct duration" {
-    try checkTestFileExists();
-
+    const io = testing.io;
     const allocator = testing.allocator;
+    try checkTestFileExists(io);
 
     const test_files = [_][]const u8{
         "test_clip.raw",
         "test_clip.wav",
     };
-    defer cleanupTestFiles(&test_files);
+    defer cleanupTestFiles(io, &test_files);
 
     // Extract 3 seconds starting at 1 second
     const clip_options = AudioOptions{
@@ -343,10 +291,10 @@ test "extract audio segment with correct duration" {
         .duration = 3.0,
     };
 
-    try convertAudioWithOptions(allocator, "input.mp3", "test_clip.raw", clip_options);
-    try convertRawToWav(allocator, "test_clip.raw", "test_clip.wav", 16000);
+    try convertAudioWithOptions(allocator, io, "input.mp3", "test_clip.raw", clip_options);
+    try convertRawToWav(allocator, io, "test_clip.raw", "test_clip.wav", 16000);
 
-    const clip_duration = try getAudioDuration(allocator, "test_clip.wav");
+    const clip_duration = try getAudioDuration(allocator, io, "test_clip.wav");
 
     // Clip should be 3 seconds (within tolerance)
     try testing.expect(@abs(clip_duration - 3.0) < 0.1);
@@ -354,16 +302,16 @@ test "extract audio segment with correct duration" {
 
 // Test: Multiple sequential clips
 test "sequential clips have correct durations" {
-    try checkTestFileExists();
-
+    const io = testing.io;
     const allocator = testing.allocator;
+    try checkTestFileExists(io);
 
     const test_files = [_][]const u8{
         "test_seq1.wav",
         "test_seq2.wav",
         "test_seq3.wav",
     };
-    defer cleanupTestFiles(&test_files);
+    defer cleanupTestFiles(io, &test_files);
 
     // Create three 2-second clips
     const clip_opts = [3]AudioOptions{
@@ -393,13 +341,13 @@ test "sequential clips have correct durations" {
         },
     };
 
-    try convertAudioWithOptions(allocator, "input.mp3", "test_seq1.wav", clip_opts[0]);
-    try convertAudioWithOptions(allocator, "input.mp3", "test_seq2.wav", clip_opts[1]);
-    try convertAudioWithOptions(allocator, "input.mp3", "test_seq3.wav", clip_opts[2]);
+    try convertAudioWithOptions(allocator, io, "input.mp3", "test_seq1.wav", clip_opts[0]);
+    try convertAudioWithOptions(allocator, io, "input.mp3", "test_seq2.wav", clip_opts[1]);
+    try convertAudioWithOptions(allocator, io, "input.mp3", "test_seq3.wav", clip_opts[2]);
 
-    const dur1 = try getAudioDuration(allocator, "test_seq1.wav");
-    const dur2 = try getAudioDuration(allocator, "test_seq2.wav");
-    const dur3 = try getAudioDuration(allocator, "test_seq3.wav");
+    const dur1 = try getAudioDuration(allocator, io, "test_seq1.wav");
+    const dur2 = try getAudioDuration(allocator, io, "test_seq2.wav");
+    const dur3 = try getAudioDuration(allocator, io, "test_seq3.wav");
 
     // Each clip should be 2 seconds
     try testing.expect(@abs(dur1 - 2.0) < 0.1);
@@ -413,20 +361,20 @@ test "sequential clips have correct durations" {
 
 // Test: Round-trip conversion
 test "round-trip conversion preserves duration" {
-    try checkTestFileExists();
-
+    const io = testing.io;
     const allocator = testing.allocator;
+    try checkTestFileExists(io);
 
     const test_files = [_][]const u8{
         "test_rt_input.wav",
         "test_rt.raw",
         "test_rt_output.wav",
     };
-    defer cleanupTestFiles(&test_files);
+    defer cleanupTestFiles(io, &test_files);
 
     // First create a WAV file
-    try convertToWav(allocator, "input.mp3", "test_rt_input.wav", 16000);
-    const original_duration = try getAudioDuration(allocator, "test_rt_input.wav");
+    try convertToWav(allocator, io, "input.mp3", "test_rt_input.wav", 16000);
+    const original_duration = try getAudioDuration(allocator, io, "test_rt_input.wav");
 
     // WAV -> RAW
     const wav_to_raw_options = AudioOptions{
@@ -436,12 +384,12 @@ test "round-trip conversion preserves duration" {
         .output_codec = "pcm_f32le",
         .input_format = "wav",
     };
-    try convertAudioWithOptions(allocator, "test_rt_input.wav", "test_rt.raw", wav_to_raw_options);
+    try convertAudioWithOptions(allocator, io, "test_rt_input.wav", "test_rt.raw", wav_to_raw_options);
 
     // RAW -> WAV
-    try convertRawToWav(allocator, "test_rt.raw", "test_rt_output.wav", 16000);
+    try convertRawToWav(allocator, io, "test_rt.raw", "test_rt_output.wav", 16000);
 
-    const final_duration = try getAudioDuration(allocator, "test_rt_output.wav");
+    const final_duration = try getAudioDuration(allocator, io, "test_rt_output.wav");
 
     // Duration should be preserved
     try testing.expect(@abs(final_duration - original_duration) < 0.05);
@@ -449,15 +397,15 @@ test "round-trip conversion preserves duration" {
 
 // Test: Input format options
 test "raw input format options work correctly" {
-    try checkTestFileExists();
-
+    const io = testing.io;
     const allocator = testing.allocator;
+    try checkTestFileExists(io);
 
     const test_files = [_][]const u8{
         "test_stereo.raw",
         "test_mono.wav",
     };
-    defer cleanupTestFiles(&test_files);
+    defer cleanupTestFiles(io, &test_files);
 
     // Create a stereo raw file
     const stereo_options = AudioOptions{
@@ -466,7 +414,7 @@ test "raw input format options work correctly" {
         .output_format = "f32le",
         .output_codec = "pcm_f32le",
     };
-    try convertAudioWithOptions(allocator, "input.mp3", "test_stereo.raw", stereo_options);
+    try convertAudioWithOptions(allocator, io, "input.mp3", "test_stereo.raw", stereo_options);
 
     // Convert stereo raw to mono WAV
     const convert_options = AudioOptions{
@@ -478,18 +426,18 @@ test "raw input format options work correctly" {
         .input_codec = "pcm_f32le",
         .input_channels = 2,
     };
-    try convertAudioWithOptions(allocator, "test_stereo.raw", "test_mono.wav", convert_options);
+    try convertAudioWithOptions(allocator, io, "test_stereo.raw", "test_mono.wav", convert_options);
 
     // Check that output exists and has valid duration
-    const duration = try getAudioDuration(allocator, "test_mono.wav");
+    const duration = try getAudioDuration(allocator, io, "test_mono.wav");
     try testing.expect(duration > 0);
 }
 
 // Test: Handle file paths with spaces and special characters
 test "handles file paths with spaces and special characters" {
-    try checkTestFileExists();
-
+    const io = testing.io;
     const allocator = testing.allocator;
+    try checkTestFileExists(io);
 
     const test_files = [_][]const u8{
         "test file with spaces.wav",
@@ -497,26 +445,26 @@ test "handles file paths with spaces and special characters" {
         "test'file'with'quotes.wav",
         "test (file) with parens.wav",
     };
-    defer cleanupTestFiles(&test_files);
+    defer cleanupTestFiles(io, &test_files);
 
     // Test 1: File with spaces
-    try convertToWav(allocator, "input.mp3", "test file with spaces.wav", 16000);
-    const duration1 = try getAudioDuration(allocator, "test file with spaces.wav");
+    try convertToWav(allocator, io, "input.mp3", "test file with spaces.wav", 16000);
+    const duration1 = try getAudioDuration(allocator, io, "test file with spaces.wav");
     try testing.expect(duration1 > 0);
 
     // Test 2: File with ampersands
-    try convertToWav(allocator, "input.mp3", "test&file&with&ampersands.wav", 16000);
-    const duration2 = try getAudioDuration(allocator, "test&file&with&ampersands.wav");
+    try convertToWav(allocator, io, "input.mp3", "test&file&with&ampersands.wav", 16000);
+    const duration2 = try getAudioDuration(allocator, io, "test&file&with&ampersands.wav");
     try testing.expect(duration2 > 0);
 
     // Test 3: File with single quotes
-    try convertToWav(allocator, "input.mp3", "test'file'with'quotes.wav", 16000);
-    const duration3 = try getAudioDuration(allocator, "test'file'with'quotes.wav");
+    try convertToWav(allocator, io, "input.mp3", "test'file'with'quotes.wav", 16000);
+    const duration3 = try getAudioDuration(allocator, io, "test'file'with'quotes.wav");
     try testing.expect(duration3 > 0);
 
     // Test 4: File with parentheses
-    try convertToWav(allocator, "input.mp3", "test (file) with parens.wav", 16000);
-    const duration4 = try getAudioDuration(allocator, "test (file) with parens.wav");
+    try convertToWav(allocator, io, "input.mp3", "test (file) with parens.wav", 16000);
+    const duration4 = try getAudioDuration(allocator, io, "test (file) with parens.wav");
     try testing.expect(duration4 > 0);
 }
 
@@ -525,31 +473,32 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
+    const io = std.Io.Threaded.global_single_threaded.io();
 
     // Example: Convert MP3 to WAV
-    try convertToWav(allocator, "input.mp3", "output.wav", 16000);
+    try convertToWav(allocator, io, "input.mp3", "output.wav", 16000);
 
     // Example: Convert MP3 to raw PCM
-    try convertToRaw(allocator, "input.mp3", "output.raw", 16000);
+    try convertToRaw(allocator, io, "input.mp3", "output.raw", 16000);
 
     // Example: Convert raw PCM to WAV
-    try convertRawToWav(allocator, "output.raw", "output2.wav", 16000);
+    try convertRawToWav(allocator, io, "output.raw", "output2.wav", 16000);
 
     // Example: Get audio duration
-    const duration = try getAudioDuration(allocator, "input.mp3");
+    const duration = try getAudioDuration(allocator, io, "input.mp3");
     info("Duration: {d:.2} seconds", .{duration});
 
     // Example: Handle files with special characters
     info("\nTesting files with special characters:", .{});
 
     // Create a file with spaces in the name
-    try convertToWav(allocator, "input.mp3", "output with spaces.wav", 16000);
-    const duration_spaces = try getAudioDuration(allocator, "output with spaces.wav");
+    try convertToWav(allocator, io, "input.mp3", "output with spaces.wav", 16000);
+    const duration_spaces = try getAudioDuration(allocator, io, "output with spaces.wav");
     info("File with spaces duration: {d:.2} seconds", .{duration_spaces});
 
     // Create a file with ampersands
-    try convertToWav(allocator, "input.mp3", "output&with&ampersands.wav", 16000);
-    const duration_amp = try getAudioDuration(allocator, "output&with&ampersands.wav");
+    try convertToWav(allocator, io, "input.mp3", "output&with&ampersands.wav", 16000);
+    const duration_amp = try getAudioDuration(allocator, io, "output&with&ampersands.wav");
     info("File with ampersands duration: {d:.2} seconds", .{duration_amp});
 
     info("All conversions completed successfully!", .{});

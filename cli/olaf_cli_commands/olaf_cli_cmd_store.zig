@@ -25,11 +25,11 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     // can parse it with csv.DictReader. JSON is NDJSON (no header) and
     // human keeps its legacy free-form sentence per file.
     if (args.store_format == .csv) {
-        var stderr = std.fs.File.stderr();
-        try stderr.writeAll(olaf_cli_bridge.store_csv_header);
+        try std.Io.File.stderr().writeStreamingAll(args.io, olaf_cli_bridge.store_csv_header);
     }
 
     try olaf_cli_threading.executeParallel(
+        args.io,
         allocator,
         args.audio_files.items,
         args.config.?,

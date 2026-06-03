@@ -121,6 +121,21 @@ int olaf_stats(const Olaf_Config* config){
 	return 0;
 }
 
+int olaf_stats_struct(const Olaf_Config* config, Olaf_DB_Stats* out){
+	if(out == NULL) return -1;
+
+	size_t folder_len = strlen(config->dbFolder);
+	if(folder_len > 0 && config->dbFolder[folder_len - 1] != '/'){
+		fprintf(stderr, "Error reading stats: Database folder '%s' must end with '/'\n", config->dbFolder);
+		return -1;
+	}
+
+	Olaf_DB* db = olaf_db_new(config->dbFolder,true);
+	*out = olaf_db_stats_struct(db);
+	olaf_db_destroy(db);
+	return 0;
+}
+
 void olaf_has(Olaf_Config* config,size_t audio_identifiers_len,const char* audio_identifiers[], bool * has_audio_identifier){
 	
 	Olaf_DB* db = olaf_db_new(config->dbFolder,true);
@@ -432,6 +447,62 @@ void olaf_query_json(Olaf_Config* config, size_t q_index, size_t q_total, const 
 
 	olaf_stream_processor_destroy(processor);
 	olaf_runner_destroy(runner);
+}
+
+size_t olaf_query_collect(Olaf_Config* config, const char * query_path, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier, Olaf_Query_Match* out, size_t max_matches){
+	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
+	if(db == NULL){
+		fprintf(stderr,"Error: Could not open database %s.\n",config->dbFolder);
+		return 0;
+	}
+	olaf_db_destroy(db);
+
+	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_QUERY, config, NULL,NULL);
+	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
+	if(processor == NULL){
+		olaf_runner_destroy(runner);
+		return 0;
+	}
+
+	olaf_query_print_context.q_index = 0;
+	olaf_query_print_context.q_total = 1;
+	olaf_query_print_context.query_path = query_path;
+	olaf_query_print_context.q_offset = 0.0f;
+	olaf_query_print_context.exclude_identifier = exclude_identifier;
+
+	// Reuse the in-memory collector callback (also used by the JSON path) so
+	// no stdout output is produced; copy the collected matches out afterwards.
+	olaf_json_match_list_reset(&olaf_json_matches);
+	olaf_stream_processor_set_result_callback(processor, olaf_cli_collect_match);
+	olaf_stream_processor_set_result_header(processor, NULL);
+	olaf_stream_processor_set_suppress_summary(processor, true);
+
+	olaf_stream_processor_process(processor);
+
+	size_t written = 0;
+	for(size_t i = 0; i < olaf_json_matches.len && written < max_matches; i++){
+		Olaf_JSON_Match *m = &olaf_json_matches.items[i];
+		Olaf_Query_Match *dst = &out[written];
+		dst->match_count = m->matchCount;
+		dst->query_start = m->queryStart;
+		dst->query_stop = m->queryStop;
+		dst->match_identifier = m->matchIdentifier;
+		dst->reference_start = m->referenceStart;
+		dst->reference_stop = m->referenceStop;
+		if(m->path != NULL){
+			strncpy(dst->path, m->path, sizeof(dst->path) - 1);
+			dst->path[sizeof(dst->path) - 1] = '\0';
+		}else{
+			dst->path[0] = '\0';
+		}
+		written++;
+	}
+
+	olaf_json_match_list_reset(&olaf_json_matches);
+
+	olaf_stream_processor_destroy(processor);
+	olaf_runner_destroy(runner);
+	return written;
 }
 
 void olaf_delete(Olaf_Config* config,const char* raw_audio_path, const char* audio_identifier){

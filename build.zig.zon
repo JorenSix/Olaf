@@ -1,0 +1,19 @@
+.{
+    .name = .olaf,
+    .version = "1.0.0",
+    .fingerprint = 0xdbfb9486fc04d895,
+    .minimum_zig_version = "0.16.0",
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "cli",
+        "src",
+        "tests",
+    },
+    .dependencies = .{
+        .zigzag = .{
+            .url = "git+https://github.com/meszmate/zigzag#e16e2523972d174d7ca9783631cc90e2609fa55e",
+            .hash = "zigzag-0.1.2-YXwYS9_qEQDBkc3k9-gNIC3mcONlH4N_RxxgcxM7Bhxt",
+        },
+    },
+}

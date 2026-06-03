@@ -1,7 +1,5 @@
 const std = @import("std");
-const Thread = std.Thread;
-const Mutex = Thread.Mutex;
-const WaitGroup = Thread.WaitGroup;
+const Io = std.Io;
 
 const olaf_cli_config = @import("olaf_cli_config.zig");
 const olaf_cli_util = @import("olaf_cli_util.zig");
@@ -9,48 +7,27 @@ const olaf_cli_util_audio = @import("olaf_cli_util_audio.zig");
 const olaf_cli_bridge = @import("olaf_cli_bridge.zig");
 
 const debug = std.log.scoped(.olaf_cli_threading).debug;
-const fs = std.fs;
 
 // Process-local monotonic counter so that two workers spawned in the same
 // millisecond cannot land on the same temp path. The thread id in the
 // filename is for human-readable debugging; uniqueness comes from the
 // counter. We use std.Thread.getCurrentId rather than a pid because it is
 // portable across POSIX and Windows targets (std.c.pid_t is undefined on
-// non-POSIX targets in Zig 0.15.x).
+// non-POSIX targets).
 var temp_path_counter: std.atomic.Value(u64) = std.atomic.Value(u64).init(0);
 
 // Shared action enum type
 pub const ProcessAction = enum { Query, Store, Delete };
 
-// Worker task structure for processing audio files
-pub const AudioProcessTask = struct {
-    allocator: std.mem.Allocator,
-    audio_file: olaf_cli_util.AudioFileWithId,
-    config: *const olaf_cli_config.Config,
-    index: usize,
-    total: usize,
-    action: ProcessAction,
-    /// Pass 0 to disable; non-zero suppresses query result lines whose
-    /// match_identifier equals this value (used for dedup self-match filter).
-    exclude_identifier: u32,
-    /// Output format for query results. Ignored for non-query actions.
-    output_format: olaf_cli_bridge.OutputFormat,
-    /// Output format for store summaries. Ignored for non-store actions.
-    store_format: olaf_cli_bridge.StoreFormat,
-    error_mutex: *Mutex,
-    error_list: *std.ArrayList([]const u8),
-};
-
 // Helper function to create a temporary raw audio file path.
 // Uses thread id + an atomic counter so concurrent callers never collide.
-pub fn createTempRawPath(allocator: std.mem.Allocator) ![]u8 {
-    const tmp_dir = if (std.process.getEnvVarOwned(allocator, "TMPDIR")) |dir| dir else |_| try allocator.dupe(u8, "/tmp/");
-    defer allocator.free(tmp_dir);
-
-    const olaf_cache_dir = try std.fmt.allocPrint(allocator, "{s}olaf_raw_audio_cache", .{tmp_dir});
+pub fn createTempRawPath(io: Io, allocator: std.mem.Allocator) ![]u8 {
+    // The process environment is no longer globally accessible in 0.16, so we
+    // no longer honor $TMPDIR here; the system temp dir is used unconditionally.
+    const olaf_cache_dir = try std.fmt.allocPrint(allocator, "{s}olaf_raw_audio_cache", .{"/tmp/"});
     defer allocator.free(olaf_cache_dir);
 
-    fs.cwd().makePath(olaf_cache_dir) catch |e| {
+    Io.Dir.cwd().createDirPath(io, olaf_cache_dir) catch |e| {
         if (e != error.PathAlreadyExists) return e;
     };
 
@@ -60,6 +37,7 @@ pub fn createTempRawPath(allocator: std.mem.Allocator) ![]u8 {
 
 // Helper function to process an audio file and convert it to raw format
 pub fn processAudioFile(
+    io: Io,
     allocator: std.mem.Allocator,
     audio_file_with_id: olaf_cli_util.AudioFileWithId,
     config: *const olaf_cli_config.Config,
@@ -72,11 +50,11 @@ pub fn processAudioFile(
 ) !void {
     debug("Processing audio file {d}/{d}: {s}", .{ index + 1, total, audio_file_with_id.path });
 
-    const raw_audio_path = try createTempRawPath(allocator);
+    const raw_audio_path = try createTempRawPath(io, allocator);
     defer allocator.free(raw_audio_path);
-    defer fs.cwd().deleteFile(raw_audio_path) catch {};
+    defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch {};
 
-    try olaf_cli_util_audio.convertToRaw(allocator, audio_file_with_id.path, raw_audio_path, config.target_sample_rate);
+    try olaf_cli_util_audio.convertToRaw(allocator, io, audio_file_with_id.path, raw_audio_path, config.target_sample_rate);
 
     switch (action) {
         .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier, output_format),
@@ -85,32 +63,12 @@ pub fn processAudioFile(
     }
 }
 
-pub fn processAudioFileThreaded(task: AudioProcessTask) void {
-    processAudioFile(
-        task.allocator,
-        task.audio_file,
-        task.config,
-        task.index,
-        task.total,
-        task.action,
-        task.exclude_identifier,
-        task.output_format,
-        task.store_format,
-    ) catch |process_err| {
-        task.error_mutex.lock();
-        defer task.error_mutex.unlock();
-
-        const err_msg = std.fmt.allocPrint(task.allocator, "Failed to process {s}: {}", .{ task.audio_file.path, process_err }) catch "Out of memory";
-        task.error_list.append(task.allocator, err_msg) catch {};
-        std.log.err("{s}", .{err_msg});
-    };
-}
-
-/// Execute audio processing in parallel using thread pool.
+/// Execute audio processing in parallel using structured concurrency.
 /// When `allow_identity_match` is false and the action is `.Query`, the
 /// C-side print callback suppresses any result whose match_identifier
 /// equals the query's own audio identifier hash (used by dedup).
 pub fn executeParallel(
+    io: Io,
     allocator: std.mem.Allocator,
     audio_files: []const olaf_cli_util.AudioFileWithId,
     config: *const olaf_cli_config.Config,
@@ -131,63 +89,66 @@ pub fn executeParallel(
                 try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier)
             else
                 @as(u32, 0);
-            try processAudioFile(allocator, audio_file, config, i, audio_files.len, action, exclude, output_format, store_format);
+            try processAudioFile(io, allocator, audio_file, config, i, audio_files.len, action, exclude, output_format, store_format);
         }
-    } else {
-        // Multi-threaded execution
-        debug("Processing {d} audio files with {d} threads", .{ audio_files.len, actual_threads });
+        return;
+    }
 
-        var pool: Thread.Pool = undefined;
-        try pool.init(.{ .allocator = allocator, .n_jobs = actual_threads });
-        defer pool.deinit();
+    // Multi-threaded execution bounded to `actual_threads` concurrent workers.
+    debug("Processing {d} audio files with {d} threads", .{ audio_files.len, actual_threads });
 
-        var wait_group: WaitGroup = undefined;
-        wait_group.reset();
+    var sem: Io.Semaphore = .{ .permits = actual_threads };
+    var error_mutex: Io.Mutex = .init;
+    var error_count: usize = 0;
 
-        var error_mutex = Mutex{};
-        var error_list = std.ArrayList([]const u8){};
-        defer {
-            for (error_list.items) |err_msg| {
-                allocator.free(err_msg);
-            }
-            error_list.deinit(allocator);
-        }
-
-        for (audio_files, 0..) |audio_file, i| {
-            const exclude = if (filter_identity)
-                try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier)
-            else
-                @as(u32, 0);
-            const task = AudioProcessTask{
-                .allocator = allocator,
-                .audio_file = audio_file,
-                .config = config,
-                .index = i,
-                .total = audio_files.len,
-                .action = action,
-                .exclude_identifier = exclude,
-                .output_format = output_format,
-                .store_format = store_format,
-                .error_mutex = &error_mutex,
-                .error_list = &error_list,
+    const Runner = struct {
+        fn run(
+            r_io: Io,
+            alloc: std.mem.Allocator,
+            audio_file: olaf_cli_util.AudioFileWithId,
+            cfg: *const olaf_cli_config.Config,
+            index: usize,
+            total: usize,
+            act: ProcessAction,
+            exclude: u32,
+            out_fmt: olaf_cli_bridge.OutputFormat,
+            store_fmt: olaf_cli_bridge.StoreFormat,
+            s: *Io.Semaphore,
+            m: *Io.Mutex,
+            count: *usize,
+        ) void {
+            s.waitUncancelable(r_io);
+            defer s.post(r_io);
+            processAudioFile(r_io, alloc, audio_file, cfg, index, total, act, exclude, out_fmt, store_fmt) catch |err| {
+                m.lockUncancelable(r_io);
+                defer m.unlock(r_io);
+                count.* += 1;
+                std.log.err("Failed to process {s}: {}", .{ audio_file.path, err });
             };
-
-            pool.spawnWg(&wait_group, processAudioFileThreaded, .{task});
         }
+    };
 
-        pool.waitAndWork(&wait_group);
+    var group: Io.Group = .init;
+    for (audio_files, 0..) |audio_file, i| {
+        const exclude = if (filter_identity)
+            try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier)
+        else
+            @as(u32, 0);
+        group.async(io, Runner.run, .{ io, allocator, audio_file, config, i, audio_files.len, action, exclude, output_format, store_format, &sem, &error_mutex, &error_count });
+    }
+    group.await(io) catch {};
 
-        if (error_list.items.len > 0) {
-            return error.ProcessingFailed;
-        }
+    if (error_count > 0) {
+        return error.ProcessingFailed;
     }
 }
 
 /// Run `worker(ctx, item, index, total, allocator)` over every item. When
 /// `num_threads <= 1` items run serially and the first worker error propagates
-/// immediately. Otherwise items run on a thread pool; worker errors are caught,
-/// logged, and counted, and the count is returned (0 = all succeeded). Callers
-/// map a non-zero count to their own error and optional summary line.
+/// immediately. Otherwise items run concurrently (bounded to `num_threads`);
+/// worker errors are caught, logged, and counted, and the count is returned
+/// (0 = all succeeded). Callers map a non-zero count to their own error and
+/// optional summary line.
 ///
 /// The worker owns its own output synchronization. Serial execution is
 /// single-threaded so no locking is needed; the same worker body is safe there
@@ -195,6 +156,7 @@ pub fn executeParallel(
 pub fn forEachParallel(
     comptime Item: type,
     comptime Ctx: type,
+    io: Io,
     allocator: std.mem.Allocator,
     items: []const Item,
     num_threads: u32,
@@ -210,40 +172,38 @@ pub fn forEachParallel(
         return 0;
     }
 
-    var pool: Thread.Pool = undefined;
-    try pool.init(.{ .allocator = allocator, .n_jobs = actual_threads });
-    defer pool.deinit();
-
-    var wait_group: WaitGroup = undefined;
-    wait_group.reset();
-
-    var error_mutex = Mutex{};
+    var sem: Io.Semaphore = .{ .permits = actual_threads };
+    var error_mutex: Io.Mutex = .init;
     var error_count: usize = 0;
 
     const Runner = struct {
         fn run(
+            r_io: Io,
             c: Ctx,
             item: Item,
             index: usize,
             total: usize,
             alloc: std.mem.Allocator,
-            mutex: *Mutex,
+            s: *Io.Semaphore,
+            m: *Io.Mutex,
             count: *usize,
         ) void {
+            s.waitUncancelable(r_io);
+            defer s.post(r_io);
             worker(c, item, index, total, alloc) catch |err| {
-                mutex.lock();
-                defer mutex.unlock();
+                m.lockUncancelable(r_io);
+                defer m.unlock(r_io);
                 count.* += 1;
                 std.log.err("Worker failed on item {d}/{d}: {}", .{ index + 1, total, err });
             };
         }
     };
 
+    var group: Io.Group = .init;
     for (items, 0..) |item, i| {
-        pool.spawnWg(&wait_group, Runner.run, .{ ctx, item, i, items.len, allocator, &error_mutex, &error_count });
+        group.async(io, Runner.run, .{ io, ctx, item, i, items.len, allocator, &sem, &error_mutex, &error_count });
     }
-
-    pool.waitAndWork(&wait_group);
+    group.await(io) catch {};
     return error_count;
 }
 
@@ -253,8 +213,9 @@ pub fn forEachParallel(
 /// commands differ only in the convert fn and how they name the output, so
 /// they compute `col1`/`col2`/`output_path` themselves and share this kernel.
 pub fn transcodeAndReport(
+    io: Io,
     allocator: std.mem.Allocator,
-    convert: *const fn (std.mem.Allocator, []const u8, []const u8, u32) anyerror!void,
+    convert: *const fn (std.mem.Allocator, Io, []const u8, []const u8, u32) anyerror!void,
     input_path: []const u8,
     output_path: []const u8,
     sample_rate: u32,
@@ -262,22 +223,23 @@ pub fn transcodeAndReport(
     total: usize,
     col1: []const u8,
     col2: []const u8,
-    output_mutex: *Mutex,
+    output_mutex: *Io.Mutex,
 ) !void {
-    if (fs.cwd().statFile(output_path)) |_| {
+    if (Io.Dir.cwd().statFile(io, output_path, .{})) |_| {
         debug("Output already exists: {s}, skipping", .{output_path});
     } else |_| {
-        try convert(allocator, input_path, output_path, sample_rate);
+        try convert(allocator, io, input_path, output_path, sample_rate);
     }
 
     // Uncontended no-op when single-threaded.
-    output_mutex.lock();
-    defer output_mutex.unlock();
+    output_mutex.lockUncancelable(io);
+    defer output_mutex.unlock(io);
     olaf_cli_util.print("{d}/{d},{s},{s}\n", .{ index + 1, total, col1, col2 });
 }
 
 /// Process a single fragment of an audio file
 fn processAudioFragment(
+    io: Io,
     allocator: std.mem.Allocator,
     audio_file_with_id: olaf_cli_util.AudioFileWithId,
     config: *const olaf_cli_config.Config,
@@ -292,9 +254,9 @@ fn processAudioFragment(
 ) !void {
     debug("Processing fragment at {d}s for {d}s from {s}", .{ fragment_start, fragment_duration, audio_file_with_id.path });
 
-    const raw_audio_path = try createTempRawPath(allocator);
+    const raw_audio_path = try createTempRawPath(io, allocator);
     defer allocator.free(raw_audio_path);
-    defer fs.cwd().deleteFile(raw_audio_path) catch {};
+    defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch {};
 
     // Convert the fragment to raw audio
     const options = olaf_cli_util_audio.AudioOptions{
@@ -308,6 +270,7 @@ fn processAudioFragment(
 
     try olaf_cli_util_audio.convertAudioWithOptions(
         allocator,
+        io,
         audio_file_with_id.path,
         raw_audio_path,
         options,
@@ -328,8 +291,11 @@ fn processAudioFragment(
     }
 }
 
-/// Execute fragmented audio processing in parallel
+/// Execute fragmented audio processing. Currently single-threaded; io is
+/// threaded through so it compiles on 0.16. Parallelizing fragment processing
+/// is a deliberate follow-up.
 pub fn executeFragmentedParallel(
+    io: Io,
     allocator: std.mem.Allocator,
     audio_files: []const olaf_cli_util.AudioFileWithId,
     config: *const olaf_cli_config.Config,
@@ -347,7 +313,7 @@ pub fn executeFragmentedParallel(
 
     for (audio_files, 0..) |audio_file, file_index| {
         // Get the total duration of the audio file
-        const total_duration = try olaf_cli_util_audio.getAudioDuration(allocator, audio_file.path);
+        const total_duration = try olaf_cli_util_audio.getAudioDuration(allocator, io, audio_file.path);
 
         // Reference fingerprints are stored under the un-suffixed file
         // identifier, so the self-id is the hash of audio_file.identifier
@@ -364,8 +330,9 @@ pub fn executeFragmentedParallel(
             const remaining = total_duration - fragment_start;
             const current_duration = @min(@as(f32, @floatFromInt(fragment_duration)), remaining);
 
-            // TODO: Implement parallel fragment processing with thread pool
+            // TODO: Implement parallel fragment processing
             try processAudioFragment(
+                io,
                 allocator,
                 audio_file,
                 config,

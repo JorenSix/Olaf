@@ -6,7 +6,7 @@ const olaf_cli_bridge = @import("../olaf_cli_bridge.zig");
 const types = @import("../olaf_cli_types.zig");
 
 const debug = std.log.scoped(.olaf_cli_store_cached).debug;
-const fs = std.fs;
+const Io = std.Io;
 
 pub const CommandInfo = struct {
     pub const name = "store_cached";
@@ -17,8 +17,8 @@ pub const CommandInfo = struct {
 
 const print = olaf_cli_util.print;
 
-fn readMetaPath(allocator: std.mem.Allocator, meta_file_path: []const u8) !?[]u8 {
-    const content = try fs.cwd().readFileAlloc(allocator, meta_file_path, 64 * 1024);
+fn readMetaPath(io: Io, allocator: std.mem.Allocator, meta_file_path: []const u8) !?[]u8 {
+    const content = try Io.Dir.cwd().readFileAlloc(io, meta_file_path, allocator, .limited(64 * 1024));
     defer allocator.free(content);
 
     var lines = std.mem.tokenizeAny(u8, content, "\r\n");
@@ -34,26 +34,27 @@ fn readMetaPath(allocator: std.mem.Allocator, meta_file_path: []const u8) !?[]u8
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     const config = args.config.?;
+    const io = args.io;
 
     // Expand cache folder path
-    const cache_folder_expanded = try olaf_cli_util.expandPath(allocator, config.cache_folder);
+    const cache_folder_expanded = try olaf_cli_util.expandPath(allocator, config.home, config.cache_folder);
     defer allocator.free(cache_folder_expanded);
 
     // Process all .tdb files in cache folder
-    var cache_dir = fs.cwd().openDir(cache_folder_expanded, .{ .iterate = true }) catch |err| {
+    var cache_dir = Io.Dir.cwd().openDir(io, cache_folder_expanded, .{ .iterate = true }) catch |err| {
         if (err == error.FileNotFound) {
             print("Cache folder does not exist: {s}\n", .{cache_folder_expanded});
             return;
         }
         return err;
     };
-    defer cache_dir.close();
+    defer cache_dir.close(io);
 
     // Count files first
     var file_count: usize = 0;
     {
         var iter = cache_dir.iterate();
-        while (try iter.next()) |entry| {
+        while (try iter.next(io)) |entry| {
             if (entry.kind == .file and std.mem.endsWith(u8, entry.name, ".tdb")) {
                 file_count += 1;
             }
@@ -70,7 +71,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     // Process each cache file
     var current_index: usize = 0;
     var iter = cache_dir.iterate();
-    while (try iter.next()) |entry| {
+    while (try iter.next(io)) |entry| {
         if (entry.kind != .file or !std.mem.endsWith(u8, entry.name, ".tdb")) continue;
 
         const cache_file_path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ cache_folder_expanded, entry.name });
@@ -88,7 +89,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         const meta_file_path = try std.fmt.allocPrint(allocator, "{s}/{s}.meta", .{ cache_folder_expanded, meta_basename });
         defer allocator.free(meta_file_path);
 
-        const audio_filename = readMetaPath(allocator, meta_file_path) catch |err| {
+        const audio_filename = readMetaPath(io, allocator, meta_file_path) catch |err| {
             print("{d}/{d}, WARNING: {s} could not be read ({}): skipping\n", .{ index, total, meta_file_path, err });
             continue;
         };

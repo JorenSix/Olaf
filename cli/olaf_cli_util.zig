@@ -1,25 +1,35 @@
 const std = @import("std");
 const fs = std.fs;
+const Io = std.Io;
 
 const debug = std.log.scoped(.olaf_cli).debug;
 const l_err = std.log.scoped(.olaf_cli).err;
 
 const epoch = std.time.epoch;
 
+/// Io used for fire-and-forget CLI output (the `print` helper). Concurrent work
+/// threads `init.io` explicitly; stdout writes here are serialized by callers
+/// (per-command output mutex) and errors are swallowed, so the global
+/// single-threaded Io is sufficient and lets `print` stay io-free at call sites.
+pub fn defaultIo() Io {
+    return std.Io.Threaded.global_single_threaded.io();
+}
+
 /// Print formatted text to stdout, flushing immediately. Errors are swallowed,
 /// matching the fire-and-forget CLI output behavior used across commands.
 pub fn print(comptime fmt: []const u8, args: anytype) void {
+    const io = defaultIo();
     var stdout_buffer: [4096]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
+    var stdout_writer = Io.File.stdout().writer(io, &stdout_buffer);
     const stdout = &stdout_writer.interface;
     _ = stdout.print(fmt, args) catch {};
     _ = stdout.flush() catch {};
 }
 
 /// Returns the modification date (year, month, day) of a file at `path`.
-pub fn getFileModificationDate(path: []const u8) !struct { year: i64, month: u32, day: u32 } {
-    const stat = try fs.cwd().statFile(path);
-    const mtime_ns = @as(u64, @intCast(stat.mtime));
+pub fn getFileModificationDate(io: Io, path: []const u8) !struct { year: i64, month: u32, day: u32 } {
+    const stat = try Io.Dir.cwd().statFile(io, path, .{});
+    const mtime_ns = @as(u64, @intCast(stat.mtime.nanoseconds));
 
     // Convert nanoseconds to seconds
     const mtime_s = @divTrunc(mtime_ns, std.time.ns_per_s);
@@ -38,10 +48,10 @@ pub fn getFileModificationDate(path: []const u8) !struct { year: i64, month: u32
 }
 
 /// Returns the total size (in MB) of all files in the directory at `path` (recursively).
-pub fn folderSize(path: []const u8) !f64 {
+pub fn folderSize(io: Io, path: []const u8) !f64 {
     var total_size: u64 = 0;
-    var dir = try fs.cwd().openDir(path, .{ .iterate = true });
-    defer dir.close();
+    var dir = try Io.Dir.cwd().openDir(io, path, .{ .iterate = true });
+    defer dir.close(io);
 
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
@@ -50,24 +60,25 @@ pub fn folderSize(path: []const u8) !f64 {
     var walker = try dir.walk(allocator);
     defer walker.deinit();
 
-    while (try walker.next()) |entry| {
+    while (try walker.next(io)) |entry| {
         if (entry.kind == .file) {
             const file_path = try fs.path.join(allocator, &.{ path, entry.path });
-            const stat = try fs.cwd().statFile(file_path);
+            const stat = try Io.Dir.cwd().statFile(io, file_path, .{});
             total_size += stat.size;
         }
     }
     return @as(f64, @floatFromInt(total_size)) / (1024.0 * 1024.0);
 }
-/// Expands a path, replacing '~/' with the user's home directory if present. Returns a newly allocated string.
-pub fn expandPath(allocator: std.mem.Allocator, path: []const u8) ![]u8 {
+/// Expands a path, replacing '~/' with `home` if present. Returns a newly
+/// allocated string. When `home` is null (HOME not set), the path is returned
+/// unchanged. In 0.16 the process environment is not globally accessible, so
+/// the resolved HOME is captured once in `main` and threaded in here.
+pub fn expandPath(allocator: std.mem.Allocator, home: ?[]const u8, path: []const u8) ![]u8 {
     if (std.mem.startsWith(u8, path, "~/")) {
-        const home = std.process.getEnvVarOwned(allocator, "HOME") catch |err| switch (err) {
-            error.EnvironmentVariableNotFound => return allocator.dupe(u8, path),
-            else => return err,
-        };
-        defer allocator.free(home);
-        return std.fmt.allocPrint(allocator, "{s}{s}", .{ home, path[1..] });
+        if (home) |h| {
+            return std.fmt.allocPrint(allocator, "{s}{s}", .{ h, path[1..] });
+        }
+        return allocator.dupe(u8, path);
     }
     return allocator.dupe(u8, path);
 }
@@ -85,15 +96,17 @@ pub const AudioFileWithId = struct {
 
 pub fn audioFileListWithId(
     allocator: std.mem.Allocator,
+    io: Io,
+    home: ?[]const u8,
     audio_file_path: []const u8,
     audio_file_identifier: []const u8,
     files: *std.ArrayList(AudioFileWithId),
     allowed_audio_file_extensions: []const []const u8,
 ) !void {
-    const expanded = try expandPath(allocator, audio_file_path);
+    const expanded = try expandPath(allocator, home, audio_file_path);
     defer allocator.free(expanded);
 
-    const stat = fs.cwd().statFile(expanded) catch |err| {
+    const stat = Io.Dir.cwd().statFile(io, expanded, .{}) catch |err| {
         l_err("Could not find: {s}\n", .{expanded});
         return err;
     };
@@ -142,29 +155,31 @@ pub fn isAudioFile(path: []const u8, allowed_audio_file_extensions: []const []co
 /// When no explicit identifier is provided, the full path is used as the identifier.
 pub fn audioFileList(
     allocator: std.mem.Allocator,
+    io: Io,
+    home: ?[]const u8,
     arg: []const u8,
     files: *std.ArrayList(AudioFileWithId),
     allowed_audio_file_extensions: []const []const u8,
 ) !void {
-    const expanded = try expandPath(allocator, arg);
+    const expanded = try expandPath(allocator, home, arg);
     defer allocator.free(expanded);
 
-    const stat = fs.cwd().statFile(expanded) catch |err| {
+    const stat = Io.Dir.cwd().statFile(io, expanded, .{}) catch |err| {
         l_err("Could not find: {s}\n", .{expanded});
         return err;
     };
 
     switch (stat.kind) {
         .directory => {
-            var dir = try fs.cwd().openDir(expanded, .{ .iterate = true });
-            defer dir.close();
+            var dir = try Io.Dir.cwd().openDir(io, expanded, .{ .iterate = true });
+            defer dir.close(io);
 
             debug("Walking directory: {s}", .{expanded});
 
             var walker = try dir.walk(allocator);
             defer walker.deinit();
 
-            while (try walker.next()) |entry| {
+            while (try walker.next(io)) |entry| {
                 if (entry.kind == .file and !std.mem.startsWith(u8, entry.basename, ".")) {
                     if (isAudioFile(entry.path, allowed_audio_file_extensions)) {
                         const full_path = try fs.path.join(allocator, &.{ expanded, entry.path });
@@ -181,14 +196,14 @@ pub fn audioFileList(
         },
         .file => {
             if (std.mem.endsWith(u8, expanded, ".txt")) {
-                const content = try fs.cwd().readFileAlloc(allocator, expanded, 1024 * 1024 * 10);
+                const content = try Io.Dir.cwd().readFileAlloc(io, expanded, allocator, .limited(1024 * 1024 * 10));
                 defer allocator.free(content);
 
                 var it = std.mem.tokenizeAny(u8, content, "\n");
                 while (it.next()) |line| {
                     const trimmed = std.mem.trim(u8, line, " \t\r\n");
                     if (trimmed.len > 0) {
-                        const audio_path = try expandPath(allocator, trimmed);
+                        const audio_path = try expandPath(allocator, home, trimmed);
 
                         const audio_file = AudioFileWithId{
                             .path = audio_path,
@@ -218,66 +233,13 @@ pub fn audioFileList(
 
 /// Runs a command given by `argv`, capturing stdout and stderr output.
 /// Returns the process termination status and output as slices.
-pub fn runCommand(allocator: std.mem.Allocator, argv: []const []const u8) !struct {
-    term: std.process.Child.Term,
-    stdout: []u8,
-    stderr: []u8,
-} {
-    var child = std.process.Child.init(argv, allocator);
-    child.stdout_behavior = .Pipe;
-    child.stderr_behavior = .Pipe;
-
-    const cmd_str = try std.mem.join(allocator, " ", argv);
-    defer allocator.free(cmd_str);
-    debug("Running command: {s}", .{cmd_str});
-
-    try child.spawn();
-
-    // Use ArrayList to collect output as it streams in
-    var stdout_list = std.ArrayList(u8){};
-    defer stdout_list.deinit(allocator);
-    var stderr_list = std.ArrayList(u8){};
-    defer stderr_list.deinit(allocator);
-
-    var stdout_buf: [4096]u8 = undefined;
-    var stderr_buf: [4096]u8 = undefined;
-
-    var stdout_reader_buf: [4096]u8 = undefined;
-    var stderr_reader_buf: [4096]u8 = undefined;
-
-    var stdout_reader = child.stdout.?.reader(&stdout_reader_buf);
-    var stderr_reader = child.stderr.?.reader(&stderr_reader_buf);
-
-    // Read both streams until EOF
-    var stdout_done = false;
-    var stderr_done = false;
-    while (!stdout_done or !stderr_done) {
-        if (!stdout_done) {
-            const n = stdout_reader.read(&stdout_buf) catch |err| return err;
-            if (n == 0) {
-                stdout_done = true;
-            } else {
-                //print the output to stdout
-                debug("{s}", .{stdout_buf[0..n]}); // Uncomment to print stdout in real-time
-                try stdout_list.appendSlice(allocator, stdout_buf[0..n]);
-            }
-        }
-        if (!stderr_done) {
-            const n = stderr_reader.read(&stderr_buf) catch |err| return err;
-            if (n == 0) {
-                stderr_done = true;
-            } else {
-                debug("{s}", .{stderr_buf[0..n]}); // Uncomment to print stdout in real-time
-                try stderr_list.appendSlice(allocator, stderr_buf[0..n]);
-            }
-        }
+/// Caller owns the returned stdout/stderr memory.
+pub fn runCommand(allocator: std.mem.Allocator, io: Io, argv: []const []const u8) !std.process.RunResult {
+    if (@import("builtin").mode == .Debug) {
+        const cmd_str = try std.mem.join(allocator, " ", argv);
+        defer allocator.free(cmd_str);
+        debug("Running command: {s}", .{cmd_str});
     }
 
-    const term = try child.wait();
-
-    return .{
-        .term = term,
-        .stdout = try stdout_list.toOwnedSlice(allocator),
-        .stderr = try stderr_list.toOwnedSlice(allocator),
-    };
+    return std.process.run(allocator, io, .{ .argv = argv });
 }
