@@ -36,7 +36,7 @@ jobs:
         token: "${{ secrets.GITHUB_TOKEN }}"
     - uses: mlugg/setup-zig@v2
       with:
-        version: 0.15.2
+        version: 0.16.0
     #run the build and tests
     - run: make
     - run: make install
