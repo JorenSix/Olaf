@@ -26,6 +26,7 @@ docs/api/*
 
 wasm/js/olaf_processor.js
 
+zig-pkg/
 .zig-cache/
 .olaf
 
