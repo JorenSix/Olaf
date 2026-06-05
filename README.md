@@ -123,9 +123,9 @@ If you prefer docker compose the following should get you started:
 
 ```bash
 wget "https://filesamples.com/samples/audio/mp3/sample3.mp3"
-docker compose run olaf olaf store sample.mp3
-docker compose run olaf olaf query ample.mp3
-docker compose run --remove-orphans olaf olaf stats 
+docker compose run --rm olaf olaf store sample3.mp3
+docker compose run --rm olaf olaf query sample3.mp3
+docker compose run --rm olaf olaf stats
 ```
 
 ## Olaf in the browser
