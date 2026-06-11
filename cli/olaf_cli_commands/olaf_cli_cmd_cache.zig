@@ -109,7 +109,7 @@ fn cacheAudioFile(
     // Convert to raw audio
     const raw_audio_path = try olaf_cli_threading.createTempRawPath(io, allocator);
     defer allocator.free(raw_audio_path);
-    defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch {};
+    defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch |err| debug("Could not delete temp file {s}: {}", .{ raw_audio_path, err });
 
     try olaf_cli_util_audio.convertToRaw(allocator, io, audio_file.path, raw_audio_path, config.target_sample_rate);
 

@@ -5,6 +5,7 @@ const testing = std.testing;
 // You can define your own debug function or import it from another module
 const debug = std.log.scoped(.olaf_wrapper_util_audio).debug;
 const info = std.log.scoped(.olaf_wrapper_util_audio).info;
+const log_err = std.log.scoped(.olaf_wrapper_util_audio).err;
 
 /// Runs a command given by `argv`, capturing stdout and stderr output.
 /// Returns the process termination status and output as slices.
@@ -191,12 +192,14 @@ pub fn convertAudioWithOptions(
     switch (result.term) {
         .exited => |code| {
             if (code != 0) {
-                std.debug.print("ffmpeg exited with code: {d}\n", .{code});
-                std.debug.print("stderr: {s}\n", .{result.stderr});
+                log_err("ffmpeg exited with code {d} for '{s}': {s}", .{ code, input_file, result.stderr });
                 return error.FFmpegFailed;
             }
         },
-        else => return error.FFmpegFailed,
+        else => {
+            log_err("ffmpeg terminated abnormally for '{s}': {s}", .{ input_file, result.stderr });
+            return error.FFmpegFailed;
+        },
     }
 }
 

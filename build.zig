@@ -79,6 +79,9 @@ pub fn build(b: *std.Build) void {
         const test_files = [_][]const u8{
             "tests/olaf_unit_tests.zig",
             "tests/olaf_functional_tests.zig",
+            // Bridge tests (config drift cross-check) live in the cli module
+            // because tests/ files cannot import across the module root.
+            "cli/olaf_cli_bridge.zig",
         };
 
         for (test_files) |test_file| {
@@ -92,7 +95,7 @@ pub fn build(b: *std.Build) void {
 
             tests.root_module.addIncludePath(b.path("cli"));
             tests.root_module.addIncludePath(b.path("src"));
-            addCoreSources(tests, b, &cflags, true, false, false);
+            addCoreSources(tests, b, &cflags, true, false, true);
             tests.root_module.link_libc = true;
 
             const run_tests = b.addRunArtifact(tests);

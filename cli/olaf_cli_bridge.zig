@@ -689,3 +689,37 @@ pub fn olaf_has(allocator: std.mem.Allocator, audio_identifiers: []const []const
 
     return has_audio_identifier;
 }
+
+// Guards against drift between the hand-maintained defaults in
+// src/olaf_config.c and cli/olaf_cli_config.zig: run the default Zig config
+// through copy_to_c_config and compare every mapped field against the C
+// defaults. Changing a default on one side only fails this test.
+test "config defaults: olaf_cli_config.zig matches olaf_config.c" {
+    const c_default = olaf.olaf_config_default();
+    defer olaf.olaf_config_destroy(c_default);
+
+    const zig_default = olaf_cli_config.Config{};
+    const c_from_zig = olaf.olaf_config_default();
+    defer olaf.olaf_config_destroy(c_from_zig);
+    try copy_to_c_config(&zig_default, c_from_zig);
+
+    const fields = .{
+        "audioBlockSize",          "audioSampleRate", "audioStepSize",  "bytesPerAudioSample",
+        "maxEventPoints",          "eventPointThreshold", "sqrtMagnitude",
+        "filterSizeFrequency",     "halfFilterSizeFrequency", "filterSizeTime", "halfFilterSizeTime",
+        "minEventPointMagnitude",  "maxEventPointUsages", "minFrequencyBin",
+        "verbose",
+        "numberOfEPsPerFP",        "useMagnitudeInfo", "minTimeDistance", "maxTimeDistance",
+        "minFreqDistance",         "maxFreqDistance", "maxFingerprints",
+        "maxResults",              "searchRange", "minMatchCount", "minMatchTimeDiff",
+        "keepMatchesFor",          "printResultEvery", "maxDBCollisions",
+    };
+    inline for (fields) |field_name| {
+        const c_value = @field(c_default.*, field_name);
+        const zig_value = @field(c_from_zig.*, field_name);
+        std.testing.expectEqual(c_value, zig_value) catch |err| {
+            std.debug.print("config default drift in '{s}': olaf_config.c={any} olaf_cli_config.zig={any}\n", .{ field_name, c_value, zig_value });
+            return err;
+        };
+    }
+}

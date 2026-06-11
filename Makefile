@@ -199,12 +199,12 @@ zig_mac_arm:
 	zig build -Dtarget=aarch64-macos.11.0.0-none -Doptimize=ReleaseFast
 
 zig_mac_x86:
-	zig build -Dtarget=x86_64-macos-gnu -Drelease-fast
+	zig build -Dtarget=x86_64-macos-gnu -Doptimize=ReleaseFast
 
 #Compile a windows exe using Zig
 zig_win:
-	zig build -Dtarget=x86_64-windows-gnu -Drelease-fast
+	zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseFast
 
 #Compile a webassembly version, currently unused, via Zig
 zig_web:
-	zig build -Dtarget=wasm32-freestanding-musl -Drelease-fast
+	zig build -Dtarget=wasm32-wasi-musl -Doptimize=ReleaseSmall

@@ -46,6 +46,6 @@ olaf to_raw your_audio_file.mp3
 bin/olaf_mem store olaf_audio_your_audio_file.raw "arandomidentifier" > src/olaf_fp_ref_mem.h
 ```
 
-By default the `src/olaf_fp_ref_mem.h` is included in the ESP32 code. To test and debug this header file, query the `mem` version of Olaf on your computer: `bin/olaf query olaf_audio_your_audio_file.raw "arandomidentifier"`. The ESP32 version is basically the same as the `mem` version, only the audio comes from a MEMS microphone input in the ESP32 version and not from a file.
+By default the `src/olaf_fp_ref_mem.h` is included in the ESP32 code. To test and debug this header file, query the `mem` version of Olaf on your computer: `bin/olaf_mem query olaf_audio_your_audio_file.raw "arandomidentifier"`. The ESP32 version is basically the same as the `mem` version, only the audio comes from a MEMS microphone input in the ESP32 version and not from a file.
 
 Once your are sure that the `mem` version of Olaf works as expected and the INMP441 microphone is tested, the ESP32 version can be deployed on the ESP32 hardware using the Arduino IDE.

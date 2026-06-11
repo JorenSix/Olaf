@@ -64,7 +64,7 @@ To install ffmpeg on a Debian like system: `apt-get install ffmpeg`. On macOS `f
 
 ### Compilation 
 
-To compile Olaf for traditional computers, Zig is used. By default the makefile uses `gcc` set to the C11 standard. Other compilers compliant with the C11 standard work equally well. Make sure `gcc` is installed correctly or modify the Makefile for your compiler of choice. Compilation and installation:
+To compile Olaf for traditional computers, [Zig](https://ziglang.org/) is used: the default `make` target simply calls `zig build`. Make sure Zig and `ffmpeg` are installed. Compilation and installation:
 
 ```bash
 #sudo apt-get install ffmpeg
@@ -77,9 +77,11 @@ sudo make install
 
 By default, a directory named `.olaf` is created in the current user home directory. The command line script is installed to `/usr/local/olaf`, which is assumed to be on the user's path.
 
+The Makefile additionally contains `gcc` based targets (C11 standard) for special purposes: `make compile_core` builds the standalone C core binary `bin/olaf_core`, `make lib` builds the shared library used by the python wrapper, `make mem` builds the in-memory version `bin/olaf_mem` used to generate embedded fingerprint headers and `make web` builds the emscripten WebAssembly version. Note that `zig build` compiles the C core with stricter flags (`-Wextra -Werror=return-type -fPIC`) than the gcc targets (`-W -Wall -pedantic`).
+
 ### Compilation with Zig
 
-Alternatively you can build Olaf with [zig](https://ziglang.org/). Zig is a programming language which also ships with a c compiler. In this project Zig is employed as an easy to use cross-compiler.
+Zig can also be invoked directly. Zig is a programming language which also ships with a c compiler. In this project Zig is employed as an easy to use cross-compiler.
 
 A `build.zig` file is provided. Just call "zig build" to compile for your platform. On an M1 mac it gives the following:
 

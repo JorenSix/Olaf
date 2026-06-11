@@ -24,12 +24,20 @@
  * A persistent key value store backed by a B-tree (LMDB) or an 
  * in memory store. 
  * 
- * The data store is a list of fingerprint hashes (uint64_t) 
- * pointing to a value (also uint64_t) The value consists of: * 
+ * The data store is a list of fingerprint hashes (uint64_t)
+ * pointing to a value (also uint64_t) The value consists of: *
  * - The 32 least significant bits (uint32_t) are an audio identifier
  * - The next 32 bits (uint32_t) a time stamp
- * 
+ *
  * Hash collisions are possible so duplicates should be allowed.
+ *
+ * The two implementations do not provide the same guarantees. The
+ * in memory store (olaf_db_mem.c) supports only a single song, compiled
+ * in via the olaf_fp_ref_mem.h header: olaf_db_store and
+ * olaf_db_delete_meta_data are no-ops, olaf_db_store_meta_data prints
+ * header constants to stdout instead of storing, and only 16 bits of the
+ * time stamp are kept. The LMDB store (olaf_db.c) implements the full
+ * interface.
  *
  */
 

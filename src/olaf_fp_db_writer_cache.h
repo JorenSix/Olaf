@@ -82,6 +82,6 @@
 	 */
 	void olaf_fp_db_writer_cache_destroy(Olaf_FP_DB_Writer_Cache * olaf_fp_db_writer_cache);
 
-#endif //OLAF_FP_DB_WRITER_H
+#endif //OLAF_FP_DB_WRITER_CACHE_H
 	
 

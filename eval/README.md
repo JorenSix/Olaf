@@ -64,7 +64,7 @@ The script needs access to a folder with `mp3` or other audio files. It can be r
 ruby eval/olaf_memory_use.rb /User/Music
 ```
 
-The script assumes that the installed version of Olaf uses the same index as `bin/olaf_c` which is used for memory consumption.
+The script assumes that the installed version of Olaf uses the same index as `bin/olaf_core` (built with `make compile_core`) which is used for memory consumption.
 
 To measure memory use, the macOS utility `/usr/bin/time` is employed. Similar utilities are available for Linux or other systems. To use the script on your system check and adapt the `memory_use` function accordingly.
 
@@ -83,7 +83,7 @@ echo "int main(int argc, char** argv) { return 0; }" > t.c && gcc t.c && /usr/bi
 Memory use is one thing, memory leaks another. To detect memory leaks the macOS `leaks` utility can be used in the following way:
 
 ```bash
-leaks --atExit -- bin/olaf_c query dataset/raw/queries/olaf_audio_147199_115s-135s.raw 147199.mp3
+leaks --atExit -- bin/olaf_core query dataset/raw/queries/olaf_audio_147199_115s-135s.raw 147199.mp3
 ```
 
 This reports if any memory leaks are found and where these potentially originate. To detect leaks in all code paths other commands (store, delete) should be checked as well. On other systems similar utilities exist: on Linux [valgrind](https://valgrind.org/) is a possible alternative.

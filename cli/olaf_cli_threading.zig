@@ -52,7 +52,7 @@ pub fn processAudioFile(
 
     const raw_audio_path = try createTempRawPath(io, allocator);
     defer allocator.free(raw_audio_path);
-    defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch {};
+    defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch |err| debug("Could not delete temp file {s}: {}", .{ raw_audio_path, err });
 
     try olaf_cli_util_audio.convertToRaw(allocator, io, audio_file_with_id.path, raw_audio_path, config.target_sample_rate);
 
@@ -136,7 +136,7 @@ pub fn executeParallel(
             @as(u32, 0);
         group.async(io, Runner.run, .{ io, allocator, audio_file, config, i, audio_files.len, action, exclude, output_format, store_format, &sem, &error_mutex, &error_count });
     }
-    group.await(io) catch {};
+    group.await(io) catch |err| std.log.err("Waiting for worker group failed: {}", .{err});
 
     if (error_count > 0) {
         return error.ProcessingFailed;
@@ -203,7 +203,7 @@ pub fn forEachParallel(
     for (items, 0..) |item, i| {
         group.async(io, Runner.run, .{ io, ctx, item, i, items.len, allocator, &sem, &error_mutex, &error_count });
     }
-    group.await(io) catch {};
+    group.await(io) catch |err| std.log.err("Waiting for worker group failed: {}", .{err});
     return error_count;
 }
 
@@ -256,7 +256,7 @@ fn processAudioFragment(
 
     const raw_audio_path = try createTempRawPath(io, allocator);
     defer allocator.free(raw_audio_path);
-    defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch {};
+    defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch |err| debug("Could not delete temp file {s}: {}", .{ raw_audio_path, err });
 
     // Convert the fragment to raw audio
     const options = olaf_cli_util_audio.AudioOptions{
