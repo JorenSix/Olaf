@@ -1,0 +1,79 @@
+/* Shared styling for the Olaf wasm demo pages (basic.html, test.html, resample.html) */
+:root {
+	--accent: #0f766e;
+	--accent-dark: #115e59;
+	--bg: #f4f4f2;
+	--card: #ffffff;
+	--text: #1f2937;
+	--muted: #6b7280;
+	--ok: #15803d;
+	--warn: #b45309;
+	--err: #b91c1c;
+}
+* { box-sizing: border-box; }
+body {
+	margin: 0;
+	background: var(--bg);
+	color: var(--text);
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	display: flex;
+	justify-content: center;
+	padding: 3em 1em;
+}
+main {
+	background: var(--card);
+	max-width: 640px;
+	width: 100%;
+	border-radius: 12px;
+	box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+	padding: 2em;
+}
+h1 { margin: 0 0 0.3em; font-size: 1.4em; }
+p.lead { margin: 0 0 1.5em; color: var(--muted); font-size: 0.95em; line-height: 1.5; }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 1em; margin-bottom: 1.5em; }
+button {
+	background: var(--accent);
+	color: #fff;
+	border: none;
+	border-radius: 8px;
+	padding: 0.7em 1.4em;
+	font-size: 1em;
+	cursor: pointer;
+}
+button:hover { background: var(--accent-dark); }
+button.secondary { background: #e5e7eb; color: var(--text); }
+button.secondary:hover { background: #d1d5db; }
+
+.badge { display: inline-flex; align-items: center; gap: 0.5em; color: var(--muted); font-size: 0.95em; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #9ca3af; }
+.badge.listening .dot { background: var(--warn); animation: pulse 1.2s ease-in-out infinite; }
+.badge.match .dot { background: var(--ok); }
+.badge.match { color: var(--ok); font-weight: 600; }
+@keyframes pulse { 50% { opacity: 0.3; } }
+
+.panel {
+	display: flex;
+	gap: 2em;
+	background: #f9fafb;
+	border: 1px solid #e5e7eb;
+	border-radius: 8px;
+	padding: 1em 1.4em;
+	margin-bottom: 1.5em;
+}
+.stat .label { font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.stat .value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1.8em; margin-top: 0.1em; }
+
+.log {
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: 0.8em;
+	color: var(--muted);
+	background: #f9fafb;
+	border: 1px solid #e5e7eb;
+	border-radius: 8px;
+	height: 11em;
+	overflow-y: auto;
+	padding: 0.7em 1em;
+}
+.log .ok { color: var(--ok); }
+.log .err { color: var(--err); }

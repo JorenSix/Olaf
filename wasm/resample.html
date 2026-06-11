@@ -1,70 +1,119 @@
 <!DOCTYPE HTML>
-<html>
+<html lang="en">
 <head>
-	<title>Olaf audio fingerprinting resample test</title>
-	<style>
-		body {font-family: sans-serif;}
-	</style>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Olaf — resampler worklet test</title>
+	<link rel="stylesheet" href="olaf_demo.css">
 </head>
 <body>
+<main>
+	<h1>Resampler worklet test</h1>
+	<p class="lead">Captures the microphone and resamples it to 16&nbsp;kHz inside an
+	AudioWorklet using libsamplerate, as the fingerprinting demo does. The measured
+	resample ratio should converge to the expected ratio.</p>
 
-	<h3>Web Audio API resampling via Audio Worklet demo</h3>
-	<small>See the browser developer console for output.</small><br>
-	<br>
-	<button onclick="startOrStopAudio()">Start or stop resampling</button>
+	<div class="controls">
+		<button id="toggle">Start resampling</button>
+		<span class="badge" id="badge"><span class="dot"></span><span id="badge_text">idle</span></span>
+	</div>
 
-	<script>
-		var audioContext = null;
-		var microphoneStream = null;
+	<div class="panel">
+		<div class="stat">
+			<div class="label">Measured ratio</div>
+			<div class="value" id="measured">&ndash;</div>
+		</div>
+		<div class="stat">
+			<div class="label">Expected ratio</div>
+			<div class="value" id="expected">&ndash;</div>
+		</div>
+	</div>
 
-		function startStream(stream){
-			microphoneStream = stream;
-			audioContext = new AudioContext();
-			var microphone = audioContext.createMediaStreamSource(stream);
+	<div id="log" class="log"><div>Press &ldquo;Start resampling&rdquo; to begin.</div></div>
+</main>
 
-			console.log("Audio context sample rate: ",audioContext.sampleRate);
-			
-			audioContext.audioWorklet.addModule('js/resample_processor.js').then(() => {
+<script>
+	var audioContext = null;
+	var microphoneStream = null;
 
-				// After the resolution of module loading, an AudioWorkletNode can be
-				// constructed.
-				let resampleNode = new AudioWorkletNode(audioContext, 'resample-processor', {'numberOfOutputs': 0, 'numberOfInputs': 1
-				});
-				
-				microphone.connect(resampleNode);
+	const toggleButton = document.getElementById("toggle");
+	const badge = document.getElementById("badge");
+	const badgeText = document.getElementById("badge_text");
+	const measuredEl = document.getElementById("measured");
+	const expectedEl = document.getElementById("expected");
+	const logEl = document.getElementById("log");
 
-				resampleNode.port.onmessage = (event) => {
-				  let resampleRatio = event.data;
-				  let theoretical = 16000.0 / audioContext.sampleRate 
-				  console.log(audioContext.currentTime, "resample ratio:",resampleRatio, "expected ratio:",theoretical);
-				};
+	function log(message, cls) {
+		const line = document.createElement("div");
+		line.textContent = message;
+		if (cls) line.className = cls;
+		logEl.appendChild(line);
+		logEl.scrollTop = logEl.scrollHeight;
+	}
+
+	function setBadge(state, text) {
+		badge.className = "badge" + (state ? " " + state : "");
+		badgeText.textContent = text;
+	}
+
+	function startStream(stream) {
+		microphoneStream = stream;
+		audioContext = new AudioContext();
+		const microphone = audioContext.createMediaStreamSource(stream);
+		const theoretical = 16000.0 / audioContext.sampleRate;
+
+		log("audio context at " + audioContext.sampleRate + "Hz, expected ratio " + theoretical.toFixed(4));
+		expectedEl.textContent = theoretical.toFixed(4);
+
+		audioContext.audioWorklet.addModule("js/resample_processor.js").then(() => {
+			const resampleNode = new AudioWorkletNode(audioContext, "resample-processor",
+				{ numberOfOutputs: 0, numberOfInputs: 1 });
+
+			microphone.connect(resampleNode);
+
+			resampleNode.port.onmessage = (event) => {
+				const resampleRatio = event.data;
+				measuredEl.textContent = Number(resampleRatio).toFixed(4);
+				const close = Math.abs(resampleRatio - theoretical) < 0.001;
+				log(audioContext.currentTime.toFixed(2) + "s  measured " + Number(resampleRatio).toFixed(4) +
+					", expected " + theoretical.toFixed(4), close ? "ok" : undefined);
+			};
+
+			toggleButton.textContent = "Stop";
+			setBadge("listening", "resampling…");
+		}).catch(err => {
+			log("could not load the resample worklet: " + err, "err");
+			stopAudio();
+		});
+	}
+
+	function stopAudio() {
+		if (microphoneStream != null) {
+			microphoneStream.getTracks().forEach(track => {
+				if (track.readyState == "live") track.stop();
 			});
 		}
+		if (audioContext != null) audioContext.close();
+		microphoneStream = null;
+		audioContext = null;
+		toggleButton.textContent = "Start resampling";
+		setBadge("", "idle");
+		measuredEl.textContent = "–";
+		log("stopped");
+	}
 
-		function startOrStopAudio(){
-			if(audioContext == null){
-
-				console.log("Starting audio stream");
-
-				navigator.mediaDevices.getUserMedia({audio: true,video: false}).then(stream => {
-					startStream(stream);
-				}).catch(err => { 
-					alert("Microphone is required: " + err);
-				});
-		  }else{
-			console.log("Stopping audio stream");
-
-			microphoneStream.getTracks().forEach(track =>  {
-				if (track.readyState == 'live') {
-					track.stop();
-				}
+	toggleButton.addEventListener("click", () => {
+		if (audioContext == null) {
+			navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(stream => {
+				startStream(stream);
+			}).catch(err => {
+				log("microphone access is required: " + err, "err");
+				setBadge("", "idle");
 			});
-			audioContext.close();
-			microphoneStream = null;
-			audioContext = null;
-		  }
+		} else {
+			stopAudio();
 		}
-
-	</script>
+	});
+</script>
 </body>
 </html>

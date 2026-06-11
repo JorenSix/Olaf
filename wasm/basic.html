@@ -1,127 +1,155 @@
 <!DOCTYPE HTML>
-<html>
+<html lang="en">
 <head>
-	<title>Olaf audio fingerprinting WASM demo</title>
-	<style>
-		body {
-			padding-left: 0;
-			margin:0;
-			padding-right: 0;
-			font-family: sans-serif;
-		}
-	</style>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Olaf — audio fingerprinting in the browser</title>
+	<link rel="stylesheet" href="olaf_demo.css">
 </head>
 <body>
+<main>
+	<h1>Olaf — audio fingerprinting in the browser</h1>
+	<p class="lead">Olaf listens to your microphone and matches what it hears, in real time,
+	against a fingerprint index compiled into WebAssembly. Play the reference track out loud
+	and the estimated playback position appears below.</p>
 
-	<button onclick="startOrStopAudio()">Start or stop audio</button>
+	<div class="controls">
+		<button id="toggle">Start listening</button>
+		<span class="badge" id="badge"><span class="dot"></span><span id="badge_text">idle</span></span>
+	</div>
 
-	<label  style="margin-top:1em;display: block;font-size: 100%">Match found: <input disabled type="checkbox" id="match_found"></input>&nbsp;&nbsp;Estimated reference time (s): <span style="font-family: monospace;" id="time">0.00</span></label>
-	
-	<textarea id="console_out" readonly style="margin-top:1em;display: block;width:98%;padding:0;height:10em;font-family: monospace;">Press the start button to begin audio fingerprinting.</textarea>
+	<div class="panel">
+		<div class="stat">
+			<div class="label">Estimated position in reference</div>
+			<div class="value"><span id="time">0.00</span>s</div>
+		</div>
+		<div class="stat">
+			<div class="label">Match strength</div>
+			<div class="value" id="count">&ndash;</div>
+		</div>
+	</div>
 
-	<script>
-		var audioContext = null;
-		var microphoneStream = null;
+	<div id="log" class="log"><div>Press &ldquo;Start listening&rdquo; to begin audio fingerprinting.</div></div>
+</main>
 
-		const found_checkbox = document.getElementById("match_found");
-		const time = document.getElementById("time");
-		var textarea = document.getElementById('console_out');
+<script>
+	var audioContext = null;
+	var microphoneStream = null;
+	var reference_query_time_delta = 0;
 
-		var reference_query_time_delta = 0;
+	const toggleButton = document.getElementById("toggle");
+	const badge = document.getElementById("badge");
+	const badgeText = document.getElementById("badge_text");
+	const timeEl = document.getElementById("time");
+	const countEl = document.getElementById("count");
+	const logEl = document.getElementById("log");
 
-		function updateMatch(match_info){
-			let found_match = match_info['query_time_start'];
-			let match_time = match_info['time'];
+	function log(message, cls) {
+		const line = document.createElement("div");
+		line.textContent = message;
+		if (cls) line.className = cls;
+		logEl.appendChild(line);
+		logEl.scrollTop = logEl.scrollHeight;
+	}
 
-			//report match or no match
-			if(found_match){
-				reference_query_time_delta = match_info['reference_time_start'] - match_info['query_time_start'];
-				let estimated_playing_time = audioContext.currentTime + reference_query_time_delta;
-				textarea.value +=  (match_time).toFixed(2)+ ": match found! Match count " + match_info['match_count'] + ", reference time: " +  (estimated_playing_time).toFixed(2) + "\n";
-				console.log(match_info);
-			}else{
-				reference_query_time_delta = 0;
-				textarea.value += (match_time).toFixed(2) + ": no match found \n";
-			}
-			textarea.scrollTop = textarea.scrollHeight;
+	function setBadge(state, text) {
+		badge.className = "badge" + (state ? " " + state : "");
+		badgeText.textContent = text;
+	}
 
+	function updateMatch(match_info) {
+		const found_match = match_info["query_time_start"];
+		const match_time = match_info["time"];
 
-			//state flipped from not matching to matching state
-			if(found_match && !found_checkbox.checked){
-				found_checkbox.checked = true;
-				showEstimatedTime();
-			}
-
-			//state flipped from matching to not matching state
-			if(!found_match && found_checkbox.checked){
-				found_checkbox.checked = false;
-				time.innerText = 0.0.toFixed(2);
-			}
-
+		if (found_match) {
+			reference_query_time_delta = match_info["reference_time_start"] - match_info["query_time_start"];
+			const estimated_playing_time = audioContext.currentTime + reference_query_time_delta;
+			countEl.textContent = match_info["match_count"];
+			log(match_time.toFixed(2) + "s  match! count " + match_info["match_count"] +
+				", reference time " + estimated_playing_time.toFixed(2) + "s", "ok");
+		} else {
+			reference_query_time_delta = 0;
+			countEl.textContent = "–";
+			log(match_time.toFixed(2) + "s  no match");
 		}
 
-		function showEstimatedTime(){
-			if(reference_query_time_delta != 0){
-				let estimated_playing_time = audioContext.currentTime + reference_query_time_delta;
-				time.innerText = (estimated_playing_time).toFixed(2);
-				requestAnimationFrame(showEstimatedTime);
-			}
+		// state flipped from not matching to matching
+		if (found_match && !badge.classList.contains("match")) {
+			setBadge("match", "match found");
+			showEstimatedTime();
 		}
+		// state flipped from matching to not matching
+		if (!found_match && badge.classList.contains("match")) {
+			setBadge("listening", "listening…");
+			timeEl.textContent = (0).toFixed(2);
+		}
+	}
 
+	function showEstimatedTime() {
+		if (reference_query_time_delta != 0 && audioContext != null) {
+			const estimated_playing_time = audioContext.currentTime + reference_query_time_delta;
+			timeEl.textContent = estimated_playing_time.toFixed(2);
+			requestAnimationFrame(showEstimatedTime);
+		}
+	}
 
-		var audioContext = null;
-		var microphoneStream = null;
-
-			
-		function startOrStopAudio(){
-		  if(audioContext == null){
-
-			console.log("Starting audio stream");
-			navigator.mediaDevices.getUserMedia({audio:  {sampleRate: 16000 },video: false}).then(stream => {
-
-				microphoneStream = stream;
-					audioContext = new AudioContext();
-					var microphone = audioContext.createMediaStreamSource(stream);
-
-				console.log("Audio context sample rate, requested 16kHz, got: ",audioContext.sampleRate);
-
-				audioContext.audioWorklet.addModule('js/olaf_processor.js').then(() => {
-
-					// After the resolution of module loading, an AudioWorkletNode can be
-					// constructed.
-					let olafWorkletNode = new AudioWorkletNode(audioContext, 'olaf-processor', {'numberOfOutputs': 0, 'numberOfInputs': 1
-					});
-					
-					microphone.connect(olafWorkletNode);
-
-					olafWorkletNode.port.onmessage = (event) => {
-					  let data = event.data;
-					  console.log(data);
-
-					  data['time'] = audioContext.currentTime; 
-					  updateMatch(data);
-					};
-				});
-				
-
-				}).catch(err => { alert("Microphone is required." + err);});
-
-		  }else{
-			console.log("Stopping audio stream");
-
+	function stopAudio() {
+		if (microphoneStream != null) {
 			microphoneStream.getTracks().forEach(function(track) {
-				if (track.readyState == 'live') {
-					track.stop();
-				}
+				if (track.readyState == "live") track.stop();
 			});
-
-			audioContext.close();
-			microphoneStream = null;
-			audioContext = null;
-			audioBlockIndex=0;
-		  }
 		}
+		if (audioContext != null) audioContext.close();
+		microphoneStream = null;
+		audioContext = null;
+		reference_query_time_delta = 0;
+		toggleButton.textContent = "Start listening";
+		setBadge("", "idle");
+		timeEl.textContent = (0).toFixed(2);
+		countEl.textContent = "–";
+		log("stopped");
+	}
 
-	</script>
+	function startAudio() {
+		navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000 }, video: false }).then(stream => {
+			microphoneStream = stream;
+			audioContext = new AudioContext();
+			const microphone = audioContext.createMediaStreamSource(stream);
+
+			log("audio context at " + audioContext.sampleRate + "Hz (requested 16kHz)");
+
+			audioContext.audioWorklet.addModule("js/olaf_processor.js").then(() => {
+				const olafWorkletNode = new AudioWorkletNode(audioContext, "olaf-processor",
+					{ numberOfOutputs: 0, numberOfInputs: 1 });
+
+				microphone.connect(olafWorkletNode);
+
+				olafWorkletNode.port.onmessage = (event) => {
+					const data = event.data;
+					if (data.type === "status") {
+						log("[worklet] " + (data.error || data.message), data.error ? "err" : undefined);
+						return;
+					}
+					data["time"] = audioContext.currentTime;
+					updateMatch(data);
+				};
+
+				toggleButton.textContent = "Stop";
+				setBadge("listening", "listening…");
+			}).catch(err => {
+				log("could not load the fingerprint worklet: " + err, "err");
+				stopAudio();
+			});
+		}).catch(err => {
+			log("microphone access is required: " + err, "err");
+			setBadge("", "idle");
+		});
+	}
+
+	toggleButton.addEventListener("click", () => {
+		if (audioContext == null) startAudio();
+		else stopAudio();
+	});
+</script>
 </body>
 </html>

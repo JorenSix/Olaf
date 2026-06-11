@@ -1,133 +1,164 @@
 <!DOCTYPE HTML>
-<html>
+<html lang="en">
 <head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Olaf WASM automated test</title>
-	<style>
-		body { font-family: sans-serif; margin: 1em; }
-		#results { font-family: monospace; white-space: pre; margin-top: 1em; }
-		.ok { color: green; } .bad { color: red; }
-	</style>
+	<link rel="stylesheet" href="olaf_demo.css">
 </head>
 <body>
+<main>
 	<h1>Olaf WASM automated test</h1>
-	<p>Plays a known audio fragment through the production AudioWorklet pipeline
-	(libsamplerate resampler &rarr; wasm fingerprint matcher) instead of the microphone.</p>
+	<p class="lead">Plays a known audio fragment through the production AudioWorklet pipeline
+	(libsamplerate resampler &rarr; wasm fingerprint matcher) instead of the microphone.
+	The match test must report matches for reference 1051039; the noise control must report none.</p>
 
-	<button id="start_match">Run match test (1051039 query fragment)</button>
-	<button id="start_noise">Run noise control (expect no match)</button>
-	<div id="status">idle</div>
-	<div id="results"></div>
+	<div class="controls">
+		<button id="start_match">Run match test</button>
+		<button id="start_noise" class="secondary">Run noise control</button>
+		<span class="badge" id="badge"><span class="dot"></span><span id="status">idle</span></span>
+	</div>
 
-	<script>
-		// State the test harness (chrome devtools MCP) reads via evaluate_script.
+	<div class="panel">
+		<div class="stat">
+			<div class="label">Match reports</div>
+			<div class="value" id="match_total">&ndash;</div>
+		</div>
+		<div class="stat">
+			<div class="label">Best match strength</div>
+			<div class="value" id="best_count">&ndash;</div>
+		</div>
+	</div>
+
+	<div id="results" class="log"><div>Run a test to see results.</div></div>
+</main>
+
+<script>
+	// State the test harness (chrome devtools MCP) reads via evaluate_script.
+	window.__olaf_results = [];
+	window.__olaf_done = false;
+	window.__olaf_error = null;
+
+	const statusEl = document.getElementById("status");
+	const badge = document.getElementById("badge");
+	const resultsEl = document.getElementById("results");
+	const matchTotalEl = document.getElementById("match_total");
+	const bestCountEl = document.getElementById("best_count");
+
+	function setStatus(s, state) {
+		statusEl.textContent = s;
+		badge.className = "badge" + (state ? " " + state : "");
+	}
+	function logResult(line, cls) {
+		const div = document.createElement("div");
+		div.textContent = line;
+		if (cls) div.className = cls;
+		resultsEl.appendChild(div);
+		resultsEl.scrollTop = resultsEl.scrollHeight;
+	}
+	function updateStats() {
+		const matches = window.__olaf_results.filter((m) => m.query_time_start > 0);
+		matchTotalEl.textContent = matches.length;
+		bestCountEl.textContent = matches.length ? Math.max(...matches.map((m) => m.match_count)) : "–";
+	}
+
+	// Run `buffer` (an AudioBuffer) through the olaf-processor worklet and
+	// collect match messages until playback ends.
+	async function runThroughOlaf(buffer) {
 		window.__olaf_results = [];
 		window.__olaf_done = false;
 		window.__olaf_error = null;
+		resultsEl.replaceChildren();
+		updateStats();
 
-		const statusEl = document.getElementById("status");
-		const resultsEl = document.getElementById("results");
+		const ctx = new AudioContext();
+		await ctx.audioWorklet.addModule("js/olaf_processor.js");
 
-		function setStatus(s) { statusEl.textContent = s; }
-		function logResult(line, cls) {
-			const div = document.createElement("div");
-			div.textContent = line;
-			if (cls) div.className = cls;
-			resultsEl.appendChild(div);
-		}
+		const olafNode = new AudioWorkletNode(ctx, "olaf-processor", { numberOfOutputs: 0, numberOfInputs: 1 });
+		olafNode.onprocessorerror = (e) => {
+			const detail = e && e.message ? e.message : String(e);
+			window.__olaf_error = "processor error: " + detail;
+			logResult("PROCESSOR ERROR: " + detail, "err");
+		};
+		olafNode.port.onmessage = (event) => {
+			const data = event.data;
+			if (data.type === "status") {
+				logResult(ctx.currentTime.toFixed(2) + "s  [worklet] " + (data.error || data.message), data.error ? "err" : undefined);
+				if (data.error) window.__olaf_error = data.error;
+				return;
+			}
+			data.time = ctx.currentTime;
+			window.__olaf_results.push(data);
+			const matched = data.query_time_start > 0;
+			logResult(
+				ctx.currentTime.toFixed(2) + "s  " +
+				(matched
+					? "MATCH id=" + data.match_id + " count=" + data.match_count +
+					  " ref=" + data.reference_time_start.toFixed(2) + "-" + data.reference_time_stop.toFixed(2) + "s"
+					: "no match"),
+				matched ? "ok" : undefined);
+			updateStats();
+		};
 
-		// Run `buffer` (an AudioBuffer) through the olaf-processor worklet and
-		// collect match messages until playback ends.
-		async function runThroughOlaf(buffer) {
-			window.__olaf_results = [];
-			window.__olaf_done = false;
-			window.__olaf_error = null;
+		const source = ctx.createBufferSource();
+		source.buffer = buffer;
+		source.connect(olafNode);
 
+		await new Promise((resolve) => {
+			source.onended = resolve;
+			source.start();
+			setStatus("playing " + buffer.duration.toFixed(1) + "s of audio…", "listening");
+		});
+
+		// Give the worklet a moment to flush the last blocks.
+		await new Promise((r) => setTimeout(r, 500));
+		await ctx.close();
+		window.__olaf_done = true;
+		const matches = window.__olaf_results.filter((m) => m.query_time_start > 0);
+		setStatus("done: " + window.__olaf_results.length + " reports, " + matches.length + " matches",
+			matches.length ? "match" : "");
+		logResult("== finished: " + matches.length + " match report(s) ==", matches.length ? "ok" : undefined);
+	}
+
+	document.getElementById("start_match").addEventListener("click", async () => {
+		try {
+			setStatus("fetching audio…", "listening");
+			const resp = await fetch("/dataset/queries/1051039_34s-54s.mp3");
+			if (!resp.ok) throw new Error("fetch failed: " + resp.status);
+			const encoded = await resp.arrayBuffer();
 			const ctx = new AudioContext();
-			await ctx.audioWorklet.addModule("js/olaf_processor.js");
-
-			const olafNode = new AudioWorkletNode(ctx, "olaf-processor", { numberOfOutputs: 0, numberOfInputs: 1 });
-			olafNode.onprocessorerror = (e) => {
-				const detail = e && e.message ? e.message : String(e);
-				window.__olaf_error = "processor error: " + detail;
-				logResult("PROCESSOR ERROR: " + detail, "bad");
-			};
-			olafNode.port.onmessage = (event) => {
-				const data = event.data;
-				if (data.type === "status") {
-					logResult(ctx.currentTime.toFixed(2) + "s  [worklet] " + (data.error || data.message), data.error ? "bad" : undefined);
-					if (data.error) window.__olaf_error = data.error;
-					return;
-				}
-				data.time = ctx.currentTime;
-				window.__olaf_results.push(data);
-				const matched = data.query_time_start > 0;
-				logResult(
-					ctx.currentTime.toFixed(2) + "s  " +
-					(matched
-						? "MATCH id=" + data.match_id + " count=" + data.match_count +
-						  " ref=" + data.reference_time_start.toFixed(2) + "-" + data.reference_time_stop.toFixed(2) + "s"
-						: "no match"),
-					matched ? "ok" : undefined);
-			};
-
-			const source = ctx.createBufferSource();
-			source.buffer = buffer;
-			source.connect(olafNode);
-
-			await new Promise((resolve) => {
-				source.onended = resolve;
-				source.start();
-				setStatus("playing " + buffer.duration.toFixed(1) + "s of audio through the matcher...");
-			});
-
-			// Give the worklet a moment to flush the last blocks.
-			await new Promise((r) => setTimeout(r, 500));
+			const buffer = await ctx.decodeAudioData(encoded);
 			await ctx.close();
+			await runThroughOlaf(buffer);
+		} catch (e) {
+			window.__olaf_error = String(e);
 			window.__olaf_done = true;
-			const matches = window.__olaf_results.filter((m) => m.query_time_start > 0);
-			setStatus("done: " + window.__olaf_results.length + " reports, " + matches.length + " matches");
-			logResult("== finished: " + matches.length + " match report(s) ==", matches.length ? "ok" : undefined);
+			setStatus("ERROR: " + e);
+			logResult("ERROR: " + e, "err");
 		}
+	});
 
-		document.getElementById("start_match").addEventListener("click", async () => {
-			try {
-				setStatus("fetching audio...");
-				const resp = await fetch("/dataset/queries/1051039_34s-54s.mp3");
-				if (!resp.ok) throw new Error("fetch failed: " + resp.status);
-				const encoded = await resp.arrayBuffer();
-				const ctx = new AudioContext();
-				const buffer = await ctx.decodeAudioData(encoded);
-				await ctx.close();
-				await runThroughOlaf(buffer);
-			} catch (e) {
-				window.__olaf_error = String(e);
-				window.__olaf_done = true;
-				setStatus("ERROR: " + e);
-				logResult("ERROR: " + e, "bad");
+	document.getElementById("start_noise").addEventListener("click", async () => {
+		try {
+			const ctx = new AudioContext();
+			const seconds = 10;
+			const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
+			const ch = buffer.getChannelData(0);
+			// Deterministic pseudo-noise (LCG) so runs are reproducible.
+			let s = 42;
+			for (let i = 0; i < ch.length; i++) {
+				s = (s * 1664525 + 1013904223) >>> 0;
+				ch[i] = (s / 0xFFFFFFFF) * 0.5 - 0.25;
 			}
-		});
-
-		document.getElementById("start_noise").addEventListener("click", async () => {
-			try {
-				const ctx = new AudioContext();
-				const seconds = 10;
-				const buffer = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate);
-				const ch = buffer.getChannelData(0);
-				// Deterministic pseudo-noise (LCG) so runs are reproducible.
-				let s = 42;
-				for (let i = 0; i < ch.length; i++) {
-					s = (s * 1664525 + 1013904223) >>> 0;
-					ch[i] = (s / 0xFFFFFFFF) * 0.5 - 0.25;
-				}
-				await ctx.close();
-				await runThroughOlaf(buffer);
-			} catch (e) {
-				window.__olaf_error = String(e);
-				window.__olaf_done = true;
-				setStatus("ERROR: " + e);
-				logResult("ERROR: " + e, "bad");
-			}
-		});
-	</script>
+			await ctx.close();
+			await runThroughOlaf(buffer);
+		} catch (e) {
+			window.__olaf_error = String(e);
+			window.__olaf_done = true;
+			setStatus("ERROR: " + e);
+			logResult("ERROR: " + e, "err");
+		}
+	});
+</script>
 </body>
 </html>
