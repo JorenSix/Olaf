@@ -33,7 +33,7 @@ jobs:
     - uses: FedericoCarboni/setup-ffmpeg@v3
       id: setup-ffmpeg
       with:
-        ffmpeg-version: "7.1.1"
+        ffmpeg-version: "release"
         github-token: "${{ secrets.GITHUB_TOKEN }}"
     - uses: mlugg/setup-zig@v2
       with:
