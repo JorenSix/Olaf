@@ -224,7 +224,7 @@ void olaf_db_find_meta_data(Olaf_DB * olaf_db, uint32_t * key, Olaf_Resource_Met
 	if(*key == olaf_db_mem_audio_id){
 		value->duration = (float) olaf_db_mem_audio_duration;
 		value->fingerprints = olaf_db_mem_fp_length;
-		strcpy(value->path,olaf_db_mem_audio_path);
+		snprintf(value->path,sizeof(value->path),"%s",olaf_db_mem_audio_path);
 	}
 }
 

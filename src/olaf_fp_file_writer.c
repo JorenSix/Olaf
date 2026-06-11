@@ -60,7 +60,7 @@ void olaf_fp_file_writer_destroy(Olaf_FP_File_Writer * file_writer, Olaf_Resourc
 	fprintf(fp_meta_file, "duration=%.3f\n", meta_data->duration);
 	fprintf(fp_meta_file, "fingerprints=%ld\n", meta_data->fingerprints);
 
-	if(fp_meta_file != NULL && file_writer->output_file !=stdout) {
+	if(fp_meta_file != NULL && fp_meta_file !=stdout) {
 		fclose(fp_meta_file);
 	}
 	

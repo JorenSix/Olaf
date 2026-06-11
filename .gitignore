@@ -17,6 +17,8 @@ dataset/
 
 olaf_cffi*
 
+.serena
+
 *.theia*
 *debug.cfg
 *debug_custom.json

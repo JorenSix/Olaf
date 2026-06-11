@@ -55,6 +55,8 @@ void olaf_query_json(Olaf_Config* config, size_t q_index, size_t q_total, const 
 void olaf_delete(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
 
 // Print fingerprints to a specified file
+// Takes ownership of fp_cache_file and fp_meta_file: both are closed before
+// returning (also on failure to open the raw audio), unless they are stdout.
 void olaf_print_to_file(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier,FILE * fp_cache_file, FILE * fp_meta_file);
 
 // Print fingerprints to stdout (for caching)

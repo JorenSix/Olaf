@@ -182,7 +182,7 @@ void olaf_db_store_meta_data(Olaf_DB * olaf_db, uint32_t * key, Olaf_Resource_Me
 	mdb_key.mv_data = key;
 
 	Olaf_Resource_Meta_data r;
-	strcpy(r.path,value->path);
+	snprintf(r.path,sizeof(r.path),"%s",value->path);
 	r.duration = value->duration;
 	r.fingerprints = value->fingerprints;
 
@@ -225,7 +225,7 @@ void olaf_db_find_meta_data(Olaf_DB * olaf_db, uint32_t * key, Olaf_Resource_Met
 	if(result == 0){
 		r = *((Olaf_Resource_Meta_data *) (mdb_value.mv_data));
 
-		strcpy(value->path,r.path);
+		snprintf(value->path,sizeof(value->path),"%s",r.path);
 		value->duration=r.duration;
 		value->fingerprints = r.fingerprints;
 		//printf("For key %u, meta data: '%s'  %ld %f \n",*key ,r.path,r.fingerprints,r.duration);

@@ -26,7 +26,8 @@ const size_t olaf_max_filter_perceptual_max_idx[] = {0,0,0,0,0,0,0,0,0,16,18,19,
 void olaf_max_filter_naive(float* array, size_t array_size , size_t filter_width , float* maxvalues){
     int half_filter_width = filter_width / 2;
     for(size_t i = 0 ; i < array_size; i++){
-        size_t startIndex = i - half_filter_width > 0 ? i - half_filter_width : 0;
+        //guard against unsigned underflow when i < half_filter_width
+        size_t startIndex = i > (size_t) half_filter_width ? i - half_filter_width : 0;
         size_t stopIndex = i + half_filter_width < array_size ? i + half_filter_width + 1: array_size;
         maxvalues[i] = -100000;
         for(size_t j = startIndex ; j < stopIndex; j++){

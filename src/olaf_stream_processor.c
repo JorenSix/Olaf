@@ -210,7 +210,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		if(processor->orig_path == NULL){
 			fprintf(stderr,"Original path is NULL, please add the parameter");
 		}else{
-			strcpy(meta_data.path,processor->orig_path);
+			snprintf(meta_data.path,sizeof(meta_data.path),"%s",processor->orig_path);
 		}
 		meta_data.fingerprints = olaf_fp_extractor_total(processor->fp_extractor);
 		olaf_db_store_meta_data(processor->runner->db,&processor->audio_identifier,&meta_data);
@@ -227,7 +227,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		if(processor->orig_path == NULL){
 			fprintf(stderr,"Original path is NULL, please add the parameter");
 		}else{
-			strcpy(meta_data.path,processor->orig_path);
+			snprintf(meta_data.path,sizeof(meta_data.path),"%s",processor->orig_path);
 		}
 		meta_data.fingerprints = olaf_fp_extractor_total(processor->fp_extractor);
 		olaf_fp_file_writer_destroy(fp_file_writer,&meta_data,processor->runner->fp_meta_file);

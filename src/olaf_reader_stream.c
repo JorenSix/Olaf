@@ -87,6 +87,10 @@ size_t olaf_reader_read(Olaf_Reader *reader ,float * audio_block){
 		audio_block[i] = 0;
 	}
 	
+	if(ferror(reader->audio_file)) {
+		fprintf(stderr,"Error while reading audio file\n");
+		reader->end_of_file_reached = true;
+	}
 	if(feof(reader->audio_file)) {
 		reader->end_of_file_reached = true;
     }

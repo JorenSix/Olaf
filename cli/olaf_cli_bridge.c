@@ -551,6 +551,10 @@ void olaf_print_to_file(Olaf_Config* config, const char* raw_audio_path, const c
 	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,audio_identifier);
 	if(processor == NULL){
 		olaf_runner_destroy(runner);
+		//on the happy path the files are closed by the file writer during
+		//olaf_stream_processor_process, close them here as well
+		if(fp_meta_file != NULL && fp_meta_file != stdout && fp_meta_file != fp_cache_file) fclose(fp_meta_file);
+		if(fp_cache_file != NULL && fp_cache_file != stdout) fclose(fp_cache_file);
 		return;
 	}
 
