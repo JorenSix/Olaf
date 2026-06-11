@@ -36,13 +36,13 @@ class OlafProcessor extends AudioWorkletProcessor {
 		exports.LibSampleRate.create(nChannels, inputSampleRate, outputSampleRate,{})
 		.then((src) => {
 			this.src = src;
-			console.log(src);
+			this.port.postMessage({type: 'status', message: 'resampler ready (' + inputSampleRate + ' -> ' + outputSampleRate + 'Hz)'});
 		})
 		.catch((err) => {
-			// unable to find the WASM file. handle however you choose
-			console.log(err);
+			//report through the port: worklet console output is not always visible
+			this.port.postMessage({type: 'status', error: 'resampler failed: ' + err});
 		});
-		
+
 		//Create the olaf module
 		Module().then(olaf => {
 			this.olaf = olaf;
@@ -53,9 +53,12 @@ class OlafProcessor extends AudioWorkletProcessor {
 			//256 fingrprints, 8 bytes per long, 5 longs per print
 			this.fingerprintsBytes = 256 * 8 * 5;
 			this.fingerprintPtr = this.olaf._malloc(this.fingerprintsBytes);
+			this.port.postMessage({type: 'status', message: 'olaf wasm ready'});
+		}).catch((err) => {
+			this.port.postMessage({type: 'status', error: 'olaf wasm failed: ' + err});
 		});
 
-		processor = this;	
+		processor = this;
 	}
 
 	//Processes mono audio
@@ -66,8 +69,19 @@ class OlafProcessor extends AudioWorkletProcessor {
 			return true;
 		}//else
 
-		//mono first channel
-		var audioInputBuffer = inputs[0][0];
+		if(!this.reported_first_audio){
+			this.reported_first_audio = true;
+			this.process_calls = 0;
+			this.port.postMessage({type: 'status', message: 'processing audio'});
+		}
+		this.process_calls++;
+
+		//mono first channel; inputs can be empty when the source has
+		//ended or the microphone stream stopped
+		var audioInputBuffer = inputs.length > 0 && inputs[0].length > 0 ? inputs[0][0] : null;
+		if(audioInputBuffer == null || audioInputBuffer.length === 0){
+			return true;
+		}
 
 		let resampledInputBuffer = audioInputBuffer
 
@@ -85,7 +99,18 @@ class OlafProcessor extends AudioWorkletProcessor {
 
 		fingerprintHeap.set(new Uint8Array(this.fingerprintBuffer));
 
-		var audioBlockIndex = this.js_wrapped_olaf_fingerprint_match(dataHeap.byteOffset,resampledInputBuffer.length,fingerprintHeap.byteOffset,128);
+		try {
+			var audioBlockIndex = this.js_wrapped_olaf_fingerprint_match(dataHeap.byteOffset,resampledInputBuffer.length,fingerprintHeap.byteOffset,128);
+			//progress report roughly every 2.7s (128 samples per call at 48kHz)
+			if(this.process_calls % 1000 === 0){
+				this.port.postMessage({type: 'status', message: 'audio block index ' + audioBlockIndex + ' after ' + this.process_calls + ' calls'});
+			}
+		} catch (err) {
+			if(!this.reported_error){
+				this.reported_error = true;
+				this.port.postMessage({type: 'status', error: 'wasm match call failed: ' + err + (err && err.stack ? ' | ' + err.stack : '')});
+			}
+		}
 
 		return true;
 	}

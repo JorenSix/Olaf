@@ -143,7 +143,7 @@ web:
 		--bind \
 		-s ALLOW_MEMORY_GROWTH=1 \
 		-s EXPORTED_FUNCTIONS="['_malloc','_free']" \
-		-s EXPORTED_RUNTIME_METHODS='["cwrap"]' \
+		-s EXPORTED_RUNTIME_METHODS='["cwrap","HEAPU8"]' \
 		src/olaf_wasm.c \
 		src/pffft.c \
 		src/hash-table.c \

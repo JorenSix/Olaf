@@ -74,7 +74,9 @@ int olaf_dp_packed_hash_compare(const void * a, const void * b) {
 size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint64_t * results, size_t results_size){
 	size_t number_of_results = 0;
 	size_t results_index = 0;
-	uint64_t result_match_id = 666;
+	//the single song in the memory store: makes meta data lookups for
+	//matches resolve to the compiled-in path and duration
+	uint64_t result_match_id = olaf_db_mem_audio_id;
 
 	uint64_t * match = NULL;
 	
@@ -99,8 +101,9 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key,uint6
 
 		size_t index = match - olaf_db->ref_fp;
 
-		//on and before the match
-		for(size_t i = index ; i >= 0  ;i--){
+		//on and before the match; i >= 0 is always true for the unsigned
+		//size_t, so loop on i + 1 to avoid wrapping past zero
+		for(size_t i = index + 1 ; i-- > 0 ; ){
 			uint64_t ref_hash;
 			uint32_t ref_t;
 			olaf_db_mem_unpack(olaf_db->ref_fp[i],&ref_hash,&ref_t);
