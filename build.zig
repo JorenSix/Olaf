@@ -123,8 +123,8 @@ fn addCoreSources(
         "src/olaf_deque.c",
         "src/olaf_max_filter_perceptual_van_herk.c",
         "src/olaf_config.c",
+        "src/olaf_db_id.c",
         "src/olaf_ep_extractor.c",
-        "src/olaf_fp_db_writer.c",
         "src/olaf_fp_db_writer_cache.c",
         "src/olaf_fp_file_writer.c",
         "src/olaf_fp_extractor.c",
@@ -140,9 +140,11 @@ fn addCoreSources(
         "src/midl.c",
     };
 
-    // Database implementation sources
+    // Database implementation sources: the fp db writer is paired with the
+    // matching database implementation (same pairing as the Makefile mem/web targets)
     const db_sources = [_][]const u8{
         if (include_lmdb) "src/olaf_db.c" else "src/olaf_db_mem.c",
+        if (include_lmdb) "src/olaf_fp_db_writer.c" else "src/olaf_fp_db_writer_mem.c",
     };
 
     // Add all common sources

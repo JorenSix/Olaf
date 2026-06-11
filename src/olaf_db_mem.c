@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "olaf_db.h"
+#include "olaf_db_mem_pack.h"
 #include "olaf_fp_ref_mem.h"
 
 // The 'database' is a serialized sorted array of uint64_t elements
@@ -60,18 +61,8 @@ void olaf_db_store(Olaf_DB * olaf_db, uint64_t * keys, uint64_t * values, size_t
 	(void)(size);
 }
 
-void olaf_db_mem_unpack(uint64_t packed, uint64_t * hash, uint32_t * t){
-	*hash = (packed >> 16);
-	*t = (uint32_t)((uint16_t) packed) ; 
-}
-
-uint64_t olaf_db_mem_pack(uint64_t hash, uint32_t t){
-	uint64_t packed = 0;
-	packed = (hash<<16);
-	packed += t;
-	return packed;
-}
-
+//olaf_db_mem_pack and olaf_db_mem_unpack are defined in olaf_db_mem_pack.h,
+//shared with the unit tests
 
 //For the binary search, the timespans (last 16 bits) are ignored
 int olaf_dp_packed_hash_compare(const void * a, const void * b) {
@@ -192,13 +183,8 @@ void olaf_db_stats(Olaf_DB * olaf_db,bool verbose){
 	printf("Number of fingerprints in header file: %zu\n",olaf_db->ref_fp_length);
 }
 
-//hash 
-uint32_t olaf_db_string_hash(const char *key, size_t len){
-	(void)(key);
-	(void)(len);
-	return 666;
-}
-
+//olaf_db_string_hash and olaf_db_identifier_id are implemented in
+//olaf_db_id.c, shared with the other database implementations
 
 void olaf_db_store_meta_data(Olaf_DB * olaf_db, uint32_t * key, Olaf_Resource_Meta_data * value){
 

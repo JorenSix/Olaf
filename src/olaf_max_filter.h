@@ -27,6 +27,9 @@
 #include <stdio.h>
 #include <math.h>
 
+/** Initial max filter output value: lower than any magnitude in the input. */
+#define OLAF_MAX_FILTER_INITIAL_MAX (-100000.0f)
+
 /**
  * @brief      A naive max filter implementation for reference.
  *

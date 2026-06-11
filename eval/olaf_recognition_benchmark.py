@@ -105,7 +105,7 @@ OLAF_BINARY = os.path.join(REPO_ROOT, "zig-out", "bin", "olaf")
 
 # Mirrors cli/olaf_cli_config.zig allowed_audio_file_extensions (case-insensitive).
 ALLOWED_EXTENSIONS = {
-    ".m4a", ".wav", ".mp4", ".wv", ".ape", ".ogg", ".mp3", ".flac", ".wma",
+    ".m4a", ".wav", ".mp4", ".wv", ".ape", ".ogg", ".mp3", ".raw", ".flac", ".wma",
 }
 
 # Fixed configuration written into the sandbox. These are the Olaf defaults from

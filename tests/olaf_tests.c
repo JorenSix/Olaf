@@ -5,21 +5,9 @@
 #include "olaf_config.h"
 #include "olaf_reader.h"
 #include "olaf_db.h"
+#include "olaf_db_mem_pack.h"
 #include "olaf_deque.h"
 #include "olaf_max_filter.h"
-
-void olaf_db_mem_unpack(uint64_t packed, uint64_t * hash, uint32_t * t){
-	*hash = (packed >> 16);
-	*t = (uint32_t)((uint16_t) packed) ; 
-}
-
-uint64_t olaf_db_mem_pack(uint64_t hash, uint32_t t){
-	uint64_t packed = 0;
-	packed = (hash<<16);
-	packed += t;
-	return packed;
-}
-
 
 void olaf_reader_test(void){
 	const char* audio_file_name = "tests/16k_samples.raw";

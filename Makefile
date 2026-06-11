@@ -40,6 +40,7 @@ compile_core:
 	gcc -c src/olaf.c 					-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_file_writer.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_db.c 				-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_db_id.c 			-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer_cache.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_ep_extractor.c 		-W -Wall -std=c11 -pedantic -O2
@@ -66,6 +67,7 @@ lib:
 	gcc -c src/olaf.c 					-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_file_writer.c 	-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/olaf_db.c 				-W -Wall -fPIC -std=c11 -pedantic -O2
+	gcc -c src/olaf_db_id.c 			-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer.c 		-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer_cache.c -W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/olaf_ep_extractor.c 		-W -Wall -fPIC -std=c11 -pedantic -O2
@@ -91,6 +93,7 @@ compile_gprof:
 	gcc -c src/olaf.c 					-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_file_writer.c 	-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_db.c 				-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_db_id.c 			-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer.c 		-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer_cache.c -pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_ep_extractor.c 		-pg -W -Wall -std=c11 -pedantic -O2
@@ -113,6 +116,7 @@ mem:
 	gcc -c src/olaf_max_filter_perceptual_van_herk.c  -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf.c 					 -Dmem -W -Wall -std=gnu11 -pedantic -O2
 	gcc -c src/olaf_db_mem.c 			 -Dmem -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_db_id.c 			 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer_mem.c 	 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_file_writer.c 	 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer_cache.c -Dmem -W -Wall -std=c11 -pedantic -O2
@@ -149,6 +153,7 @@ web:
 		src/olaf_ep_extractor.c \
 		src/olaf_fp_extractor.c \
 		src/olaf_db_mem.c \
+		src/olaf_db_id.c \
 		src/olaf_fp_db_writer_mem.c \
 		src/olaf_fp_matcher.c \
 		src/olaf_config.c  -O3 -Wall -lm -lc -W -I. -ffast-math

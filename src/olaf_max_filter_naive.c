@@ -23,7 +23,7 @@ void olaf_max_filter_naive(float* array, size_t array_size , size_t filter_width
         //guard against unsigned underflow when i < half_filter_width
         size_t startIndex = i > (size_t) half_filter_width ? i - half_filter_width : 0;
         size_t stopIndex = i + half_filter_width < array_size ? i + half_filter_width + 1: array_size;
-        maxvalues[i] = -100000;
+        maxvalues[i] = OLAF_MAX_FILTER_INITIAL_MAX;
         for(size_t j = startIndex ; j < stopIndex; j++){
             if(array[j]>maxvalues[i])
                 maxvalues[i]=array[j];
