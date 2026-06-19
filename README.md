@@ -10,7 +10,8 @@ Please be aware of the patents US7627477 B2 and US6990453 and perhaps others. Th
 
 1. [Why Olaf?](#why-olaf)
 2. [Olaf on traditional computers](#olaf-on-traditional-computers)
-   - [Compilation and installation](#compilation-and-installation)
+   - [Installation](#installation)
+   - [Compilation](#compilation)
    - [Compilation with Zig](#compilation-with-zig)
    - [Olaf on Docker](#olaf-on-docker)
 3. [Olaf in the browser](#olaf-in-the-browser)
@@ -58,11 +59,8 @@ To use Olaf `ffmpeg` need to be installed on your system. While the core of Olaf
 
 To install ffmpeg on a Debian like system: `apt-get install ffmpeg`. On macOS `ffmpeg` can be installed with [homebrew](https://brew.sh/) by calling `brew install ffmpeg`.
 
-### Installation
 
-
-
-### Compilation 
+### Compilation
 
 To compile Olaf for traditional computers, [Zig](https://ziglang.org/) is used: the default `make` target simply calls `zig build`. Make sure Zig and `ffmpeg` are installed. Compilation and installation:
 
@@ -75,7 +73,7 @@ make
 sudo make install
 ```
 
-By default, a directory named `.olaf` is created in the current user home directory. The command line script is installed to `/usr/local/olaf`, which is assumed to be on the user's path.
+By default, a directory named `.olaf` is created in the current user home directory. The command line binary is installed to `/usr/local/bin/olaf`, which is assumed to be on the user's path.
 
 The Makefile additionally contains `gcc` based targets (C11 standard) for special purposes: `make compile_core` builds the standalone C core binary `bin/olaf_core`, `make lib` builds the shared library used by the python wrapper, `make mem` builds the in-memory version `bin/olaf_mem` used to generate embedded fingerprint headers and `make web` builds the emscripten WebAssembly version. Note that `zig build` compiles the C core with stricter flags (`-Wextra -Werror=return-type -fPIC`) than the gcc targets (`-W -Wall -pedantic`).
 
@@ -171,7 +169,7 @@ In a more copy-paste friendly way the following demonstrates example use of Olaf
 ```bash
 git clone https://github.com/JorenSix/Olaf
 cd Olaf
-make && make install
+make && sudo make install
 zig build test
 
 #store all audio in a folder and execute a query
@@ -330,7 +328,7 @@ The first thing this checks is whether Olaf compiles correctly. Afterwards, a sm
 ```bash
 git clone https://github.com/JorenSix/Olaf
 cd Olaf
-make && make install
+make && sudo make install
 zig build test
 ```
 
