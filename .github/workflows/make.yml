@@ -30,11 +30,10 @@ jobs:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
     - uses: actions/checkout@v5
     #setup ffmpeg and zig
-    - uses: FedericoCarboni/setup-ffmpeg@v3
+    - uses: AnimMouse/setup-ffmpeg@v1
       id: setup-ffmpeg
       with:
-        ffmpeg-version: "release"
-        github-token: "${{ secrets.GITHUB_TOKEN }}"
+        version: "release"
     - uses: mlugg/setup-zig@v2
       with:
         version: 0.16.0
