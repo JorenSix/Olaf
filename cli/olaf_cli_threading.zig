@@ -198,6 +198,23 @@ fn audioWorker(job: AudioJob, file: AudioFileWithId, index: usize, total: usize,
         return;
     }
 
+    if (job.action == .Delete) {
+        // Check first: a file with nothing to delete is not even transcoded.
+        const status = switch (try olaf_cli_session.deleteStatus(allocator, file.identifier, job.config)) {
+            .deleted => blk: {
+                const raw = try TempRaw.create(job.io, allocator, file.path, job.config, null);
+                defer raw.deinit();
+                break :blk try olaf_cli_session.delete(allocator, raw.path, file.identifier, job.config);
+            },
+            else => |s| s,
+        };
+        return switch (status) {
+            .deleted => |n| olaf_cli_output.writeDeleteRecord(index, total, file.identifier, n, ""),
+            .not_indexed => olaf_cli_output.writeDeleteRecord(index, total, file.identifier, null, "not indexed"),
+            .no_database => olaf_cli_output.writeDeleteRecord(index, total, file.identifier, null, "no database yet"),
+        };
+    }
+
     const raw = try TempRaw.create(job.io, allocator, file.path, job.config, null);
     defer raw.deinit();
     switch (job.action) {
@@ -214,7 +231,7 @@ fn audioWorker(job: AudioJob, file: AudioFileWithId, index: usize, total: usize,
                 .cpu_seconds = r.stats.cpu_seconds,
             });
         },
-        .Delete => try olaf_cli_session.delete(allocator, raw.path, file.identifier, job.config),
+        .Delete => unreachable, // handled above
     }
 }
 

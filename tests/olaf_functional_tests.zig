@@ -1601,7 +1601,13 @@ test "functional: cache + store_cached stores what store stores" {
 
     var cached = try Fixture.init(allocator, io, "store_via_cache");
     defer cached.deinit();
-    try cached.ok(&.{ "cache", cached.ref });
+    {
+        // One line per file: the core's summary on stderr used to be a
+        // second line on the other stream.
+        const r = try cached.run(&.{ "cache", cached.ref }, 0);
+        defer r.deinit();
+        try testing.expectEqual(@as(usize, 0), r.stderr.len);
+    }
     try cached.ok(&.{"store_cached"});
 
     // Duration and fingerprint count used to differ: the core cache writer
@@ -1689,7 +1695,16 @@ test "functional: delete skips files that are not indexed" {
     // the indexed file after it was never deleted.
     const r = try env.run(&.{ "delete", other, env.ref }, 0);
     defer r.deinit();
-    try testing.expect(std.mem.indexOf(u8, r.stderr, "not indexed") != null);
+    // One numbered line per file (it used to be only the core's summary,
+    // without index or identifier).
+    const not_indexed = try std.fmt.allocPrint(allocator, "1/2 Nothing to delete (not indexed): {s}", .{other});
+    defer allocator.free(not_indexed);
+    const deleted = try std.fmt.allocPrint(allocator, "fingerprints: {s}", .{env.ref});
+    defer allocator.free(deleted);
+    try testing.expect(std.mem.indexOf(u8, r.stderr, not_indexed) != null);
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "2/2 Deleted ") != null);
+    try testing.expect(std.mem.indexOf(u8, r.stderr, deleted) != null);
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "times realtime") == null);
     try testing.expectEqual(@as(u32, 0), try env.songCount());
 }
 

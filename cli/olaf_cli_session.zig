@@ -374,27 +374,29 @@ pub fn queryCollect(allocator: std.mem.Allocator, raw_audio_path: []const u8, id
     return list.toOwnedSlice(allocator);
 }
 
-pub fn delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifier: []const u8, config: *const Config) !void {
+pub const DeleteResult = union(enum) {
+    /// Deleted; the number of fingerprints removed.
+    deleted: usize,
+    not_indexed,
+    no_database,
+};
+
+/// Whether `identifier` can be deleted. Both other outcomes must be caught
+/// before the core runs: opening a missing database, or deleting a resource
+/// that is not indexed (MDB_NOTFOUND), makes it exit() mid-batch.
+pub fn deleteStatus(allocator: std.mem.Allocator, identifier: []const u8, config: *const Config) !DeleteResult {
+    var db = try ReadDb.open(allocator, config) orelse return .no_database;
+    defer db.close();
+    return if (db.isStored(identifier)) .{ .deleted = 0 } else .not_indexed;
+}
+
+pub fn delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifier: []const u8, config: *const Config) !DeleteResult {
+    const status = try deleteStatus(allocator, identifier, config);
+    if (status != .deleted) return status;
     var session = try Session.init(allocator, config);
     defer session.deinit();
-    // Without a database there is nothing to delete (the same outcome as
-    // deleting a file that is not indexed). Opening a missing database would
-    // make the core exit() mid-run, leaking the temp audio file.
-    if (!try core.dbExists(allocator, session.config.db_folder)) {
-        std.log.info("nothing to delete: no database yet in {s}", .{session.config.db_folder});
-        return;
-    }
-    // Deleting a resource that is not indexed makes the core exit(-42) on
-    // MDB_NOTFOUND, which would abort the rest of the batch.
-    {
-        var db = (try ReadDb.open(allocator, config)).?;
-        defer db.close();
-        if (!db.isStored(identifier)) {
-            std.log.info("nothing to delete: not indexed: {s}", .{identifier});
-            return;
-        }
-    }
-    _ = try session.run(.delete, raw_audio_path, identifier, .{});
+    const stats_ = try session.run(.delete, raw_audio_path, identifier, .{ .suppress_summary = true });
+    return .{ .deleted = stats_.fingerprints };
 }
 
 /// Extract fingerprints into a cache file pair (`olaf cache`).
@@ -405,7 +407,9 @@ pub fn cacheToFiles(allocator: std.mem.Allocator, raw_audio_path: []const u8, id
     defer allocator.free(fp_z);
     const meta_z = try allocator.dupeZ(u8, meta_path);
     defer allocator.free(meta_z);
-    _ = try session.run(.cache, raw_audio_path, identifier, .{ .cache_files = try openCacheFiles(fp_z, meta_z) });
+    // The command prints its own line per file; the core's summary would
+    // be a second one, on the other stream.
+    _ = try session.run(.cache, raw_audio_path, identifier, .{ .cache_files = try openCacheFiles(fp_z, meta_z), .suppress_summary = true });
 }
 
 /// What a `.meta` file written by `olaf cache` records: the identifier (as
@@ -643,7 +647,7 @@ test "session calls report a raw audio file that cannot be opened" {
     try std.testing.expectError(error.AudioOpenFailed, query(allocator, info, missing, "missing", &config, 0, .csv));
     try std.testing.expectError(error.AudioOpenFailed, query(allocator, info, missing, "missing", &config, 0, .json));
     // Not indexed: nothing to delete, so the (missing) audio is never read.
-    try delete(allocator, missing, "missing", &config);
+    try std.testing.expectEqual(DeleteResult.not_indexed, try delete(allocator, missing, "missing", &config));
 
     // The cache files are opened (and must be closed) before the audio fails.
     const tdb = try std.fmt.allocPrint(allocator, "{s}1.tdb", .{db_folder});

@@ -210,6 +210,21 @@ pub fn writeStoreSkip(format: StoreFormat, index: usize, total: usize, audio_ide
     try emitStderr(record.written());
 }
 
+/// One line per deleted file, numbered like store records.
+pub fn writeDeleteRecord(index: usize, total: usize, audio_identifier: []const u8, deleted: ?usize, reason: []const u8) !void {
+    var sfa = recordAllocator();
+    var record: Io.Writer.Allocating = .init(sfa.get());
+    defer record.deinit();
+    const w = &record.writer;
+    try writeIndex(w, index, total);
+    if (deleted) |n| {
+        try w.print(" Deleted {d} fingerprints: {s}\n", .{ n, audio_identifier });
+    } else {
+        try w.print(" Nothing to delete ({s}): {s}\n", .{ reason, audio_identifier });
+    }
+    try emitStderr(record.written());
+}
+
 // ---------------------------------------------------------------------------
 // Query output (stdout)
 // ---------------------------------------------------------------------------
