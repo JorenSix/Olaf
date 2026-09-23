@@ -49,6 +49,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             args.allow_identity_match,
             args.queryFormat(),
             args.storeFormat(),
-        );
+        null,
+    );
     }
 }

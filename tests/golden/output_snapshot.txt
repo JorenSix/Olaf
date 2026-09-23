@@ -3,16 +3,16 @@
 1/2 Stored 1933 fp's from 98.2s (20 fp/s) in <T>
 2/2 Stored 3159 fp's from 109.5s (29 fp/s) in <T>
 == store human (skip)
-Skipped (already indexed, use -f to re-store): ref-a
+1/1 Skipped (already indexed, use -f to re-store): ref-a
 == store csv (skip)
 action,file_index,file_total,audio_identifier,internal_id,fingerprints,audio_seconds,cpu_seconds,fingerprints_per_second,realtime_factor
-skip,,,ref-a,3517681762,,,,,
+skip,1,1,ref-a,3517681762,,,,,
 == store csv (forced)
 action,file_index,file_total,audio_identifier,internal_id,fingerprints,audio_seconds,cpu_seconds,fingerprints_per_second,realtime_factor
 store,1,2,ref-a,3517681762,1933,98.2,<T>,19.7,<T>
 store,2,2,ref-b,3824301295,3159,109.5,<T>,28.8,<T>
 == store json (skip)
-{"action":"skip","audio_identifier":"ref-b","internal_id":3824301295}
+{"action":"skip","file_index":1,"file_total":1,"audio_identifier":"ref-b","internal_id":3824301295}
 == store json (forced)
 {"action":"store","file_index":1,"file_total":1,"audio_identifier":"ref-b","internal_id":3824301295,"fingerprints":3159,"audio_seconds":109.5,"cpu_seconds":<T>,"fingerprints_per_second":28.8,"realtime_factor":<T>}
 == store human (comma identifier)

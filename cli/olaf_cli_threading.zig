@@ -176,11 +176,17 @@ const AudioJob = struct {
     filter_identity: bool,
     /// Query in fragments of this many seconds instead of the whole file.
     fragment_seconds: ?u32 = null,
+    /// Per file (store only): already indexed, report a skip record instead.
+    skip: ?[]const bool = null,
 };
 
 fn audioWorker(job: AudioJob, file: AudioFileWithId, index: usize, total: usize, allocator: std.mem.Allocator) !void {
     debug("Processing audio file {d}/{d}: {s}", .{ index + 1, total, file.path });
     const exclude: u32 = if (job.filter_identity) olaf_cli_core.nameToId(file.identifier) else 0;
+
+    if (job.skip) |skip| if (skip[index]) {
+        return olaf_cli_output.writeStoreSkip(job.store_format, index, total, file.identifier, olaf_cli_core.nameToId(file.identifier));
+    };
 
     if (job.fragment_seconds) |step| {
         var it = try fragments(try olaf_cli_util_audio.getAudioDuration(allocator, job.io, file.path), step);
@@ -231,6 +237,7 @@ pub fn executeParallel(
     allow_identity_match: bool,
     output_format: olaf_cli_output.OutputFormat,
     store_format: olaf_cli_output.StoreFormat,
+    skip: ?[]const bool,
 ) !void {
     try runAudioJob(io, allocator, audio_files, num_threads, .{
         .io = io,
@@ -239,6 +246,7 @@ pub fn executeParallel(
         .output_format = output_format,
         .store_format = store_format,
         .filter_identity = action == .Query and !allow_identity_match,
+        .skip = skip,
     });
 }
 

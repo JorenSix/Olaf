@@ -995,7 +995,7 @@ test "functional: store skips already indexed files unless forced" {
     {
         const again = try env.run(&.{ "store", "--format", "csv", ref_abs }, 0);
         defer again.deinit();
-        try testing.expect(std.mem.indexOf(u8, again.stderr, "skip,,,") != null);
+        try testing.expect(std.mem.indexOf(u8, again.stderr, "skip,1,1,") != null);
         try testing.expect(std.mem.indexOf(u8, again.stderr, "store,") == null);
     }
     {
@@ -1143,7 +1143,7 @@ test "functional: relative, absolute and symlinked paths share one identifier" {
     for (scripts) |script| {
         const r = try env.shell(script, 0);
         defer r.deinit();
-        try testing.expect(std.mem.indexOf(u8, r.stderr, "skip,,,") != null);
+        try testing.expect(std.mem.indexOf(u8, r.stderr, "skip,1,1,") != null);
     }
     try testing.expectEqual(@as(u32, 1), try env.songCount());
 }
@@ -1911,6 +1911,25 @@ test "functional: to_raw says when it reuses an existing output, -f re-converts"
     const forced = try run_in_home(&env, true);
     defer allocator.free(forced);
     try testing.expect(std.mem.indexOf(u8, forced, "SKIPPED") == null);
+}
+
+test "functional: store numbers stored and skipped files together" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "store_numbering");
+    defer env.deinit();
+    var other_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const other_n = try Io.Dir.cwd().realPathFile(io, "dataset/ref/173050.mp3", &other_buf);
+
+    try env.ok(&.{ "store", env.ref });
+    // Used to number only the stored files ("store,1,1") with unnumbered
+    // skip records.
+    const r = try env.run(&.{ "store", "--format", "csv", other_buf[0..other_n], env.ref }, 0);
+    defer r.deinit();
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "store,1,2,") != null);
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "skip,2,2,") != null);
 }
 
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {

@@ -148,15 +148,9 @@ pub fn writeStoreSummary(format: StoreFormat, s: StoreSummary) !void {
 
     switch (format) {
         .human => {
-            // Zero-pad the index to the width of `total`: "01/35", but "1/7".
-            var idx_buf: [32]u8 = undefined;
-            const idx_str = try std.fmt.bufPrint(&idx_buf, "{d}", .{file_index});
-            var total_buf: [32]u8 = undefined;
-            const width = (try std.fmt.bufPrint(&total_buf, "{d}", .{s.total})).len;
-            try w.splatByteAll('0', width -| idx_str.len);
-            try w.writeAll(idx_str);
-            try w.print("/{d} Stored {d} fp's from {d:.1}s ({d:.0} fp/s) in {d:.3}s ({d:.0} times realtime)\n", .{
-                s.total, s.fingerprints, s.audio_seconds, fp_per_second, s.cpu_seconds, realtime_factor,
+            try writeIndex(w, s.index, s.total);
+            try w.print(" Stored {d} fp's from {d:.1}s ({d:.0} fp/s) in {d:.3}s ({d:.0} times realtime)\n", .{
+                s.fingerprints, s.audio_seconds, fp_per_second, s.cpu_seconds, realtime_factor,
             });
         },
         .csv => {
@@ -179,22 +173,36 @@ pub fn writeStoreSummary(format: StoreFormat, s: StoreSummary) !void {
     try emitStderr(record.written());
 }
 
-/// "Skipped, already indexed" record. CSV rows keep the store_csv_header
-/// column count with empty numeric fields.
-pub fn writeStoreSkip(format: StoreFormat, audio_identifier: []const u8, internal_id: u32) !void {
+/// "index/total" with the index zero-padded to the width of `total`
+/// ("01/35", but "1/7"); `index` is 0-based.
+fn writeIndex(w: *Io.Writer, index: usize, total: usize) !void {
+    var idx_buf: [32]u8 = undefined;
+    const idx_str = try std.fmt.bufPrint(&idx_buf, "{d}", .{index + 1});
+    var total_buf: [32]u8 = undefined;
+    const width = (try std.fmt.bufPrint(&total_buf, "{d}", .{total})).len;
+    try w.splatByteAll('0', width -| idx_str.len);
+    try w.print("{s}/{d}", .{ idx_str, total });
+}
+
+/// "Skipped, already indexed" record, numbered like store records. CSV rows
+/// keep the store_csv_header column count with empty numeric fields.
+pub fn writeStoreSkip(format: StoreFormat, index: usize, total: usize, audio_identifier: []const u8, internal_id: u32) !void {
     var sfa = recordAllocator();
     var record: Io.Writer.Allocating = .init(sfa.get());
     defer record.deinit();
     const w = &record.writer;
     switch (format) {
-        .human => try w.print("Skipped (already indexed, use -f to re-store): {s}\n", .{audio_identifier}),
+        .human => {
+            try writeIndex(w, index, total);
+            try w.print(" Skipped (already indexed, use -f to re-store): {s}\n", .{audio_identifier});
+        },
         .csv => {
-            try w.writeAll("skip,,,");
+            try w.print("skip,{d},{d},", .{ index + 1, total });
             try csvField(w, audio_identifier);
             try w.print(",{d},,,,,\n", .{internal_id});
         },
         .json => {
-            try w.writeAll("{\"action\":\"skip\",\"audio_identifier\":");
+            try w.print("{{\"action\":\"skip\",\"file_index\":{d},\"file_total\":{d},\"audio_identifier\":", .{ index + 1, total });
             try jsonString(w, audio_identifier);
             try w.print(",\"internal_id\":{d}}}\n", .{internal_id});
         },

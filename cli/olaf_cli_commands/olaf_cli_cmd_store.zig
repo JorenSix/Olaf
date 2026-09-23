@@ -41,41 +41,27 @@ pub fn storeFiles(allocator: std.mem.Allocator, args: *types.Args) !void {
     const config = args.config.?;
     const all = args.audio_files.items;
 
-    var to_store: std.ArrayList(olaf_cli_util.AudioFileWithId) = .empty;
-    defer to_store.deinit(allocator);
-
-    if (config.skip_duplicates and !args.force) {
+    // Already indexed files stay in the job list, so every file keeps its
+    // position in the index/total numbering; the worker reports them as
+    // skipped.
+    const stored: ?[]bool = if (config.skip_duplicates and !args.force) blk: {
         const identifiers = try allocator.alloc([]const u8, all.len);
         defer allocator.free(identifiers);
         for (all, identifiers) |f, *id| id.* = f.identifier;
-
-        const stored = try olaf_cli_session.storedFlags(allocator, config, identifiers);
-        defer allocator.free(stored);
-
-        for (all, stored) |f, is_stored| {
-            if (is_stored) {
-                const internal_id = olaf_cli_core.nameToId(f.identifier);
-                try olaf_cli_output.writeStoreSkip(args.storeFormat(), f.identifier, internal_id);
-            } else {
-                try to_store.append(allocator, f);
-            }
-        }
-        debug("Skipped {d} already indexed file(s)", .{all.len - to_store.items.len});
-    } else {
-        try to_store.appendSlice(allocator, all);
-    }
-
-    if (to_store.items.len == 0) return;
+        break :blk try olaf_cli_session.storedFlags(allocator, config, identifiers);
+    } else null;
+    defer if (stored) |s| allocator.free(s);
 
     try olaf_cli_threading.executeParallel(
         args.io,
         allocator,
-        to_store.items,
+        all,
         config,
         .Store,
         args.threads,
         true,
         .csv,
         args.storeFormat(),
+        stored,
     );
 }

@@ -55,6 +55,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             false,
             args.queryFormat(),
             args.storeFormat(),
-        );
+        null,
+    );
     }
 }
