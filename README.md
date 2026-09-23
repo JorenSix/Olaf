@@ -10,7 +10,6 @@ Please be aware of the patents US7627477 B2 and US6990453 and perhaps others. Th
 
 1. [Why Olaf?](#why-olaf)
 2. [Olaf on traditional computers](#olaf-on-traditional-computers)
-   - [Installation](#installation)
    - [Compilation](#compilation)
    - [Compilation with Zig](#compilation-with-zig)
    - [Olaf on Docker](#olaf-on-docker)
@@ -55,7 +54,7 @@ Olaf was featured on [hackaday](https://hackaday.com/2020/08/30/olaf-lets-an-esp
 
 ## Olaf on traditional computers
 
-To use Olaf `ffmpeg` need to be installed on your system. While the core of Olaf is in pure c, a Zig wrapper provides an easy to use interface to its capabilities. The Zig wrapper converts audio (with `ffmpeg`), parses command line arguments and reports results in a readable format.
+To use Olaf `ffmpeg` (and `ffprobe`, which `--fragmented` uses to read durations) need to be installed on your system. While the core of Olaf is in pure c, a Zig wrapper provides an easy to use interface to its capabilities. The Zig wrapper converts audio (with `ffmpeg`), parses command line arguments and reports results in a readable format.
 
 To install ffmpeg on a Debian like system: `apt-get install ffmpeg`. On macOS `ffmpeg` can be installed with [homebrew](https://brew.sh/) by calling `brew install ffmpeg`.
 
@@ -99,7 +98,7 @@ Zig also supports WebAssembly as a target platform as an alternative to Emscript
 
 ```bash
 zig build -Dtarget=wasm32-wasi-musl -Doptimize=ReleaseSmall
-file zig-out/bin/olaf.wasm #WebAssembly (wasm) binary module version 0x1 (MVP)
+file zig-out/bin/olaf_core.wasm #WebAssembly (wasm) binary module version 0x1 (MVP)
 ```
 
 
@@ -155,7 +154,7 @@ bin/olaf_mem store olaf_audio_your_audio_file.raw "arandomidentifier" > your_hea
 
 To test and debug this header file, use the `mem` version of Olaf on your computer. The ESP32 version is basically the same as the `mem` version, only the audio comes from microphone input and not from a file.
 
-For debugging there are also two conversion commands: `olaf to_raw [--threads n] audio_files...` converts audio to RAW format (`f32le`, mono, 16kHz), and `olaf to_wav [--threads n] audio_files...` converts audio to a single channel wav file.
+For debugging there are also two conversion commands: `olaf to_raw [--threads n] audio_files...` converts audio to RAW format (`f32le`, mono, at `target_sample_rate`, 16 kHz by default) in the current directory, and `olaf to_wav [--threads n] audio_files...` converts audio to a single channel wav file next to the input. An existing output is kept (and reported as `SKIPPED`) unless `-f` is given.
 
 
 ## Olaf Usage
@@ -164,7 +163,7 @@ On traditional computers, Olaf provides a *command line interface* it can be cal
 
 ![Olaf interaction](./docs/olaf_interaction.svg)
 
-In a more copy-paste friendly way the following demonstrates example use of Olaf. In the example, first a dataset is downloaded then all audio files in a folder are indexed. Then statistics about the index are printed. Finally a folder is deduplicated: the duplicates material in a folder are identified and the duplicate is removed.
+In a more copy-paste friendly way the following demonstrates example use of Olaf. In the example, Olaf is built and the test dataset is downloaded (by `zig build test`), then all audio files in a folder are indexed and a query is matched against them. Finally statistics about the index are printed.
 
 ```bash
 git clone https://github.com/JorenSix/Olaf
@@ -179,6 +178,8 @@ olaf query dataset/queries/1051039_34s-54s.mp3
 #print statistics of the index:
 olaf stats
 ```
+
+Running `olaf` without arguments opens an interactive terminal browser: pick an audio file and press `s` to store it, `q` to query it or `f` for a fragmented query; the database statistics are shown next to it.
 
 ### Store fingerprints
 
@@ -237,17 +238,13 @@ To query audio coming from the microphone there is the `olaf microphone` command
 olaf microphone
 ```
 
-The input device is platform dependent and is configured via the `microphone_input_format` and `microphone_device` settings (see [Configuring Olaf](#configuring-olaf)). The defaults target the macOS CoreAudio default microphone (`avfoundation` / `:default`). On Linux set them to e.g. `alsa` / `default`. Live capture only supports CSV output.
-
-Alternatively, pipe `ffmpeg` output into `olaf query` yourself. Use `ffmpeg` to access the default microphone; see [the `ffmpeg` input devices docs for your platform](http://www.ffmpeg.org/ffmpeg-devices.html#Input-Devices)
+The input is captured with `ffmpeg` and configured via the `microphone_input_format` and `microphone_device` settings (see [Configuring Olaf](#configuring-olaf)). The defaults follow the platform: `avfoundation` / `:default` on macOS and `alsa` / `default` on Linux. Any `ffmpeg` input works, see [the `ffmpeg` input devices docs](http://www.ffmpeg.org/ffmpeg-devices.html#Input-Devices); to list the macOS devices:
 
 ```bash
 ffmpeg -f avfoundation -list_devices true -i ""
 ```
 
-```bash
-ffmpeg -f avfoundation -i "none:default" -ac 1 -ar 16000 -f f32le -acodec pcm_f32le pipe:1 | olaf query
-```
+Results are printed every `print_result_every` seconds (3 by default for live input). Live capture only supports CSV output, and the command is not available on Windows. `olaf query` itself always needs audio files; it does not read standard input.
 
 ### Delete fingerprints
 
@@ -275,10 +272,12 @@ This command finds duplicate audio content in a folder. First each audio file is
 A duplicate means that audio from the original is found in another file. The start and stop times of the found fragment are reported. If the match reports a start of nearly zero and a duration similar to the duration of the original audio file then a 'full duplicate' is found: it is almost certainly the same exact track. If only a couple of seconds are reported it means that only a couple of seconds of the original audio are found in the duplicate.
 
 ```bash
-olaf dedup [--threads n] [--fragmented] [--skip-store] field_recordings/archive
+olaf dedup [-f] [--threads n] [--fragmented] [--skip-store] [--format <human|csv|json>] field_recordings/archive
 ```
 
-**--threads n** tells Olaf to use multiple threads during the store step. This can significantly speed up indexing if multiple cores are available on your system.
+**--threads n** tells Olaf to use multiple threads, for both the store and the query step. This can significantly speed up indexing if multiple cores are available on your system.
+
+**--format** sets the format of the store records (on stderr, as with `store`) and of the query results (`csv` for `human`, or `json`). **-f** stores files again that are already indexed.
 
 **--fragmented** this tells Olaf to chop each query into fragments of `fragment_duration_in_seconds` (default 30 seconds) during matching. The first fragment is matched with the reference database and matches are reported, then it goes on with the next fragment and so forth. This is practical for partial matches with the reference database.
 
@@ -311,13 +310,13 @@ olaf stats
 
 ## Configuring Olaf
 
-Olaf has a number of configuration parameters. Currently these are done during compile time in the `olaf_config.c` file. This is to avoid changing configuration at runtime which could result in an index being not compatible with fingerprints extracted from a query (with different configuration parameters).
+Olaf reads its configuration at runtime from a JSON file: `~/.olaf/olaf_config.json`, or else `olaf_config.json` next to the `olaf` executable. Without either file the built-in defaults are used. `cli/olaf_config.example.json` is an annotated starting point and `cli/olaf_config.schema.json` describes every setting, its type, default and bounds (editors can use it for completion and validation). An unknown key is reported as a warning, a value of the wrong type or out of range is an error.
 
-The configuration includes the amount of fingerprints extracted, the location of the data directory, configuration related to matching, ... Each configuration setting has a small description. There is a default configuration for `mem`, `web` and `default` cases which slightly differ.
+The configuration includes the location of the database and cache folders, the accepted audio file extensions, the amount of fingerprints extracted, matching parameters, ... Changing the fingerprint extraction settings (for example `target_sample_rate`) makes an existing index incompatible with new queries: re-index after such a change.
 
-To print the configuration currently compiled into the binary, use `olaf config`.
+To print the configuration in use, and which file it came from, use `olaf config`.
 
-The `microphone` command reads two additional settings from the JSON config file (`~/.olaf/olaf_config.json` or `olaf_config.json` next to the binary): `microphone_input_format` (the `ffmpeg` input format, e.g. `avfoundation` on macOS, `alsa` on Linux, `dshow` on Windows) and `microphone_device` (the device name passed to `ffmpeg -i`). The defaults are `avfoundation` and `:default`, targeting the macOS CoreAudio default microphone.
+The `microphone` command uses two more settings: `microphone_input_format` (the `ffmpeg` input format) and `microphone_device` (the device passed to `ffmpeg -i`). Their defaults depend on the platform: `avfoundation` / `:default` on macOS and `alsa` / `default` on Linux.
 
 ## Testing, Evaluating and Benchmarking Olaf
 
