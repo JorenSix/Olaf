@@ -1433,6 +1433,47 @@ test "functional: microphone reports a capture failure" {
     try testing.expect(std.mem.indexOf(u8, r.stderr, "no_such_format") != null);
 }
 
+test "functional: parallel store matches serial store" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_and_queries);
+
+    var ref_dir_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_dir_n = try Io.Dir.cwd().realPathFile(io, "dataset/ref", &ref_dir_buf);
+    var q_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const q_n = try Io.Dir.cwd().realPathFile(io, "dataset/queries/612409_73s-93s.mp3", &q_buf);
+
+    var stats_out: [2][]u8 = undefined;
+    var top_ids: [2][]u8 = undefined;
+    for ([_][]const u8{ "1", "4" }, 0..) |threads, i| {
+        var env = try setupTestEnv(io, allocator, "par_store");
+        defer env.deinit();
+
+        const st = try runOlaf(allocator, olaf_bin, &env, &.{ "store", "--threads", threads, ref_dir_buf[0..ref_dir_n] }, error.OlafStoreFailed);
+        allocator.free(st.stdout);
+        allocator.free(st.stderr);
+
+        const stats = try runOlaf(allocator, olaf_bin, &env, &.{"stats"}, error.OlafStatsFailed);
+        allocator.free(stats.stderr);
+        stats_out[i] = stats.stdout;
+
+        const q = try runOlaf(allocator, olaf_bin, &env, &.{ "query", q_buf[0..q_n] }, error.OlafQueryFailed);
+        defer allocator.free(q.stdout);
+        defer allocator.free(q.stderr);
+        const row = (try firstResultLine(allocator, q.stdout)) orelse return error.NoResultLine;
+        try testing.expect(!row.empty_match);
+        top_ids[i] = try allocator.dupe(u8, row.ref_id);
+    }
+    defer for (stats_out) |o| allocator.free(o);
+    defer for (top_ids) |t| allocator.free(t);
+
+    try testing.expectEqualStrings(stats_out[0], stats_out[1]);
+    try testing.expectEqualStrings(top_ids[0], top_ids[1]);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

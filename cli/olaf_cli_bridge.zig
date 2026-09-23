@@ -137,6 +137,21 @@ const CConfig = struct {
     }
 };
 
+/// Store one audio file, in three phases so that `store --threads N` runs the
+/// expensive part in parallel:
+///
+/// 1. Extract without a database. A STORE-mode runner opens the LMDB env up
+///    front, and a write env holds the process-global writer lock
+///    (src/olaf_db.c) until the runner is destroyed, which serialized every
+///    worker's FFT and hashing. A CACHE-mode runner never opens the DB; it
+///    writes the fingerprints to a temporary .tdb file instead.
+/// 2. Parse the .tdb into LMDB keys/values, still unlocked.
+/// 3. Open the DB (taking the writer lock), store keys, values and meta-data,
+///    commit.
+///
+/// Only existing public core functions are used; the stored keys, values and
+/// meta-data are exactly what the STORE-mode path writes (see the equivalence
+/// test below). `olaf_store_collect` (TUI) keeps the direct path.
 pub fn olaf_store(
     allocator: std.mem.Allocator,
     raw_audio_path: []const u8,
@@ -156,22 +171,6 @@ pub fn olaf_store(
     const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
     defer allocator.free(c_audio_identifier);
 
-    // All three formats now go through the same path: suppress the C
-    // stream-processor's hardcoded summary line, run the processor here, and
-    // emit one record from Zig. This lets every format — including .human —
-    // include the file_index / file_total progress prefix.
-    const runner = olaf.olaf_runner_new(olaf.OLAF_RUNNER_MODE_STORE, c_config, null, null);
-    defer olaf.olaf_runner_destroy(runner);
-
-    const processor = olaf.olaf_stream_processor_new(runner, c_raw_audio_path, c_audio_identifier) orelse return error.AudioOpenFailed;
-    defer olaf.olaf_stream_processor_destroy(processor);
-
-    olaf.olaf_stream_processor_set_suppress_summary(processor, true);
-    olaf.olaf_stream_processor_process(processor);
-
-    const audio_seconds: f64 = olaf.olaf_stream_processor_audio_duration(processor);
-    const cpu_seconds: f64 = olaf.olaf_stream_processor_cpu_time(processor);
-    const fingerprints: usize = olaf.olaf_stream_processor_total_fingerprints(processor);
     // Resolve the identifier to its on-disk numeric id. olaf_name_to_id
     // (via olaf_db_identifier_id in C) returns the raw number if the
     // identifier parses as a u32 decimal, else falls back to the Jenkins
@@ -181,7 +180,110 @@ pub fn olaf_store(
     // way the value matches what query results report as match_identifier.
     const internal_id: u32 = olaf.olaf_name_to_id(c_audio_identifier);
 
+    // Phase 1: extract into <raw>.tdb / <raw>.meta (no DB, no lock).
+    const io = olaf_cli_util.defaultIo();
+    // Report unreadable audio as such, before creating the cache files next to it.
+    Io.Dir.cwd().access(io, raw_audio_path, .{}) catch return error.AudioOpenFailed;
+    const tdb_path = try std.fmt.allocPrintSentinel(allocator, "{s}.tdb", .{raw_audio_path}, 0);
+    defer allocator.free(tdb_path);
+    defer Io.Dir.cwd().deleteFile(io, tdb_path) catch {};
+    const meta_path = try std.fmt.allocPrintSentinel(allocator, "{s}.meta", .{raw_audio_path}, 0);
+    defer allocator.free(meta_path);
+    defer Io.Dir.cwd().deleteFile(io, meta_path) catch {};
+
+    const tdb_fp = olaf.fopen(tdb_path.ptr, "w") orelse return error.CacheFileOpenFailed;
+    const meta_fp = olaf.fopen(meta_path.ptr, "w") orelse {
+        _ = olaf.fclose(tdb_fp);
+        return error.CacheFileOpenFailed;
+    };
+
+    var audio_seconds: f64 = 0;
+    var cpu_seconds: f64 = 0;
+    var fingerprints: usize = 0;
+    {
+        const runner = olaf.olaf_runner_new(olaf.OLAF_RUNNER_MODE_CACHE, c_config, tdb_fp, meta_fp);
+        defer olaf.olaf_runner_destroy(runner);
+
+        const processor = olaf.olaf_stream_processor_new(runner, c_raw_audio_path, c_audio_identifier) orelse {
+            // The file writer (which closes both files) is only created by
+            // olaf_stream_processor_process.
+            _ = olaf.fclose(meta_fp);
+            _ = olaf.fclose(tdb_fp);
+            return error.AudioOpenFailed;
+        };
+        defer olaf.olaf_stream_processor_destroy(processor);
+
+        // Suppress the C summary line; one record is emitted from Zig below so
+        // every format carries the file_index / file_total prefix.
+        olaf.olaf_stream_processor_set_suppress_summary(processor, true);
+        olaf.olaf_stream_processor_process(processor);
+
+        audio_seconds = olaf.olaf_stream_processor_audio_duration(processor);
+        cpu_seconds = olaf.olaf_stream_processor_cpu_time(processor);
+        fingerprints = olaf.olaf_stream_processor_total_fingerprints(processor);
+    }
+
+    // Phase 2: parse the cached fingerprints (still unlocked).
+    var keys: std.ArrayList(u64) = .empty;
+    defer keys.deinit(allocator);
+    var values: std.ArrayList(u64) = .empty;
+    defer values.deinit(allocator);
+    try parseCachedFingerprints(allocator, io, tdb_path, internal_id, &keys, &values);
+
+    // Phase 3: write. olaf_db_new takes the writer lock, olaf_db_destroy
+    // commits and releases it.
+    {
+        const db = olaf.olaf_db_new(cc.db_folder, false);
+        defer olaf.olaf_db_destroy(db);
+
+        // Same batch size as the core fingerprint writer.
+        const chunk: usize = 1 << 12;
+        var off: usize = 0;
+        while (off < keys.items.len) : (off += chunk) {
+            const n = @min(chunk, keys.items.len - off);
+            olaf.olaf_db_store(db, keys.items[off..].ptr, values.items[off..].ptr, n);
+        }
+
+        // Same meta-data as the STORE-mode stream processor writes.
+        var meta: olaf.Olaf_Resource_Meta_data = std.mem.zeroes(olaf.Olaf_Resource_Meta_data);
+        meta.duration = @floatCast(audio_seconds);
+        meta.fingerprints = @intCast(fingerprints);
+        const path_len = @min(audio_identifier.len, meta.path.len - 1);
+        @memcpy(meta.path[0..path_len], audio_identifier[0..path_len]);
+        var key: u32 = internal_id;
+        olaf.olaf_db_store_meta_data(db, &key, &meta);
+    }
+
     try writeStoreSummary(format, index, total, audio_identifier, internal_id, fingerprints, audio_seconds, cpu_seconds);
+}
+
+/// Read a fingerprint cache file written by the CACHE-mode file writer
+/// (header line, then "hash, t1, f1, m1, ..." per fingerprint) into LMDB
+/// keys/values, encoded exactly like olaf_fp_db_writer_store:
+/// key = hash, value = (t1 << 32) + audio_id.
+fn parseCachedFingerprints(
+    allocator: std.mem.Allocator,
+    io: Io,
+    tdb_path: []const u8,
+    audio_id: u32,
+    keys: *std.ArrayList(u64),
+    values: *std.ArrayList(u64),
+) !void {
+    const content = try Io.Dir.cwd().readFileAlloc(io, tdb_path, allocator, .unlimited);
+    defer allocator.free(content);
+
+    var lines = std.mem.splitScalar(u8, content, '\n');
+    _ = lines.next(); // header: "fp_hash, t1, f1, m1, ..."
+    while (lines.next()) |line| {
+        if (std.mem.trim(u8, line, " \t\r").len == 0) continue;
+        var cols = std.mem.splitScalar(u8, line, ',');
+        const hash_str = std.mem.trim(u8, cols.next() orelse return error.MalformedCacheFile, " \t\r");
+        const t1_str = std.mem.trim(u8, cols.next() orelse return error.MalformedCacheFile, " \t\r");
+        const hash = std.fmt.parseInt(u64, hash_str, 10) catch return error.MalformedCacheFile;
+        const t1 = std.fmt.parseInt(u64, t1_str, 10) catch return error.MalformedCacheFile;
+        try keys.append(allocator, hash);
+        try values.append(allocator, (t1 << 32) + audio_id);
+    }
 }
 
 /// Result of storing an audio file, returned by `olaf_store_collect`.
@@ -827,4 +929,76 @@ test "bridge calls report a raw audio file that cannot be opened" {
     // Unopenable cache path: fails cleanly without touching the C side.
     try std.testing.expectError(error.CacheFileOpenFailed, olaf_print_to_file(allocator, missing, "missing", &config, "/nonexistent/dir/1.tdb", meta));
     try std.testing.expectError(error.CacheFileOpenFailed, olaf_print_to_file(allocator, missing, "missing", &config, tdb, "/nonexistent/dir/1.meta"));
+}
+
+test "three-phase olaf_store writes the same database content as the direct STORE path" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+
+    const ref = "dataset/ref/11266.mp3";
+    Io.Dir.cwd().access(io, ref, .{}) catch return error.SkipZigTest;
+
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const tmp_path = try tmp.dir.realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(tmp_path);
+
+    const raw = try std.fmt.allocPrint(allocator, "{s}/ref.raw", .{tmp_path});
+    defer allocator.free(raw);
+    const cut = try std.fmt.allocPrint(allocator, "{s}/cut.raw", .{tmp_path});
+    defer allocator.free(cut);
+    // Plain ffmpeg calls (importing olaf_cli_util_audio here would pull its
+    // input.mp3-based tests into this test binary).
+    ffmpegToRaw(allocator, io, ref, raw, &.{}) catch return error.SkipZigTest; // no ffmpeg
+    try ffmpegToRaw(allocator, io, ref, cut, &.{ "-ss", "20", "-t", "20" });
+
+    const db_a = try std.fmt.allocPrint(allocator, "{s}/a/", .{tmp_path});
+    defer allocator.free(db_a);
+    const db_b = try std.fmt.allocPrint(allocator, "{s}/b/", .{tmp_path});
+    defer allocator.free(db_b);
+    try Io.Dir.cwd().createDirPath(io, db_a);
+    try Io.Dir.cwd().createDirPath(io, db_b);
+    const config_a = olaf_cli_config.Config{ .db_folder = db_a };
+    const config_b = olaf_cli_config.Config{ .db_folder = db_b };
+
+    const id = "/music/reference.mp3";
+    _ = try olaf_store_collect(allocator, raw, id, &config_a); // direct STORE-mode path
+    try olaf_store(allocator, raw, id, &config_b, 0, 1, .json); // three-phase path
+
+    const internal_id = try olaf_name_to_id(allocator, id);
+    const meta_a = (try olaf_lookup_meta(allocator, &config_a, internal_id)).?;
+    defer allocator.free(meta_a.path);
+    const meta_b = (try olaf_lookup_meta(allocator, &config_b, internal_id)).?;
+    defer allocator.free(meta_b.path);
+    try std.testing.expectEqual(meta_a.duration, meta_b.duration);
+    try std.testing.expectEqual(meta_a.fingerprints, meta_b.fingerprints);
+    try std.testing.expectEqualStrings(meta_a.path, meta_b.path);
+
+    // Matching reads the stored fingerprints themselves: identical match
+    // lists mean identical keys and values.
+    const matches_a = try olaf_query_collect(allocator, "cut", cut, "cut", &config_a, 0);
+    defer freeQueryMatches(allocator, matches_a);
+    const matches_b = try olaf_query_collect(allocator, "cut", cut, "cut", &config_b, 0);
+    defer freeQueryMatches(allocator, matches_b);
+    try std.testing.expect(matches_a.len > 0);
+    try std.testing.expectEqual(matches_a.len, matches_b.len);
+    for (matches_a, matches_b) |ma, mb| {
+        try std.testing.expectEqual(ma.match_identifier, mb.match_identifier);
+        try std.testing.expectEqual(ma.match_count, mb.match_count);
+        try std.testing.expectEqual(ma.query_start, mb.query_start);
+        try std.testing.expectEqual(ma.reference_start, mb.reference_start);
+        try std.testing.expectEqual(ma.reference_stop, mb.reference_stop);
+    }
+}
+
+fn ffmpegToRaw(allocator: std.mem.Allocator, io: Io, input: []const u8, output: []const u8, extra: []const []const u8) !void {
+    var argv: std.ArrayList([]const u8) = .empty;
+    defer argv.deinit(allocator);
+    try argv.appendSlice(allocator, &.{ "ffmpeg", "-hide_banner", "-y", "-loglevel", "error", "-i", input });
+    try argv.appendSlice(allocator, extra);
+    try argv.appendSlice(allocator, &.{ "-ac", "1", "-ar", "16000", "-f", "f32le", "-acodec", "pcm_f32le", output });
+    const r = try std.process.run(allocator, io, .{ .argv = argv.items });
+    defer allocator.free(r.stdout);
+    defer allocator.free(r.stderr);
+    if (r.term != .exited or r.term.exited != 0) return error.FFmpegFailed;
 }
