@@ -7,8 +7,9 @@ const print = olaf_cli_util.print;
 pub const CommandInfo = struct {
     pub const name = "config";
     pub const description = "Prints the current configuration in use.";
-    pub const help = "[audio_file...] | --with-ids [audio_file audio_identifier]";
+    pub const help = "";
     pub const needs_audio_files = false;
+    pub const flags = &[_]types.Flag{};
 };
 
 pub fn execute(_: std.mem.Allocator, args: *types.Args) !void {

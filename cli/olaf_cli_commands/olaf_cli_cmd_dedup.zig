@@ -13,6 +13,7 @@ pub const CommandInfo = struct {
     pub const description = "Find duplicate audio content in a folder. Each file is stored, then queried against the index with self-matches filtered out.\n\t\t--threads n\t The number of threads to use for the store step.\n\t\t--fragmented\t Chop queries into fragments of fragment_duration_in_seconds (default 30s) and match each fragment.\n\t\t--skip-store\t Skip the store step (use when the index already contains the folder).";
     pub const help = "[--fragmented] [--threads n] [--skip-store] audio_files...";
     pub const needs_audio_files = true;
+    pub const flags = &[_]types.Flag{ .threads, .fragmented, .skip_store, .format, .force, .with_ids };
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {

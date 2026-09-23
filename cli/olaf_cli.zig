@@ -37,6 +37,7 @@ const Command = struct {
     description: []const u8,
     help: []const u8,
     needs_audio_files: bool,
+    flags: []const types.Flag,
     func: *const fn (allocator: std.mem.Allocator, args: *types.Args) anyerror!void,
 };
 
@@ -48,6 +49,7 @@ fn command(comptime m: type) Command {
         .description = m.CommandInfo.description,
         .help = m.CommandInfo.help,
         .needs_audio_files = m.CommandInfo.needs_audio_files,
+        .flags = m.CommandInfo.flags,
         .func = m.execute,
     };
 }
@@ -175,32 +177,29 @@ fn run(init: std.process.Init) !void {
         return;
     }
 
-    var args = try parseArgs(allocator, io, home, &config, args_list[2..]);
+
+    const cmd = for (commands) |cmd| {
+        if (std.mem.eql(u8, cmd.name, command_name)) break cmd;
+    } else {
+        print("No such command: '{s}'\n", .{command_name});
+        try printHelp(io);
+        return error.Usage;
+    };
+
+    var args = try parseArgs(allocator, io, home, &config, cmd, args_list[2..]);
     defer args.deinit(allocator);
 
-    // Find and execute command
-    for (commands) |cmd| {
-        if (std.mem.eql(u8, cmd.name, command_name)) {
-            if (cmd.needs_audio_files and args.audio_files.items.len == 0) {
-                print("This command needs audio files, none are found.\n", .{});
-                print("olaf {s} {s}\n", .{ cmd.name, cmd.help });
-                return error.Usage;
-            }
-
-            try cmd.func(allocator, &args);
-            return;
-        }
+    if (cmd.needs_audio_files and args.audio_files.items.len == 0) {
+        print("This command needs audio files, none are found.\n", .{});
+        print("olaf {s} {s}\n", .{ cmd.name, cmd.help });
+        return error.Usage;
     }
-
-    // Command not found
-    print("No such command: '{s}'\n", .{command_name});
-    try printHelp(io);
-    return error.Usage;
+    try cmd.func(allocator, &args);
 }
 
 /// Parse the arguments after the command name: flags into `Args`, everything
 /// else resolved to audio files (or `--with-ids` file/identifier pairs).
-fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *const olaf_cli_config.Config, args_list: []const [:0]const u8) !types.Args {
+fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *const olaf_cli_config.Config, cmd: Command, args_list: []const [:0]const u8) !types.Args {
     var args = types.Args{ .audio_files = .empty, .io = io, .config = config };
     errdefer args.deinit(allocator);
 
@@ -209,6 +208,7 @@ fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *c
         const arg = args_list[i];
 
         if (std.mem.eql(u8, arg, "--threads")) {
+            try allow(cmd, .threads, arg);
             if (i + 1 < args_list.len) {
                 const threads_arg = args_list[i + 1];
                 args.threads = std.fmt.parseInt(u32, threads_arg, 10) catch 0;
@@ -222,14 +222,19 @@ fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *c
                 return error.Usage;
             }
         } else if (std.mem.eql(u8, arg, "--no-identity-match")) {
+            try allow(cmd, .no_identity_match, arg);
             args.allow_identity_match = false;
         } else if (std.mem.eql(u8, arg, "--with-ids") or std.mem.eql(u8, arg, "--with_ids")) {
+            try allow(cmd, .with_ids, arg);
             args.use_audio_ids = true;
         } else if (std.mem.eql(u8, arg, "--fragmented")) {
+            try allow(cmd, .fragmented, arg);
             args.fragmented = true;
         } else if (std.mem.eql(u8, arg, "--skip-store") or std.mem.eql(u8, arg, "--skip_store")) {
+            try allow(cmd, .skip_store, arg);
             args.skip_store = true;
         } else if (std.mem.eql(u8, arg, "--format")) {
+            try allow(cmd, .format, arg);
             if (i + 1 < args_list.len) {
                 const fmt = args_list[i + 1];
                 args.format = std.meta.stringToEnum(olaf_cli_output.Format, fmt) orelse {
@@ -242,11 +247,20 @@ fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *c
                 return error.Usage;
             }
         } else if (std.mem.eql(u8, arg, "-f") or std.mem.eql(u8, arg, "--force")) {
+            try allow(cmd, .force, arg);
             args.force = true;
         } else {
-            // It's an unrecognized argument, a file?
+            // Not an option: an audio file (or an unknown option).
+            if (arg.len > 1 and arg[0] == '-') {
+                print("Unknown option '{s}' for 'olaf {s}'.\nolaf {s} {s}\n", .{ arg, cmd.name, cmd.name, cmd.help });
+                return error.Usage;
+            }
+            if (!cmd.needs_audio_files) {
+                print("'olaf {s}' takes no audio files (got '{s}').\n", .{ cmd.name, arg });
+                return error.Usage;
+            }
             if (args.use_audio_ids) {
-                if (i + 1 >= args_list.len or std.mem.startsWith(u8, args_list[i + 1], "--")) {
+                if (i + 1 >= args_list.len or (args_list[i + 1].len > 1 and args_list[i + 1][0] == '-')) {
                     print("--with-ids expects pairs: audio_file audio_identifier ('{s}' has no identifier)\n", .{arg});
                     return error.Usage;
                 }
@@ -258,4 +272,11 @@ fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *c
         }
     }
     return args;
+}
+
+/// Reject an option the command does not support.
+fn allow(cmd: Command, flag: types.Flag, arg: []const u8) !void {
+    if (std.mem.indexOfScalar(types.Flag, cmd.flags, flag) != null) return;
+    print("'{s}' is not an option of 'olaf {s}'.\nolaf {s} {s}\n", .{ arg, cmd.name, cmd.name, cmd.help });
+    return error.Usage;
 }

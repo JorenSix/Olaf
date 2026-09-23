@@ -801,6 +801,15 @@ test "functional: usage errors exit with status 2" {
     try env.expectExit(&.{ "query", "--threads", "0", ref_abs }, 2);
     try env.expectExit(&.{ "store", "--with-ids", ref_abs }, 2);
     try env.expectExit(&.{ "store", "--with-ids", ref_abs, "--threads" }, 2);
+    // Options and files a command does not use used to be ignored silently.
+    try env.expectExit(&.{ "store", "--fragmented", ref_abs }, 2);
+    try env.expectExit(&.{ "delete", "--threads", "2", ref_abs }, 2);
+    try env.expectExit(&.{ "store_cached", ref_abs }, 2);
+    try env.expectExit(&.{ "config", "no_such_file.mp3" }, 2);
+    try env.expectExit(&.{ "query", "--format", "human", ref_abs }, 2);
+    try env.expectExit(&.{ "store", "--bogus", ref_abs }, 2);
+    // '-f' after a --with-ids file used to become its identifier.
+    try env.expectExit(&.{ "store", "--with-ids", ref_abs, "-f" }, 2);
     try env.expectExit(&.{"--help"}, 0);
 }
 

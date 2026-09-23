@@ -13,6 +13,7 @@ pub const CommandInfo = struct {
     pub const description = "Query the live microphone input against the database.\n\t\tSpawns ffmpeg to capture the default microphone and streams CSV matches as they are found.\n\t\tConfigure the input via microphone_input_format / microphone_device in the config.\n\t\tResults print every print_result_every s (default 3) and matches expire after keep_matches_for s (default 10).";
     pub const help = "(no arguments; reads the default microphone via ffmpeg)";
     pub const needs_audio_files = false;
+    pub const flags = &[_]types.Flag{ .format };
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
@@ -26,7 +27,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         const config = args.config.?;
 
         // Live capture has no natural end to flush JSON, so only CSV is supported.
-        if (args.queryFormat() == .json) {
+        if (args.format != null and args.format != .csv) {
             print("The microphone command only supports live CSV output; --format json is not available.\n", .{});
             return error.Usage;
         }

@@ -10,6 +10,7 @@ pub const CommandInfo = struct {
     pub const description = "Delete fingerprints from the database by audio identifier.";
     pub const help = "[audio_file...] | --with-ids [[audio_file audio_identifier] ...]";
     pub const needs_audio_files = true;
+    pub const flags = &[_]types.Flag{ .with_ids };
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {

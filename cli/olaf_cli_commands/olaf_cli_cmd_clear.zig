@@ -16,6 +16,7 @@ pub const CommandInfo = struct {
         \\  olaf clear -f           # Force deletion without prompts
     ;
     pub const needs_audio_files = false;
+    pub const flags = &[_]types.Flag{ .force };
 };
 
 /// Which Olaf-owned folder is being cleared. Only files Olaf itself writes

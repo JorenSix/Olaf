@@ -15,6 +15,7 @@ pub const CommandInfo = struct {
     pub const description = "Extracts and stores fingerprints into an index. If --with-ids is provided, it will store audio with user provided identifiers.\n\t\tAlready indexed files are skipped when skip_duplicates is set (default).\n\t\t-f, --force\t Re-store files that are already indexed.\n\t\t--threads n\t The number of threads to use.\n\t\t--format <human|csv|json>\t Per-file summary format on stderr (default: human).";
     pub const help = "[-f] [--threads n] [--format <human|csv|json>] [audio_file...] | --with-ids [[audio_file audio_identifier] ...]";
     pub const needs_audio_files = true;
+    pub const flags = &[_]types.Flag{ .threads, .format, .force, .with_ids };
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {

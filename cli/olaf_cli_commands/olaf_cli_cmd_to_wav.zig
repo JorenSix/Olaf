@@ -13,6 +13,7 @@ pub const CommandInfo = struct {
     pub const description = "Converts audio to single channel wav, written next to the input as <name>.wav.\n\t-f, --force\t Convert again when the output file already exists.\n\t--threads n\t The number of threads to use.";
     pub const help = "[-f] [--threads n] audio_files...";
     pub const needs_audio_files = true;
+    pub const flags = &[_]types.Flag{ .threads, .force };
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {

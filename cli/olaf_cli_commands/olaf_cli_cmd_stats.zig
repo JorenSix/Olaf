@@ -8,6 +8,7 @@ pub const CommandInfo = struct {
     pub const description = "Print statistics about the audio files in the database.";
     pub const help = "";
     pub const needs_audio_files = false;
+    pub const flags = &[_]types.Flag{};
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {

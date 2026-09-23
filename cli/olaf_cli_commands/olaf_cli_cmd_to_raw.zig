@@ -13,6 +13,7 @@ pub const CommandInfo = struct {
     pub const description = "Converts audio to RAW format (f32le, mono, target_sample_rate) for debugging.\n\tWrites olaf_audio_<name>.raw into the current directory.\n\t-f, --force\t Convert again when the output file already exists.\n\t--threads n\t The number of threads to use.";
     pub const help = "[-f] [--threads n] audio_files...";
     pub const needs_audio_files = true;
+    pub const flags = &[_]types.Flag{ .threads, .force };
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {

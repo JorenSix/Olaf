@@ -12,9 +12,14 @@ pub const CommandInfo = struct {
     pub const description = "Query for fingerprint matches.\n\t\t--threads n\t The number of threads to use.\n\t\t--fragmented\t Chop queries into fragments of fragment_duration_in_seconds (default 30s) and match each fragment.\n\t\t--no-identity-match\t Identity matches are not reported.\n\t\t--format <csv|json>\t Output format (default: csv).";
     pub const help = "[--fragmented] [--threads n] [--format <csv|json>] [audio_file...] | --with-ids [[audio_file audio_identifier]...]";
     pub const needs_audio_files = true;
+    pub const flags = &[_]types.Flag{ .threads, .fragmented, .no_identity_match, .format, .with_ids };
 };
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
+    if (args.format == .human) {
+        print("query output has no human format; use --format csv or json.\n", .{});
+        return error.Usage;
+    }
     if (args.audio_files.items.len == 0) {
         print("No audio files provided to query.\n", .{});
         return;

@@ -13,6 +13,7 @@ pub const CommandInfo = struct {
     pub const description = "Stores fingerprints cached in text files into the database.\n\tAfter caching fingerprints with 'olaf cache audio_files...' use store_cached to index them.\n\tAlready indexed files are skipped (skip_duplicates); -f stores them anyway.";
     pub const help = "[-f]";
     pub const needs_audio_files = false;
+    pub const flags = &[_]types.Flag{ .force };
 };
 
 const print = olaf_cli_util.print;

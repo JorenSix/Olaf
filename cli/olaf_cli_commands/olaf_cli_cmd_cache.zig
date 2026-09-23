@@ -22,6 +22,7 @@ pub const CommandInfo = struct {
     pub const description = "Extracts fingerprints and caches them in text files for later storage.\n\t\t-f, --force\t Re-cache files that are already cached.\n\t\t--threads n\t The number of threads to use for parallel extraction.";
     pub const help = "[-f] [--threads n] audio_files...";
     pub const needs_audio_files = true;
+    pub const flags = &[_]types.Flag{ .threads, .force, .with_ids };
 };
 
 const print = olaf_cli_util.print;
