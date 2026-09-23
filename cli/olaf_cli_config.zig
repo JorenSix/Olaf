@@ -463,15 +463,6 @@ pub fn olafWrapperConfig(allocator: std.mem.Allocator, io: Io, home: ?[]const u8
     return try readJsonConfigOrDefault(allocator, io, home, config_exe_dir);
 }
 
-pub fn main() !void {
-    const allocator = std.heap.page_allocator;
-    const io = std.Io.Threaded.global_single_threaded.io();
-    var config = try olafWrapperConfig(allocator, io, null);
-    defer config.deinit(allocator);
-
-    config.debugPrint();
-}
-
 test "castInt / getInt: range and type checks" {
     const parsed = try json.parseFromSlice(json.Value, std.testing.allocator,
         \\{"neg":-1,"big":4294967296,"float":2.5,"str":"50","ok":7}

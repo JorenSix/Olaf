@@ -136,49 +136,6 @@ int olaf_stats_struct(const Olaf_Config* config, Olaf_DB_Stats* out){
 	return 0;
 }
 
-void olaf_has(Olaf_Config* config,size_t audio_identifiers_len,const char* audio_identifiers[], bool * has_audio_identifier){
-	
-	Olaf_DB* db = olaf_db_new(config->dbFolder,true);
-
-	printf("audio file path; internal identifier; duration (s); fingerprints (#)\n");
-	for(size_t arg_index = 0 ; arg_index < audio_identifiers_len ; arg_index++){
-		// retrieve the audio identifier
-		const char* audio_identifier = audio_identifiers[arg_index];
-		// resolve the audio identifier to its on-disk numeric id
-		uint32_t audio_id_num = olaf_db_identifier_id(audio_identifier,strlen(audio_identifier));
-		bool found_id = olaf_db_has_meta_data(db,&audio_id_num);
-		if(found_id) {
-			Olaf_Resource_Meta_data e;
-			olaf_db_find_meta_data(db,&audio_id_num,&e);
-			printf("%s;%u;%.3f;%ld\n",audio_identifier,audio_id_num,e.duration,e.fingerprints);
-			
-		}else{
-			printf("%s;;;\n",audio_identifier);
-		}
-		if(has_audio_identifier != NULL){
-			has_audio_identifier[arg_index] = found_id; 
-		}
-	}
-	olaf_db_destroy(db);
-}
-
-int olaf_store_cached(int argc, const char* argv[]){
-	Olaf_Config* config = olaf_config_default();
-	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
-
-	for(int arg_index = 2 ; arg_index < argc ; arg_index++){
-		const char* csv_filename = argv[arg_index];
-		Olaf_FP_DB_Writer_Cache * cache_writer  = olaf_fp_db_writer_cache_new(db,config,csv_filename);
-		olaf_fp_db_writer_cache_store(cache_writer);
-		olaf_fp_db_writer_cache_destroy(cache_writer);
-	}
-	olaf_db_destroy(db);
-	olaf_config_destroy(config);
-	exit(0);
-	return 0;
-}
-
-
 typedef struct {
     size_t q_index;
     size_t q_total;
@@ -561,10 +518,6 @@ int olaf_delete(Olaf_Config* config,const char* raw_audio_path, const char* audi
 	return 0;
 }
 
-void olaf_print(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier){
-	(void) olaf_print_to_file(config, raw_audio_path, audio_identifier,stdout,stdout);
-}
-
 int olaf_print_to_file(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier,FILE * fp_cache_file,FILE * fp_meta_file){
 	//print fingerprints to stdout (no database needed for PRINT mode)
 
@@ -595,104 +548,4 @@ int olaf_print_to_file(Olaf_Config* config, const char* raw_audio_path, const ch
 
 uint32_t olaf_name_to_id(const char* audio_identifier){
 	return olaf_db_identifier_id(audio_identifier,strlen(audio_identifier));
-}
-
-void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* orig_audio_path){
-	//store the fingerprints in the database
-	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
-	if(db == NULL){
-		fprintf(stderr,"Error: Could not open database %s.\n",config->dbFolder);
-		//close the database
-		olaf_db_destroy(db);
-		exit(-1);
-	}
-	//close the database
-	olaf_db_destroy(db);
-
-	//printf("Storing audio file '%s' with original path '%s' in database '%s'\n",raw_audio_path,orig_audio_path,config->dbFolder);
-	
-	
-	//create a new runner
-	Olaf_Runner * runner = olaf_runner_new(OLAF_RUNNER_MODE_STORE, config, NULL,NULL);
-
-	//create a new stream processor; NULL means the raw audio file could not be opened
-	Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_audio_path,orig_audio_path);
-	if(processor == NULL){
-		olaf_runner_destroy(runner);
-		return;
-	}
-
-	//process the audio file
-	olaf_stream_processor_process(processor);
-
-	//destroy the stream processor
-	olaf_stream_processor_destroy(processor);
-
-	//destroy the runner
-	olaf_runner_destroy(runner);
-
-
-}
-
-int olaf_main(int argc, const char* argv[]){
-
-	Olaf_Config* config = olaf_config_default();
-
-	const char* command = argv[1];
-	int runner_mode = OLAF_RUNNER_MODE_QUERY; 
-	
-	if(strcmp(command,"store") == 0){
-		runner_mode = OLAF_RUNNER_MODE_STORE;
-	} else if(strcmp(command,"query") == 0){
-		runner_mode = OLAF_RUNNER_MODE_QUERY;
-	} else if(strcmp(command,"delete") == 0){
-		runner_mode = OLAF_RUNNER_MODE_DELETE;
-	} else if(strcmp(command,"print") == 0){
-		runner_mode = OLAF_RUNNER_MODE_PRINT;
-	} else if(strcmp(command,"name_to_id") == 0){
-		//print the on-disk numeric id and exit
-		printf("%u\n",olaf_db_identifier_id(argv[2],strlen(argv[2])));
-		exit(0);
-		return 0;
-	} else if(strcmp(command,"stats") == 0){
-		fprintf(stderr,"%s Usupported stats: \n",command);
-	} else if(strcmp(command,"store_cached") == 0){
-		olaf_store_cached(argc,argv);
-	} else {
-		fprintf(stderr,"%s Unknown command: \n",command);
-	}
-
-	Olaf_Runner * runner = olaf_runner_new(runner_mode,config, NULL,NULL);
-
-	if(runner_mode == OLAF_RUNNER_MODE_QUERY && argc == 2){
-		//read audio samples from standard input
-		runner->config->printResultEvery = 3;//print results every three seconds
-		runner->config->keepMatchesFor = 10;//keep matches for 7 seconds
-		fprintf(stderr,"Start listening for incoming raw audio samples piped in over STDIN.\n");
-		Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,NULL,"stdin");
-		if(processor != NULL){
-			olaf_stream_processor_process(processor);
-			olaf_stream_processor_destroy(processor);
-		}
-	}else{
-		if(argc % 2 == 1 ){
-			fprintf(stderr,"Error: You need to provide converted raw audio and the original file name, for example:\n\tolaf query audio.raw original_filename.mp3\n");
-			exit(-3);
-		}
-		//for each audio file
-		for(int arg_index = 2 ; arg_index + 1 < argc ; arg_index+=2){
-			const char* raw_path =  argv[arg_index];
-			const char* orig_path = argv[arg_index + 1];
-			Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_path,orig_path);
-			if(processor == NULL){
-				continue;
-			}
-			olaf_stream_processor_process(processor);
-			olaf_stream_processor_destroy(processor);
-		}
-	}
-
-	olaf_runner_destroy(runner);
-
-	return 0;
 }

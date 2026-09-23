@@ -88,20 +88,6 @@ fn cacheAudioFile(
     const meta_file_path = try std.fmt.allocPrint(allocator, "{s}/{d}.meta", .{ cache_folder_expanded, audio_id });
     defer allocator.free(meta_file_path);
 
-    // olaf_has needs the database to check against, which we don't want to access here.
-    // So this part is commented out for now.
-
-    // Check if already indexed (if configured to skip duplicates)
-    // if (config.skip_duplicates) {
-    //     const has_results = try olaf_cli_bridge.olaf_has(allocator, &[_][]const u8{audio_file.identifier}, config);
-    //     defer allocator.free(has_results);
-
-    //     if (has_results[0]) {
-    //         print("{d}/{d}, {s}, SKIPPED: already indexed audio file\n", .{ index + 1, total, audio_file.path });
-    //         return;
-    //     }
-    // }
-
     // Convert to raw audio
     const raw_audio_path = try olaf_cli_threading.createTempRawPath(io, allocator);
     defer allocator.free(raw_audio_path);

@@ -41,16 +41,6 @@ pub const QueryMatch = struct {
 
 pub const store_csv_header = "action,file_index,file_total,audio_identifier,internal_id,fingerprints,audio_seconds,cpu_seconds,fingerprints_per_second,realtime_factor\n";
 
-fn olaf_main(allocator: std.mem.Allocator, args_list: []const []const u8) !void {
-    var c_argv = try allocator.alloc([*c]const u8, args_list.len);
-    defer allocator.free(c_argv);
-    for (args_list, 0..) |arg, i| {
-        c_argv[i] = arg.ptr;
-    }
-    _ = olaf.olaf_main(@intCast(args_list.len), c_argv.ptr);
-    debug("olaf main with custom args\n", .{});
-}
-
 fn copy_to_c_config(config: *const olaf_cli_config.Config, c_config: *olaf.Olaf_Config) !void {
     debug("Copying configuration to C struct", .{});
 
@@ -728,20 +718,6 @@ pub fn freeQueryMatches(allocator: std.mem.Allocator, matches: []QueryMatch) voi
     allocator.free(matches);
 }
 
-pub fn olaf_print(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {
-    var cc = try CConfig.init(allocator, config);
-    defer cc.deinit();
-    const c_config = cc.c_config;
-
-    const c_raw_audio_path = try allocator.dupeZ(u8, raw_audio_path);
-    defer allocator.free(c_raw_audio_path);
-
-    const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
-    defer allocator.free(c_audio_identifier);
-
-    olaf.olaf_print(c_config, c_raw_audio_path, c_audio_identifier);
-}
-
 pub fn olaf_print_to_file(
     allocator: std.mem.Allocator,
     raw_audio_path: []const u8,
@@ -815,38 +791,6 @@ pub fn olaf_store_cached_files(allocator: std.mem.Allocator, entries: []const Ca
         olaf.olaf_fp_db_writer_cache_store(cache_writer);
         olaf.olaf_fp_db_writer_cache_destroy(cache_writer);
     }
-}
-
-pub fn olaf_has(allocator: std.mem.Allocator, audio_identifiers: []const []const u8, config: *const olaf_cli_config.Config) ![]bool {
-    var cc = try CConfig.init(allocator, config);
-    defer cc.deinit();
-    const c_config = cc.c_config;
-
-    // Convert audio identifiers to C strings
-    var c_audio_identifiers = try allocator.alloc([*c]const u8, audio_identifiers.len);
-    defer allocator.free(c_audio_identifiers);
-
-    var c_strings = try allocator.alloc([:0]u8, audio_identifiers.len);
-    defer {
-        for (c_strings) |c_str| {
-            allocator.free(c_str);
-        }
-        allocator.free(c_strings);
-    }
-
-    for (audio_identifiers, 0..) |id, i| {
-        c_strings[i] = try allocator.dupeZ(u8, id);
-        c_audio_identifiers[i] = c_strings[i].ptr;
-    }
-
-    // Allocate result array
-    const has_audio_identifier = try allocator.alloc(bool, audio_identifiers.len);
-    errdefer allocator.free(has_audio_identifier);
-
-    // Call C function
-    olaf.olaf_has(c_config, audio_identifiers.len, c_audio_identifiers.ptr, @ptrCast(has_audio_identifier.ptr));
-
-    return has_audio_identifier;
 }
 
 // Guards against drift between the hand-maintained defaults in

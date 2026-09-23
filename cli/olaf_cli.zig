@@ -220,7 +220,6 @@ fn run(init: std.process.Init) !void {
     var args = types.Args{
         .audio_files = .empty,
         .io = io,
-        .home = home,
     };
 
     args.config = &config;

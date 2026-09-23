@@ -309,16 +309,3 @@ fn addList(
         try addPath(allocator, io, home, trimmed, files, allowed_audio_file_extensions, .{ .list = list_path, .line = line_no });
     }
 }
-
-/// Runs a command given by `argv`, capturing stdout and stderr output.
-/// Returns the process termination status and output as slices.
-/// Caller owns the returned stdout/stderr memory.
-pub fn runCommand(allocator: std.mem.Allocator, io: Io, argv: []const []const u8) !std.process.RunResult {
-    if (@import("builtin").mode == .Debug) {
-        const cmd_str = try std.mem.join(allocator, " ", argv);
-        defer allocator.free(cmd_str);
-        debug("Running command: {s}", .{cmd_str});
-    }
-
-    return std.process.run(allocator, io, .{ .argv = argv });
-}

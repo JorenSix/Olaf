@@ -37,10 +37,6 @@ size_t olaf_query_collect(Olaf_Config* config, const char * query_path, const ch
 // Get the default Olaf configuration
 Olaf_Config* olaf_default_config();
 
-// store audio file in the database
-// This function takes a raw audio file path and an audio identifier (e.g., original file name, or a unique identifier).
-// It processes the audio file and stores the fingerprints in the database.
-void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
 
 // olaf_query, olaf_query_json, olaf_delete and olaf_print_to_file return 0 on
 // success and -1 when the raw audio file could not be opened.
@@ -64,20 +60,12 @@ int olaf_delete(Olaf_Config* config, const char* raw_audio_path, const char* aud
 // returning (also on failure to open the raw audio), unless they are stdout.
 int olaf_print_to_file(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier,FILE * fp_cache_file, FILE * fp_meta_file);
 
-// Print fingerprints to stdout (for caching)
-void olaf_print(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
 
 // Get audio identifier hash from filename
 uint32_t olaf_name_to_id(const char* audio_identifier);
 
-// Check if audio files exist in the database and print metadata
-void olaf_has(Olaf_Config* config,size_t audio_identifiers_len,const char* audio_identifiers[],bool * has_audio_identifier);
 
-// Store fingerprints from CSV files using cache and exit
-int olaf_store_cached(int argc, const char* argv[]);
 
-// Main entry point for Olaf CLI bridge
-int olaf_main(int argc, const char* argv[]);
 
 
 #endif // OLAF_CLI_BRIDGE_H
