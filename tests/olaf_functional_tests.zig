@@ -1483,6 +1483,23 @@ test "functional: parallel store matches serial store" {
 
 const GOLDEN_SNAPSHOT = "tests/golden/output_snapshot.txt";
 
+/// Where the snapshot was generated. Fingerprints depend on the audio
+/// decoder (ffmpeg version) and on floating point details of the platform,
+/// so a byte-exact snapshot only compares within one environment; the golden
+/// file's first line records it and other environments skip the test.
+fn snapshotEnvironment(allocator: std.mem.Allocator, io: Io) ![]u8 {
+    const r = try std.process.run(allocator, io, .{ .argv = &.{ "ffmpeg", "-version" } });
+    defer allocator.free(r.stdout);
+    defer allocator.free(r.stderr);
+    const first_line = std.mem.sliceTo(r.stdout, '\n');
+    var words = std.mem.tokenizeScalar(u8, first_line, ' ');
+    _ = words.next(); // "ffmpeg"
+    _ = words.next(); // "version"
+    const version = words.next() orelse "unknown";
+    const builtin = @import("builtin");
+    return std.fmt.allocPrint(allocator, "# environment: {s}-{s} ffmpeg {s}", .{ @tagName(builtin.cpu.arch), @tagName(builtin.os.tag), version });
+}
+
 /// Replace `"key":<number>` / `"key": <number>` values with <T>.
 fn maskJsonNumber(allocator: std.mem.Allocator, line: []const u8, key: []const u8) ![]u8 {
     const needle = try std.fmt.allocPrint(allocator, "\"{s}\":", .{key});
@@ -1677,19 +1694,30 @@ test "functional: output snapshot" {
     }
     const actual = transcript.written();
 
+    const environment = try snapshotEnvironment(allocator, io);
+    defer allocator.free(environment);
+
     if (getEnvVar("OLAF_UPDATE_GOLDEN") != null) {
         try Io.Dir.cwd().createDirPath(io, "tests/golden");
         const f = try Io.Dir.cwd().createFile(io, GOLDEN_SNAPSHOT, .{});
         defer f.close(io);
+        try f.writeStreamingAll(io, environment);
+        try f.writeStreamingAll(io, "\n");
         try f.writeStreamingAll(io, actual);
         return;
     }
 
-    const expected = Io.Dir.cwd().readFileAlloc(io, GOLDEN_SNAPSHOT, allocator, .limited(4 * 1024 * 1024)) catch |err| {
+    const golden = Io.Dir.cwd().readFileAlloc(io, GOLDEN_SNAPSHOT, allocator, .limited(4 * 1024 * 1024)) catch |err| {
         std.debug.print("\nMissing {s} ({}); generate it with OLAF_UPDATE_GOLDEN=1 zig build test\n", .{ GOLDEN_SNAPSHOT, err });
         return err;
     };
-    defer allocator.free(expected);
+    defer allocator.free(golden);
+    const header_end = std.mem.indexOfScalar(u8, golden, '\n') orelse return error.MalformedGolden;
+    if (!std.mem.eql(u8, golden[0..header_end], environment)) {
+        std.debug.print("\nSkipping output snapshot: {s} was generated in '{s}', this is '{s}'. Regenerate it here with OLAF_UPDATE_GOLDEN=1 before refactoring.\n", .{ GOLDEN_SNAPSHOT, golden[0..header_end], environment });
+        return error.SkipZigTest;
+    }
+    const expected = golden[header_end + 1 ..];
     testing.expectEqualStrings(expected, actual) catch |err| {
         std.debug.print("\nOutput differs from {s}. If the change is intended, regenerate with OLAF_UPDATE_GOLDEN=1 zig build test\n", .{GOLDEN_SNAPSHOT});
         return err;

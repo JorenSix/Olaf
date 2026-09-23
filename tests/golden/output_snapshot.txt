@@ -1,3 +1,4 @@
+# environment: aarch64-macos ffmpeg 9.0.1
 == store human
 1/2 Stored 1933 fp's from 98.2s (20 fp/s) in <T>
 2/2 Stored 3159 fp's from 109.5s (29 fp/s) in <T>
