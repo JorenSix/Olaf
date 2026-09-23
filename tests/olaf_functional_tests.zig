@@ -1838,6 +1838,24 @@ test "functional: live microphone results reach a redirected stdout" {
     try testing.expect(std.mem.indexOf(u8, content, "1 ,1 ,microphone,") != null);
 }
 
+test "functional: a query whose only match is itself still reports a row" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "self_only");
+    defer env.deinit();
+    try env.ok(&.{ "store", env.ref });
+
+    // Used to print no row at all for this query (the self-match was
+    // filtered and the core's "no results" row is only sent when there are
+    // no matches at all).
+    const r = try env.run(&.{ "query", "--no-identity-match", env.ref }, 0);
+    defer r.deinit();
+    const row = (try firstResultLine(allocator, r.stdout)) orelse return error.NoResultLine;
+    try testing.expect(row.empty_match);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

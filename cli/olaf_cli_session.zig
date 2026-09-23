@@ -47,6 +47,8 @@ pub const Sink = struct {
         collect: struct { allocator: std.mem.Allocator, list: *std.ArrayList(Match) },
     },
     err: ?anyerror = null,
+    /// Whether a CSV row was printed (see `query`).
+    printed: bool = false,
 };
 
 threadlocal var current_sink: ?*Sink = null;
@@ -72,7 +74,10 @@ fn resultCallback(
         .reference_stop = reference_stop,
     };
     switch (sink.target) {
-        .print => |q| output.writeMatchRow(q, m),
+        .print => |q| {
+            output.writeMatchRow(q, m);
+            sink.printed = true;
+        },
         .collect => |col| {
             if (match_count == 0) return; // the "no results" sentinel
             var owned = m;
@@ -309,6 +314,18 @@ pub fn query(
         .csv => {
             var sink = Sink{ .exclude = exclude_identifier, .target = .{ .print = info } };
             _ = try session.run(.query, raw_audio_path, identifier, .{ .sink = &sink, .header = output.query_csv_header });
+            // The core only sends its "no results" row when there are no
+            // matches at all; when every match was a filtered self-match the
+            // query would otherwise leave no row (no end marker) at all.
+            if (!sink.printed) output.writeMatchRow(info, .{
+                .match_count = 0,
+                .query_start = 0,
+                .query_stop = 0,
+                .path = "",
+                .match_identifier = 0,
+                .reference_start = 0,
+                .reference_stop = 0,
+            });
         },
         .json => {
             var list: std.ArrayList(Match) = .empty;

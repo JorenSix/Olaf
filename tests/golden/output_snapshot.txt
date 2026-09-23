@@ -714,6 +714,7 @@ query_index, total_queries, query_path, query_offset, match_count, query_start, 
 1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 11 ,6.520 ,90.184,"Crosby, Stills", 3331107306, 2.688, 86.352
 == query csv --no-identity-match (--with-ids)
 query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
+1 ,1 ,<REPO>/dataset/ref/173050.mp3, 0.000, 0 ,0.000 ,0.000, , 0, 0.000, 0.000
 == stats
 [MDB database statistics]
 =========================
