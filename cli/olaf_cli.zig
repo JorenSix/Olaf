@@ -157,6 +157,8 @@ fn printHelp(io: Io) !void {
 pub fn main(init: std.process.Init) !u8 {
     run(init) catch |err| switch (err) {
         error.Usage => return 2,
+        // Per-file failures were already logged; skip the redundant trace.
+        error.ProcessingFailed => return 1,
         else => return err,
     };
     return 0;

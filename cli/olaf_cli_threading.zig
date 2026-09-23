@@ -82,15 +82,21 @@ pub fn executeParallel(
     const actual_threads = @min(num_threads, audio_files.len);
 
     if (actual_threads <= 1) {
-        // Single-threaded execution
+        // Single-threaded execution. Same policy as the parallel path: a
+        // failing file is logged and counted, the rest are still processed.
         debug("Processing {d} audio files (single-threaded, filter_identity={})", .{ audio_files.len, filter_identity });
+        var failures: usize = 0;
         for (audio_files, 0..) |audio_file, i| {
             const exclude = if (filter_identity)
                 try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier)
             else
                 @as(u32, 0);
-            try processAudioFile(io, allocator, audio_file, config, i, audio_files.len, action, exclude, output_format, store_format);
+            processAudioFile(io, allocator, audio_file, config, i, audio_files.len, action, exclude, output_format, store_format) catch |err| {
+                failures += 1;
+                std.log.err("Failed to process {s}: {}", .{ audio_file.path, err });
+            };
         }
+        if (failures > 0) return error.ProcessingFailed;
         return;
     }
 
@@ -143,12 +149,11 @@ pub fn executeParallel(
     }
 }
 
-/// Run `worker(ctx, item, index, total, allocator)` over every item. When
-/// `num_threads <= 1` items run serially and the first worker error propagates
-/// immediately. Otherwise items run concurrently (bounded to `num_threads`);
-/// worker errors are caught, logged, and counted, and the count is returned
-/// (0 = all succeeded). Callers map a non-zero count to their own error and
-/// optional summary line.
+/// Run `worker(ctx, item, index, total, allocator)` over every item, serially
+/// when `num_threads <= 1`, otherwise concurrently (bounded to `num_threads`).
+/// Either way worker errors are caught, logged, and counted, every item is
+/// attempted, and the count is returned (0 = all succeeded). Callers map a
+/// non-zero count to their own error and optional summary line.
 ///
 /// The worker owns its own output synchronization. Serial execution is
 /// single-threaded so no locking is needed; the same worker body is safe there
@@ -166,10 +171,14 @@ pub fn forEachParallel(
     const actual_threads = @min(num_threads, items.len);
 
     if (actual_threads <= 1) {
+        var failures: usize = 0;
         for (items, 0..) |item, i| {
-            try worker(ctx, item, i, items.len, allocator);
+            worker(ctx, item, i, items.len, allocator) catch |err| {
+                failures += 1;
+                std.log.err("Worker failed on item {d}/{d}: {}", .{ i + 1, items.len, err });
+            };
         }
-        return 0;
+        return failures;
     }
 
     var sem: Io.Semaphore = .{ .permits = actual_threads };
@@ -296,36 +305,55 @@ pub fn executeFragmentedQuery(
         audio_files.len, fragment_duration, num_threads, filter_identity,
     });
 
+    var failures: usize = 0;
     for (audio_files, 0..) |audio_file, file_index| {
-        // Get the total duration of the audio file
-        const total_duration = try olaf_cli_util_audio.getAudioDuration(allocator, io, audio_file.path);
+        queryFragmentsOfFile(io, allocator, audio_file, config, file_index, audio_files.len, fragment_duration, filter_identity, output_format) catch |err| {
+            failures += 1;
+            std.log.err("Failed to process {s}: {}", .{ audio_file.path, err });
+        };
+    }
+    if (failures > 0) return error.ProcessingFailed;
+}
 
-        // Reference fingerprints are stored under the file identifier, so the
-        // self-id is the hash of audio_file.identifier.
-        const exclude = if (filter_identity)
-            try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier)
-        else
-            @as(u32, 0);
+fn queryFragmentsOfFile(
+    io: Io,
+    allocator: std.mem.Allocator,
+    audio_file: olaf_cli_util.AudioFileWithId,
+    config: *const olaf_cli_config.Config,
+    file_index: usize,
+    total_files: usize,
+    fragment_duration: u32,
+    filter_identity: bool,
+    output_format: olaf_cli_bridge.OutputFormat,
+) !void {
+    // Get the total duration of the audio file
+    const total_duration = try olaf_cli_util_audio.getAudioDuration(allocator, io, audio_file.path);
 
-        var fragment_start: f32 = 0.0;
-        while (fragment_start < total_duration) {
-            const remaining = total_duration - fragment_start;
-            const current_duration = @min(@as(f32, @floatFromInt(fragment_duration)), remaining);
+    // Reference fingerprints are stored under the file identifier, so the
+    // self-id is the hash of audio_file.identifier.
+    const exclude = if (filter_identity)
+        try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier)
+    else
+        @as(u32, 0);
 
-            try queryAudioFragment(
-                io,
-                allocator,
-                audio_file,
-                config,
-                file_index,
-                audio_files.len,
-                fragment_start,
-                current_duration,
-                exclude,
-                output_format,
-            );
+    var fragment_start: f32 = 0.0;
+    while (fragment_start < total_duration) {
+        const remaining = total_duration - fragment_start;
+        const current_duration = @min(@as(f32, @floatFromInt(fragment_duration)), remaining);
 
-            fragment_start += current_duration;
-        }
+        try queryAudioFragment(
+            io,
+            allocator,
+            audio_file,
+            config,
+            file_index,
+            total_files,
+            fragment_start,
+            current_duration,
+            exclude,
+            output_format,
+        );
+
+        fragment_start += current_duration;
     }
 }

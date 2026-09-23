@@ -1029,6 +1029,31 @@ test "functional: cache leaves no partial files when a file fails" {
     try testing.expectEqual(@as(usize, 0), try countFilesWithSuffix(io, env.cache_dir, ".tmp"));
 }
 
+test "functional: store continues past a bad file (serial and parallel)" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
+    const ref_abs = ref_buf[0..ref_n];
+
+    for ([_][]const u8{ "1", "2" }) |threads| {
+        var env = try setupTestEnv(io, allocator, "store_bad");
+        defer env.deinit();
+
+        const bad = try writeBadAudioFile(&env);
+        defer allocator.free(bad);
+
+        // The bad file comes first: a serial run used to abort right there.
+        try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "store", "--threads", threads, bad, ref_abs }, 1);
+        try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+    }
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);
