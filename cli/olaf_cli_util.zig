@@ -61,6 +61,25 @@ pub fn expandPath(allocator: std.mem.Allocator, home: ?[]const u8, path: []const
     return allocator.dupe(u8, path);
 }
 
+/// Returns `path` with a trailing '/' appended when it has none. Takes
+/// ownership of `path` (freed when a new, longer slice is returned). The C core
+/// and the "{db_folder}data.mdb" lookups require the trailing separator.
+pub fn ensureTrailingSlash(allocator: std.mem.Allocator, path: []u8) ![]u8 {
+    if (path.len == 0 or path[path.len - 1] == '/' or path[path.len - 1] == '\\') return path;
+    defer allocator.free(path);
+    return std.fmt.allocPrint(allocator, "{s}/", .{path});
+}
+
+test "ensureTrailingSlash" {
+    const a = std.testing.allocator;
+    const with = try ensureTrailingSlash(a, try a.dupe(u8, "/data/olaf"));
+    defer a.free(with);
+    try std.testing.expectEqualStrings("/data/olaf/", with);
+    const kept = try ensureTrailingSlash(a, try a.dupe(u8, "/data/olaf/"));
+    defer a.free(kept);
+    try std.testing.expectEqualStrings("/data/olaf/", kept);
+}
+
 /// Represents an audio file with its associated identifier
 pub const AudioFileWithId = struct {
     path: []const u8,

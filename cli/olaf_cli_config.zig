@@ -301,7 +301,8 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, io: Io, home: ?[]co
             db_folder = try allocator.dupe(u8, config.db_folder);
         }
         defer allocator.free(db_folder);
-        config.db_folder = try olaf_cli_util.expandPath(allocator, config.home, db_folder);
+        // Normalize: the C core and "{db_folder}data.mdb" lookups need a trailing '/'.
+        config.db_folder = try olaf_cli_util.ensureTrailingSlash(allocator, try olaf_cli_util.expandPath(allocator, config.home, db_folder));
 
         var cache_folder: []u8 = undefined;
         if (obj.get("cache_folder")) |val| {

@@ -1054,6 +1054,30 @@ test "functional: store continues past a bad file (serial and parallel)" {
     }
 }
 
+test "functional: db_folder without trailing slash still reports stats" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try setupTestEnv(io, allocator, "noslash");
+    defer env.deinit();
+    try writeTestConfig(&env,
+        \\{"db_folder": "~/.olaf/db", "cache_folder": "~/.olaf/cache/"}
+    );
+
+    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
+    const result = try runOlaf(allocator, olaf_bin, &env, &.{ "store", ref_buf[0..ref_n] }, error.OlafStoreFailed);
+    allocator.free(result.stdout);
+    allocator.free(result.stderr);
+
+    // Used to report 0 songs: stats looked for "<db>data.mdb".
+    try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);
