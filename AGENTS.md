@@ -84,13 +84,14 @@ Three implementations exist depending on target platform:
 
 ### CLI Interface (Zig)
 
-The CLI is implemented in Zig (`cli/olaf_cli.zig`) and wraps the C core via `olaf_cli_bridge.c`:
+The CLI is implemented in Zig (`cli/olaf_cli.zig`) and calls the public C core API directly (no C glue code; `src/` is never modified by the CLI):
 
-- Command structure: Modular commands in `cli/olaf_cli_commands/`
-- Each command exports `CommandInfo` struct and `execute` function
-- Configuration: JSON-based (`olaf_config.json`), checked in home dir first
-- Audio handling: Supports ffmpeg-based decoding in utilities
-- Threading: `olaf_cli_threading.zig` provides parallel processing for store/query/cache operations
+- `olaf_cli_core.zig`: the only `@cImport` of the core headers; maps the CLI config to `Olaf_Config` (one field table)
+- `olaf_cli_session.zig`: the single runner/stream-processor lifecycle (`Session.run`), the store/query/delete/cache operations, the Zig result callback, and read-only DB access (`ReadDb`)
+- `olaf_cli_output.zig`: every printed record (store summaries, skip records, query CSV rows and JSON) and the CSV/JSON escaping
+- `olaf_cli_threading.zig`: `forEachParallel` (the one executor for all per-file work), `TempRaw` (temp raw audio via ffmpeg) and `fragments`
+- Command structure: Modular commands in `cli/olaf_cli_commands/`; each exports a `CommandInfo` struct and `execute` function
+- Configuration: JSON-based (`olaf_config.json`), checked in home dir first; loaded and printed by reflection over the `Config` struct
 
 ### Python Wrapper (CFFI)
 
@@ -265,7 +266,7 @@ The C code uses OOP-inspired patterns:
 
 **CLI and Wrappers**:
 - `cli/olaf_cli.zig`: Main CLI entry point
-- `cli/olaf_cli_bridge.c/h`: C bridge for Zig CLI
+- `cli/olaf_cli_session.zig`, `cli/olaf_cli_core.zig`: Zig layer over the C core
 - `python-wrapper/olaf.py`: Python CFFI wrapper
 - `python-wrapper/setup.py`: CFFI build script
 

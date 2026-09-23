@@ -59,25 +59,25 @@ test "my_component: describe what you're testing" {
 
 ### Adding Functional Tests
 
-Extend the functional test skeletons in `olaf_tests.zig`:
+Functional tests in `olaf_functional_tests.zig` run the real `olaf` binary in an isolated HOME through a `Fixture`:
 
 ```zig
 test "functional: store and query workflow" {
     const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
 
-    // 1. Create test database
-    const test_db = try createTestDbDir(allocator);
-    defer cleanupTestDbDir(test_db);
+    var env = try Fixture.init(allocator, io, "workflow"); // skips without olaf/ffmpeg
+    defer env.deinit();
 
-    // 2. Store audio via CLI bridge
-    // TODO: Implement using olaf_cli_bridge
-
-    // 3. Query audio
-    // TODO: Implement query
-
-    // 4. Verify results
-    // TODO: Check matches
+    try env.ok(&.{ "store", env.ref });            // expects exit status 0
+    const r = try env.run(&.{ "query", env.ref }, 0);
+    defer r.deinit();
+    try testing.expect(std.mem.indexOf(u8, r.stdout, "11266") != null);
 }
+```
+
+`tests/golden/output_snapshot.txt` locks the exact CLI output. It records the environment (arch, OS, ffmpeg version) it was generated in and is skipped elsewhere; regenerate it with `OLAF_UPDATE_GOLDEN=1 zig build test` before refactoring output code.
 ```
 
 ### Test Patterns
