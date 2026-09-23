@@ -65,7 +65,12 @@ fn emitStderr(bytes: []const u8) !void {
 }
 
 fn emitStdout(bytes: []const u8) void {
-    _ = c.fwrite(bytes.ptr, 1, bytes.len, cStdout());
+    const out = cStdout();
+    _ = c.fwrite(bytes.ptr, 1, bytes.len, out);
+    // libc fully buffers a piped/redirected stdout: without a flush, live
+    // (microphone) results appeared in 4 KiB chunks and were lost when the
+    // process was interrupted.
+    _ = c.fflush(out);
 }
 
 /// libc's `stdout`: an inline function in the macOS headers, a variable in

@@ -1810,6 +1810,34 @@ test "functional: an empty TMPDIR is ignored" {
     try testing.expect(!try fileExists(io, allocator, env.home, "olaf_raw_audio_cache"));
 }
 
+test "functional: live microphone results reach a redirected stdout" {
+    if (@import("builtin").os.tag == .windows) return error.SkipZigTest;
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "live_flush");
+    defer env.deinit();
+    try env.ok(&.{ "store", env.ref });
+    // An endless, real-time "microphone": ffmpeg's noise source.
+    try env.writeConfig(
+        \\{"db_folder": "~/.olaf/db/", "cache_folder": "~/.olaf/cache/",
+        \\ "microphone_input_format": "lavfi", "microphone_device": "anoisesrc=d=600,arealtime"}
+    );
+
+    // Results print every 3 s of audio. They used to sit in libc's stdout
+    // buffer and were lost when the process was terminated.
+    const out = try std.fmt.allocPrint(allocator, "{s}/live.csv", .{env.home});
+    defer allocator.free(out);
+    const script = try std.fmt.allocPrint(allocator, "'{s}' microphone > '{s}' 2>/dev/null & p=$!; sleep 5; kill -TERM $p; wait $p; true", .{ env.bin, out });
+    defer allocator.free(script);
+    (try env.shell(script, 0)).deinit();
+
+    const content = try Io.Dir.cwd().readFileAlloc(io, out, allocator, .limited(1 << 20));
+    defer allocator.free(content);
+    try testing.expect(std.mem.indexOf(u8, content, "1 ,1 ,microphone,") != null);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);
