@@ -216,34 +216,87 @@ pub fn forEachParallel(
     return error_count;
 }
 
-/// Shared body for the `to_raw` / `to_wav` transcoding commands: skip the
-/// conversion if `output_path` already exists, otherwise run `convert`, then
-/// emit one mutex-guarded progress line `index/total,col1,col2`. The two
-/// commands differ only in the convert fn and how they name the output, so
-/// they compute `col1`/`col2`/`output_path` themselves and share this kernel.
-pub fn transcodeAndReport(
-    io: Io,
-    allocator: std.mem.Allocator,
-    convert: *const fn (std.mem.Allocator, Io, []const u8, []const u8, u32) anyerror!void,
-    input_path: []const u8,
-    output_path: []const u8,
-    sample_rate: u32,
-    index: usize,
-    total: usize,
+/// One `to_raw` / `to_wav` conversion. `input_abs` is only used to detect an
+/// output that would overwrite its own input; `col1`/`col2` form the progress
+/// line `index/total,col1,col2`.
+pub const TranscodeJob = struct {
+    input: []const u8,
+    input_abs: []const u8,
+    output: []const u8,
     col1: []const u8,
     col2: []const u8,
+};
+
+pub const ConvertFn = *const fn (std.mem.Allocator, Io, []const u8, []const u8, u32) anyerror!void;
+
+const TranscodeCtx = struct {
+    io: Io,
+    convert: ConvertFn,
+    sample_rate: u32,
     output_mutex: *Io.Mutex,
-) !void {
-    if (Io.Dir.cwd().statFile(io, output_path, .{})) |_| {
-        debug("Output already exists: {s}, skipping", .{output_path});
+};
+
+/// Shared driver for the transcoding commands. Rejects jobs whose output
+/// would overwrite their input or an output already claimed by an earlier job
+/// in this run (both used to be silently "skipped" as already converted),
+/// then converts the rest. Returns the number of failed jobs.
+pub fn runTranscodeJobs(
+    io: Io,
+    allocator: std.mem.Allocator,
+    jobs: []const TranscodeJob,
+    num_threads: u32,
+    sample_rate: u32,
+    convert: ConvertFn,
+) !usize {
+    var failures: usize = 0;
+    var runnable: std.ArrayList(TranscodeJob) = .empty;
+    defer runnable.deinit(allocator);
+
+    var claimed: std.StringHashMap([]const u8) = .init(allocator);
+    defer claimed.deinit();
+
+    for (jobs) |job| {
+        if (std.mem.eql(u8, job.output, job.input_abs)) {
+            std.log.err("{s}: output would overwrite the input, skipping", .{job.input});
+            failures += 1;
+            continue;
+        }
+        const gop = try claimed.getOrPut(job.output);
+        if (gop.found_existing) {
+            std.log.err("{s}: output {s} is already produced by {s} in this run, skipping", .{ job.input, job.output, gop.value_ptr.* });
+            failures += 1;
+            continue;
+        }
+        gop.value_ptr.* = job.input;
+        try runnable.append(allocator, job);
+    }
+
+    var output_mutex: Io.Mutex = .init;
+    const ctx = TranscodeCtx{ .io = io, .convert = convert, .sample_rate = sample_rate, .output_mutex = &output_mutex };
+    failures += try forEachParallel(TranscodeJob, TranscodeCtx, io, allocator, runnable.items, num_threads, ctx, transcodeWorker);
+    return failures;
+}
+
+/// Skip the conversion if the output already exists (re-runs are cheap),
+/// otherwise convert into `<output>.part` and rename it into place, so an
+/// interrupted or failed ffmpeg run never leaves a partial output that a
+/// later run would mistake for a finished one.
+fn transcodeWorker(ctx: TranscodeCtx, job: TranscodeJob, index: usize, total: usize, allocator: std.mem.Allocator) !void {
+    const io = ctx.io;
+    if (Io.Dir.cwd().statFile(io, job.output, .{})) |_| {
+        debug("Output already exists: {s}, skipping", .{job.output});
     } else |_| {
-        try convert(allocator, io, input_path, output_path, sample_rate);
+        const part = try std.fmt.allocPrint(allocator, "{s}.part", .{job.output});
+        defer allocator.free(part);
+        errdefer Io.Dir.cwd().deleteFile(io, part) catch {};
+        try ctx.convert(allocator, io, job.input, part, ctx.sample_rate);
+        try Io.Dir.cwd().rename(part, Io.Dir.cwd(), job.output, io);
     }
 
     // Uncontended no-op when single-threaded.
-    output_mutex.lockUncancelable(io);
-    defer output_mutex.unlock(io);
-    olaf_cli_util.print("{d}/{d},{s},{s}\n", .{ index + 1, total, col1, col2 });
+    ctx.output_mutex.lockUncancelable(io);
+    defer ctx.output_mutex.unlock(io);
+    olaf_cli_util.print("{d}/{d},{s},{s}\n", .{ index + 1, total, job.col1, job.col2 });
 }
 
 /// Query one fragment `[fragment_start, fragment_start + fragment_duration)`

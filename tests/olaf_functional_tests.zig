@@ -1199,6 +1199,53 @@ test "functional: cache then store_cached on a fresh database" {
     }
 }
 
+fn copyFileTo(io: Io, allocator: std.mem.Allocator, src: []const u8, dst: []const u8) !void {
+    const data = try Io.Dir.cwd().readFileAlloc(io, src, allocator, .limited(64 * 1024 * 1024));
+    defer allocator.free(data);
+    if (std.fs.path.dirname(dst)) |parent| try Io.Dir.cwd().createDirPath(io, parent);
+    const f = try Io.Dir.cwd().createFile(io, dst, .{});
+    defer f.close(io);
+    try f.writeStreamingAll(io, data);
+}
+
+test "functional: to_raw / to_wav refuse colliding or in-place outputs" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try setupTestEnv(io, allocator, "transcode");
+    defer env.deinit();
+
+    const a = try std.fmt.allocPrint(allocator, "{s}/a/song.mp3", .{env.home});
+    defer allocator.free(a);
+    const b = try std.fmt.allocPrint(allocator, "{s}/b/song.mp3", .{env.home});
+    defer allocator.free(b);
+    const in_wav = try std.fmt.allocPrint(allocator, "{s}/a/in.wav", .{env.home});
+    defer allocator.free(in_wav);
+    try copyFileTo(io, allocator, REF_AUDIO_FILE, a);
+    try copyFileTo(io, allocator, "dataset/ref/173050.mp3", b);
+    try copyFileTo(io, allocator, REF_AUDIO_FILE, in_wav);
+
+    // to_raw writes olaf_audio_song.raw into the cwd for both inputs: the
+    // second used to be reported as converted while silently reusing the first.
+    const script = try std.fmt.allocPrint(allocator, "cd '{s}' && '{s}' to_raw '{s}' '{s}'", .{ env.home, olaf_bin, a, b });
+    defer allocator.free(script);
+    const result = try std.process.run(allocator, io, .{ .argv = &.{ "/bin/sh", "-c", script }, .environ_map = &env.env_map });
+    allocator.free(result.stdout);
+    allocator.free(result.stderr);
+    try testing.expect(result.term == .exited and result.term.exited == 1);
+    try testing.expect(try fileExists(io, allocator, env.home, "olaf_audio_song.raw"));
+    try testing.expect(!try fileExists(io, allocator, env.home, "olaf_audio_song.raw.part"));
+
+    // to_wav on a .wav would target its own input: used to be a silent no-op.
+    const size_before = (try Io.Dir.cwd().statFile(io, in_wav, .{})).size;
+    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "to_wav", in_wav }, 1);
+    try testing.expectEqual(size_before, (try Io.Dir.cwd().statFile(io, in_wav, .{})).size);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);
