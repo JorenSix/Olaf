@@ -1,4 +1,5 @@
 const std = @import("std");
+const olaf_cli_threading = @import("../olaf_cli_threading.zig");
 const Io = std.Io;
 const types = @import("../olaf_cli_types.zig");
 
@@ -22,7 +23,7 @@ pub const CommandInfo = struct {
 /// Which Olaf-owned folder is being cleared. Only files Olaf itself writes
 /// are touched, so a misconfigured db_folder/cache_folder (e.g. "~/") can
 /// never wipe unrelated data.
-const Target = enum { db, cache };
+const Target = enum { db, cache, temp };
 
 fn isOlafFile(target: Target, name: []const u8) bool {
     return switch (target) {
@@ -30,6 +31,8 @@ fn isOlafFile(target: Target, name: []const u8) bool {
         .cache => std.mem.endsWith(u8, name, ".tdb") or
             std.mem.endsWith(u8, name, ".meta") or
             std.mem.endsWith(u8, name, ".part"), // left by an interrupted cache
+        // Temp raw audio (and store's .raw.tdb/.raw.meta) left by a crash.
+        .temp => std.mem.startsWith(u8, name, "olaf_audio_"),
     };
 }
 
@@ -112,7 +115,12 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     }
 
     if (delete_db) _ = try clearTarget(allocator, io, stdout, db_folder, .db);
-    if (delete_cache) _ = try clearTarget(allocator, io, stdout, cache_folder, .cache);
+    if (delete_cache) {
+        _ = try clearTarget(allocator, io, stdout, cache_folder, .cache);
+        const temp_dir = try olaf_cli_threading.tempAudioDir(allocator);
+        defer allocator.free(temp_dir);
+        _ = try clearTarget(allocator, io, stdout, temp_dir, .temp);
+    }
 }
 
 /// Read one answer line. Returns null on end of input (treated as "abort").
@@ -120,7 +128,8 @@ fn confirmed(reader: *Io.Reader) !?bool {
     // takeDelimiter consumes the '\n' (takeDelimiterExclusive does not, which
     // made every prompt after the first read an empty line).
     const line = try reader.takeDelimiter('\n') orelse return null;
-    return std.mem.eql(u8, std.mem.trim(u8, line, " \t\r"), "yes");
+    const answer = std.mem.trim(u8, line, " \t\r");
+    return std.ascii.eqlIgnoreCase(answer, "yes") or std.ascii.eqlIgnoreCase(answer, "y");
 }
 
 fn nothingDeleted(stdout: *Io.Writer) !void {

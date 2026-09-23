@@ -1983,6 +1983,31 @@ test "functional: symlinked audio files in a folder are stored" {
     try testing.expect(std.mem.indexOf(u8, r.stderr, "skip,1,1,") != null);
 }
 
+test "functional: clear removes temp leftovers and accepts y" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    var env = try Fixture.init(allocator, io, "clear_temp");
+    defer env.deinit();
+    const tmp = try std.fmt.allocPrint(allocator, "{s}/tmp", .{env.home});
+    defer allocator.free(tmp);
+    try env.env_map.put("TMPDIR", tmp);
+    const leftovers = try std.fmt.allocPrint(allocator, "{s}/olaf_raw_audio_cache", .{tmp});
+    defer allocator.free(leftovers);
+    // What a crashed store leaves behind; clear used to leave it.
+    for ([_][]const u8{ "olaf_audio_1_0.raw", "olaf_audio_1_0.raw.tdb", "olaf_audio_1_0.raw.meta", "keep.txt" }) |n| try touchFile(io, allocator, leftovers, n);
+    try touchFile(io, allocator, env.cache_dir, "1.tdb");
+
+    // "y" used to count as no.
+    const script = try std.fmt.allocPrint(allocator, "printf 'y\\ny\\n' | '{s}' clear", .{env.bin});
+    defer allocator.free(script);
+    (try env.shell(script, 0)).deinit();
+    try testing.expect(!try fileExists(io, allocator, env.cache_dir, "1.tdb"));
+    try testing.expect(!try fileExists(io, allocator, leftovers, "olaf_audio_1_0.raw"));
+    try testing.expect(!try fileExists(io, allocator, leftovers, "olaf_audio_1_0.raw.tdb"));
+    try testing.expect(try fileExists(io, allocator, leftovers, "keep.txt"));
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

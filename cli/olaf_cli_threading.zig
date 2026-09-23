@@ -29,12 +29,17 @@ var temp_path_counter: std.atomic.Value(u64) = std.atomic.Value(u64).init(0);
 // $TMPDIR / $TEMP / $TMP (see olaf_cli.zig) before any worker runs.
 var temp_root: []const u8 = "/tmp";
 
+/// Where temp raw audio (and its .tdb/.meta while storing) is written.
+pub fn tempAudioDir(allocator: std.mem.Allocator) ![]u8 {
+    return std.fs.path.join(allocator, &.{ temp_root, "olaf_raw_audio_cache" });
+}
+
 pub fn setTempRoot(dir: []const u8) void {
     temp_root = dir;
 }
 
 fn createTempRawPath(io: Io, allocator: std.mem.Allocator) ![]u8 {
-    const dir = try std.fs.path.join(allocator, &.{ temp_root, "olaf_raw_audio_cache" });
+    const dir = try tempAudioDir(allocator);
     defer allocator.free(dir);
     Io.Dir.cwd().createDirPath(io, dir) catch |e| {
         if (e != error.PathAlreadyExists) return e;
