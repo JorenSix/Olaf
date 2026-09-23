@@ -1608,6 +1608,23 @@ test "functional: cache + store_cached stores what store stores" {
     try testing.expectEqualStrings(top_direct.ref_id, top_cached.ref_id);
 }
 
+test "functional: temp audio goes to TMPDIR" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "tmpdir");
+    defer env.deinit();
+    const tmp = try std.fmt.allocPrint(allocator, "{s}/tmp", .{env.home});
+    defer allocator.free(tmp);
+    try Io.Dir.cwd().createDirPath(io, tmp);
+    try env.env_map.put("TMPDIR", tmp);
+
+    // Used to be /tmp unconditionally.
+    try env.ok(&.{ "store", env.ref });
+    try testing.expect(try fileExists(io, allocator, tmp, "olaf_raw_audio_cache"));
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

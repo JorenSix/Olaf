@@ -5,6 +5,7 @@ const types = @import("olaf_cli_types.zig");
 const olaf_cli_config = @import("olaf_cli_config.zig");
 const olaf_cli_util = @import("olaf_cli_util.zig");
 const olaf_cli_output = @import("olaf_cli_output.zig");
+const olaf_cli_threading = @import("olaf_cli_threading.zig");
 
 // Import command modules
 const cmd_query = @import("olaf_cli_commands/olaf_cli_cmd_query.zig");
@@ -113,6 +114,14 @@ fn run(init: std.process.Init) !void {
     // accessible in 0.16); threaded into config/path expansion.
     const home: ?[]const u8 = init.minimal.environ.getAlloc(allocator, "HOME") catch null;
     defer if (home) |h| allocator.free(h);
+
+    // Temp raw audio (about 3.8 MB per minute of audio, per worker) goes
+    // where the user points temporary files, not always to /tmp.
+    const tmp_dir: ?[]const u8 = for ([_][]const u8{ "TMPDIR", "TEMP", "TMP" }) |name| {
+        if (init.minimal.environ.getAlloc(allocator, name) catch null) |v| break v;
+    } else null;
+    defer if (tmp_dir) |t| allocator.free(t);
+    if (tmp_dir) |t| olaf_cli_threading.setTempRoot(t);
 
     var config = try olaf_cli_config.olafWrapperConfig(allocator, io, home);
     defer {

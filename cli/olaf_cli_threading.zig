@@ -25,10 +25,17 @@ const debug = std.log.scoped(.olaf_cli_threading).debug;
 // thread id in the name is only for debugging.
 var temp_path_counter: std.atomic.Value(u64) = std.atomic.Value(u64).init(0);
 
+// Directory under which temp raw audio is written; set once at startup from
+// $TMPDIR / $TEMP / $TMP (see olaf_cli.zig) before any worker runs.
+var temp_root: []const u8 = "/tmp";
+
+pub fn setTempRoot(dir: []const u8) void {
+    temp_root = dir;
+}
+
 fn createTempRawPath(io: Io, allocator: std.mem.Allocator) ![]u8 {
-    // The process environment is not globally accessible in 0.16, so $TMPDIR
-    // is not honoured; the system temp dir is used unconditionally.
-    const dir = "/tmp/olaf_raw_audio_cache";
+    const dir = try std.fs.path.join(allocator, &.{ temp_root, "olaf_raw_audio_cache" });
+    defer allocator.free(dir);
     Io.Dir.cwd().createDirPath(io, dir) catch |e| {
         if (e != error.PathAlreadyExists) return e;
     };
