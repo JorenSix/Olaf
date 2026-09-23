@@ -156,36 +156,72 @@ fn isSetting(comptime name: []const u8) bool {
     return !std.mem.eql(u8, name, "config_path") and !std.mem.eql(u8, name, "home") and !std.mem.eql(u8, name, "arena");
 }
 
+/// The JSON type a setting of type `T` must have, for error messages.
+fn expectedJsonType(comptime T: type) []const u8 {
+    return switch (T) {
+        []const u8 => "string",
+        []const []const u8 => "list of strings",
+        bool => "boolean",
+        f32 => "number",
+        else => "integer",
+    };
+}
+
+/// Whether `v` has the JSON type a setting of type `T` needs (integer range
+/// checks are separate, see castInt). A float setting also accepts an
+/// integer literal like `4`.
+fn hasSettingType(comptime T: type, v: std.json.Value) bool {
+    return switch (T) {
+        []const u8 => v == .string,
+        []const []const u8 => v == .array and for (v.array.items) |item| {
+            if (item != .string) break false;
+        } else true,
+        bool => v == .bool,
+        f32 => v == .float or v == .integer,
+        else => v == .integer,
+    };
+}
+
 /// The value of setting `name` from the JSON object (`obj` null: no config
 /// file), or its default `cur`. Strings are always copied into `a`, so a
-/// loaded config owns all of them. A present integer that is out of range or
-/// not an integer is an error; other wrong types fall back to the default.
+/// loaded config owns all of them. A present value of the wrong JSON type,
+/// or an integer out of range, is a config error rather than a silent
+/// fallback to the default.
 fn loadField(comptime T: type, a: std.mem.Allocator, obj: ?std.json.ObjectMap, name: []const u8, cur: T) !T {
     const val: ?std.json.Value = if (obj) |o| o.get(name) else null;
+    if (val) |v| if (!hasSettingType(T, v)) {
+        std.log.err("config: '{s}' must be a {s}", .{ name, expectedJsonType(T) });
+        return error.InvalidConfigValue;
+    };
     switch (T) {
-        []const u8 => return a.dupe(u8, if (val) |v| (if (v == .string) v.string else cur) else cur),
+        []const u8 => return a.dupe(u8, if (val) |v| v.string else cur),
         []const []const u8 => {
-            if (val) |v| if (v == .array) {
-                const list = try a.alloc([]const u8, v.array.items.len);
-                for (v.array.items, list) |item, *dst| {
-                    if (item != .string) return error.InvalidAudioExtension;
-                    dst.* = try a.dupe(u8, item.string);
-                }
-                return list;
-            };
-            const list = try a.alloc([]const u8, cur.len);
-            for (cur, list) |item, *dst| dst.* = try a.dupe(u8, item);
+            const src: []const []const u8 = if (val) |v| blk: {
+                const items = try a.alloc([]const u8, v.array.items.len);
+                for (v.array.items, items) |item, *dst| dst.* = item.string;
+                break :blk items;
+            } else cur;
+            const list = try a.alloc([]const u8, src.len);
+            for (src, list) |item, *dst| dst.* = try a.dupe(u8, item);
             return list;
         },
-        bool => return if (val) |v| (if (v == .bool) v.bool else cur) else cur,
-        // A float setting also accepts an integer literal like `4`.
+        bool => return if (val) |v| v.bool else cur,
         f32 => return if (val) |v| switch (v) {
             .float => @floatCast(v.float),
             .integer => @floatFromInt(v.integer),
-            else => cur,
+            else => unreachable, // checked by hasSettingType
         } else cur,
         else => return if (obj) |o| getInt(o, name, T, cur) else cur,
     }
+}
+
+fn isSettingName(name: []const u8) bool {
+    inline for (std.meta.fields(Config)) |field| {
+        if (comptime isSetting(field.name)) {
+            if (std.mem.eql(u8, name, field.name)) return true;
+        }
+    }
+    return false;
 }
 
 /// Reads a JSON config file from the given `path`; a missing file means all
@@ -226,6 +262,17 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, io: Io, home: ?[]co
     inline for (std.meta.fields(Config)) |field| {
         if (comptime isSetting(field.name)) {
             @field(config, field.name) = try loadField(field.type, a, obj, field.name, @field(config, field.name));
+        }
+    }
+    // A misspelled setting would otherwise be ignored silently. Keys starting
+    // with '$' (e.g. "$schema" for editor support) are not settings.
+    if (obj) |o| {
+        var it = o.iterator();
+        while (it.next()) |entry| {
+            const key = entry.key_ptr.*;
+            if (!std.mem.startsWith(u8, key, "$") and !isSettingName(key)) {
+                std.log.warn("config: unknown setting '{s}' in {s} is ignored", .{ key, path });
+            }
         }
     }
     config.db_folder = try olaf_cli_util.ensureTrailingSlash(a, try olaf_cli_util.expandPath(a, config.home, config.db_folder));
@@ -350,4 +397,27 @@ test "readJsonConfigOrDefault loads every setting" {
             }
         }
     }
+}
+
+test "hasSettingType: every setting type rejects the wrong JSON type" {
+    const parsed = try json.parseFromSlice(json.Value, std.testing.allocator,
+        \\{"str":"x","num":4,"flt":0.5,"bool":true,"list":[".a"],"mixed":[".a",3]}
+    , .{});
+    defer parsed.deinit();
+    const o = parsed.value.object;
+
+    try std.testing.expect(hasSettingType([]const u8, o.get("str").?));
+    try std.testing.expect(!hasSettingType([]const u8, o.get("bool").?));
+    try std.testing.expect(hasSettingType(bool, o.get("bool").?));
+    try std.testing.expect(!hasSettingType(bool, o.get("str").?));
+    try std.testing.expect(hasSettingType(f32, o.get("flt").?));
+    try std.testing.expect(hasSettingType(f32, o.get("num").?));
+    try std.testing.expect(!hasSettingType(f32, o.get("str").?));
+    try std.testing.expect(hasSettingType([]const []const u8, o.get("list").?));
+    try std.testing.expect(!hasSettingType([]const []const u8, o.get("mixed").?));
+    try std.testing.expect(!hasSettingType([]const []const u8, o.get("num").?));
+    try std.testing.expect(!hasSettingType(u32, o.get("flt").?));
+    try std.testing.expect(isSettingName("max_results"));
+    try std.testing.expect(!isSettingName("max_result"));
+    try std.testing.expect(!isSettingName("arena"));
 }

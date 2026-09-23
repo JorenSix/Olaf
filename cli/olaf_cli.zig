@@ -98,6 +98,8 @@ pub fn main(init: std.process.Init) !u8 {
         error.Usage => return 2,
         // Per-file failures were already logged; skip the redundant trace.
         error.ProcessingFailed => return 1,
+        // The offending setting was already logged by the config loader.
+        error.InvalidConfigValue => return 1,
         else => return err,
     };
     return 0;

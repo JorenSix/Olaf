@@ -1549,6 +1549,33 @@ test "functional: delete before anything is stored" {
     try testing.expect(std.mem.indexOf(u8, r.stderr, "no database yet") != null);
 }
 
+test "functional: config typos and wrong types are reported" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    var env = try Fixture.init(allocator, io, "config_check");
+    defer env.deinit();
+
+    // A misspelled key used to be ignored without a word.
+    try env.writeConfig(
+        \\{"db_folder": "~/.olaf/db/", "cache_folder": "~/.olaf/cache/", "$schema": "x", "max_result": 7}
+    );
+    {
+        const r = try env.run(&.{"config"}, 0);
+        defer r.deinit();
+        try testing.expect(std.mem.indexOf(u8, r.stderr, "unknown setting 'max_result'") != null);
+        try testing.expect(std.mem.indexOf(u8, r.stderr, "$schema") == null);
+    }
+
+    // A wrongly typed value used to fall back to the default silently.
+    try env.writeConfig(
+        \\{"db_folder": "~/.olaf/db/", "cache_folder": "~/.olaf/cache/", "verbose": "yes"}
+    );
+    const r = try env.run(&.{"config"}, 1);
+    defer r.deinit();
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "'verbose' must be a boolean") != null);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);
