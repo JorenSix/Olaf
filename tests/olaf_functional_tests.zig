@@ -1960,6 +1960,29 @@ test "functional: dedup --format csv writes the store CSV header" {
     try testing.expect(std.mem.startsWith(u8, r.stderr, "action,file_index,file_total,"));
 }
 
+test "functional: symlinked audio files in a folder are stored" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "symlinked_files");
+    defer env.deinit();
+    // A folder holding only a symlink to the reference used to yield zero
+    // files; the symlink is stored under its target's identifier.
+    const script = try std.fmt.allocPrint(allocator, "mkdir -p '{s}/links' && ln -s '{s}' '{s}/links/song.mp3'", .{ env.home, env.ref, env.home });
+    defer allocator.free(script);
+    (try env.shell(script, 0)).deinit();
+    const dir = try std.fmt.allocPrint(allocator, "{s}/links", .{env.home});
+    defer allocator.free(dir);
+
+    try env.ok(&.{ "store", dir });
+    try testing.expectEqual(@as(u32, 1), try env.songCount());
+    // Same identifier as storing the target itself: skipped as indexed.
+    const r = try env.run(&.{ "store", "--format", "csv", env.ref }, 0);
+    defer r.deinit();
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "skip,1,1,") != null);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

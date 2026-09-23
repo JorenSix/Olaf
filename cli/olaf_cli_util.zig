@@ -294,12 +294,22 @@ fn addDirectory(
 
     const start = files.items.len;
     while (try walker.next(io)) |entry| {
-        if (entry.kind == .file and !std.mem.startsWith(u8, entry.basename, ".") and isAudioFile(entry.path, allowed_audio_file_extensions)) {
-            const full_path = try fs.path.join(allocator, &.{ dir_path, entry.path });
-            defer allocator.free(full_path);
-            debug("Found audio file: {s}", .{full_path});
+        if (entry.kind != .file and entry.kind != .sym_link) continue;
+        if (std.mem.startsWith(u8, entry.basename, ".") or !isAudioFile(entry.path, allowed_audio_file_extensions)) continue;
+        const full_path = try fs.path.join(allocator, &.{ dir_path, entry.path });
+        defer allocator.free(full_path);
+        if (entry.kind == .sym_link) {
+            // A symlinked file (e.g. a library manager's link farm) is
+            // identified by its target, like a symlink given directly.
+            const stat = Io.Dir.cwd().statFile(io, full_path, .{}) catch continue; // dangling
+            if (stat.kind != .file) continue;
+            const target = try canonicalPath(allocator, io, full_path);
+            defer allocator.free(target);
+            try appendAudioFile(allocator, files, target);
+        } else {
             try appendAudioFile(allocator, files, full_path);
         }
+        debug("Found audio file: {s}", .{full_path});
     }
     std.mem.sort(AudioFileWithId, files.items[start..], {}, lessThanByPath);
 }
