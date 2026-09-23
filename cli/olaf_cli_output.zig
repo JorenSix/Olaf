@@ -2,6 +2,7 @@
 //! records (stderr), query result rows and query JSON objects (stdout), plus
 //! the shared CSV / JSON escaping.
 const std = @import("std");
+const builtin = @import("builtin");
 const Io = std.Io;
 
 const c = @import("olaf_cli_core.zig").c;
@@ -64,11 +65,15 @@ fn emitStdout(bytes: []const u8) void {
 }
 
 /// libc's `stdout`: an inline function in the macOS headers, a variable in
-/// glibc/musl.
+/// glibc/musl, and a runtime call (`__acrt_iob_func(1)`) in the Windows CRT,
+/// whose translated constant cannot be evaluated at comptime.
 fn cStdout() *c.FILE {
+    if (builtin.os.tag == .windows) return __acrt_iob_func(1);
     const f: ?*c.FILE = if (@typeInfo(@TypeOf(c.stdout)) == .@"fn") c.stdout() else c.stdout;
     return f.?;
 }
+
+extern "c" fn __acrt_iob_func(index: c_uint) *c.FILE;
 
 // ---------------------------------------------------------------------------
 // Store records (stderr)
