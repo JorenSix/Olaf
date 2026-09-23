@@ -279,6 +279,10 @@ fn run(init: std.process.Init) !void {
         } else {
             // It's an unrecognized argument, a file?
             if (args.use_audio_ids) {
+                if (i + 1 >= args_list.len or std.mem.startsWith(u8, args_list[i + 1], "--")) {
+                    print("--with-ids expects pairs: audio_file audio_identifier ('{s}' has no identifier)\n", .{arg});
+                    return error.Usage;
+                }
                 try olaf_cli_util.audioFileListWithId(allocator, io, home, arg, args_list[i + 1], &args.audio_files, config.allowed_audio_file_extensions);
                 i += 1; // Skip the next argument as it is the audio identifier
             } else {

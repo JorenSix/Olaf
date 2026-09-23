@@ -876,6 +876,8 @@ test "functional: usage errors exit with status 2" {
     try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--threads" }, 2);
     try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--threads", "abc", ref_abs }, 2);
     try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--threads", "0", ref_abs }, 2);
+    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "store", "--with-ids", ref_abs }, 2);
+    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "store", "--with-ids", ref_abs, "--threads" }, 2);
     try runOlafExpectExit(allocator, olaf_bin, &env, &.{"--help"}, 0);
 }
 
