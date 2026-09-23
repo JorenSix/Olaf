@@ -160,12 +160,12 @@ pub fn audioFileListWithId(
     switch (stat.kind) {
         .file => {
             if (isAudioFile(expanded, allowed_audio_file_extensions)) {
-                const audio_file = AudioFileWithId{
-                    .path = try allocator.dupe(u8, expanded),
-                    .identifier = try allocator.dupe(u8, audio_file_identifier),
-                };
-                debug("Found audio file: {s} with identifier: {s}", .{ audio_file.path, audio_file.identifier });
-                try files.append(allocator, audio_file);
+                const path = try allocator.dupe(u8, expanded);
+                errdefer allocator.free(path);
+                const identifier = try allocator.dupe(u8, audio_file_identifier);
+                errdefer allocator.free(identifier);
+                debug("Found audio file: {s} with identifier: {s}", .{ path, identifier });
+                try files.append(allocator, .{ .path = path, .identifier = identifier });
             } else {
                 l_err("File is not an audio file: {s}\n", .{expanded});
                 return error.NotAudioFile;

@@ -127,24 +127,25 @@ pub const Session = struct {
 
     /// Run one stream processor over `raw_path` (null = stdin).
     pub fn run(self: *Session, mode: Mode, raw_path: ?[]const u8, identifier: []const u8, opts: RunOptions) !RunStats {
+        const files = opts.cache_files;
+        // Until the core's file writer takes the cache files over (inside
+        // processing), they are ours to close on any early failure.
+        var own_files = files != null;
+        errdefer if (own_files) {
+            _ = c.fclose(files.?.meta);
+            _ = c.fclose(files.?.fingerprints);
+        };
         const c_raw = if (raw_path) |p| try self.allocator.dupeZ(u8, p) else null;
         defer if (c_raw) |p| self.allocator.free(p);
         const c_id = try self.allocator.dupeZ(u8, identifier);
         defer self.allocator.free(c_id);
 
-        const files = opts.cache_files;
         const runner = c.olaf_runner_new(@intFromEnum(mode), self.config.ptr, if (files) |f| f.fingerprints else null, if (files) |f| f.meta else null);
         defer c.olaf_runner_destroy(runner);
 
-        const processor = c.olaf_stream_processor_new(runner, if (c_raw) |p| p.ptr else null, c_id.ptr) orelse {
-            // The file writer that would close the cache files is only created
-            // while processing.
-            if (files) |f| {
-                _ = c.fclose(f.meta);
-                _ = c.fclose(f.fingerprints);
-            }
-            return error.AudioOpenFailed;
-        };
+        // (The file writer that would close the cache files is only created
+        // while processing, so the errdefer above closes them here too.)
+        const processor = c.olaf_stream_processor_new(runner, if (c_raw) |p| p.ptr else null, c_id.ptr) orelse return error.AudioOpenFailed;
         defer c.olaf_stream_processor_destroy(processor);
 
         if (opts.sink != null) c.olaf_stream_processor_set_result_callback(processor, resultCallback);
@@ -154,6 +155,7 @@ pub const Session = struct {
         const previous = current_sink;
         current_sink = opts.sink;
         defer current_sink = previous;
+        own_files = false; // closed by the core's file writer from here on
         c.olaf_stream_processor_process(processor);
         if (opts.sink) |s| if (s.err) |e| return e;
 
