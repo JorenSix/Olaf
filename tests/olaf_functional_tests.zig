@@ -1535,6 +1535,20 @@ test "functional: output snapshot" {
     };
 }
 
+test "functional: delete before anything is stored" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "delete_empty");
+    defer env.deinit();
+
+    // Used to exit(-42) inside the core with an LMDB error.
+    const r = try env.run(&.{ "delete", env.ref }, 0);
+    defer r.deinit();
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "no database yet") != null);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

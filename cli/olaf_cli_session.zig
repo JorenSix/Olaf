@@ -357,9 +357,13 @@ pub fn queryCollect(allocator: std.mem.Allocator, raw_audio_path: []const u8, id
 pub fn delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifier: []const u8, config: *const Config) !void {
     var session = try Session.init(allocator, config);
     defer session.deinit();
-    // Deleting requires an existing database; this read-only open exits with
-    // a clear LMDB error when there is none, as before.
-    c.olaf_db_destroy(c.olaf_db_new(session.config.db_folder.ptr, true));
+    // Without a database there is nothing to delete (the same outcome as
+    // deleting a file that is not indexed). Opening a missing database would
+    // make the core exit() mid-run, leaking the temp audio file.
+    if (!try core.dbExists(allocator, session.config.db_folder)) {
+        std.log.info("nothing to delete: no database yet in {s}", .{session.config.db_folder});
+        return;
+    }
     _ = try session.run(.delete, raw_audio_path, identifier, .{});
 }
 
