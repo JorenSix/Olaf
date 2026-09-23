@@ -23,7 +23,7 @@ make install            # Install to /usr/local/bin
 make mem                # Build memory-only version (for embedded/testing)
 make web                # Build WebAssembly version (requires emcc)
 make lib                # Build shared library (libolaf.so) for Python wrapper
-make test               # Build the C unit tests (run with ./bin/olaf_tests)
+make test               # Build and run the C unit tests
 make clean              # Clean build artifacts
 ```
 

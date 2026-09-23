@@ -13,7 +13,7 @@
 
 ```bash
 zig build test --summary all        # all Zig tests (builds and installs olaf first)
-make test && ./bin/olaf_tests       # legacy C unit tests (make test only builds them)
+make test                           # legacy C unit tests (builds and runs bin/olaf_tests)
 ```
 
 The functional tests need `ffmpeg` and `ffprobe` on the path and skip themselves when they, or the `olaf` binary, are missing. The dataset is downloaded automatically.
@@ -50,4 +50,4 @@ Other helpers: `env.expectExit(args, code)`, `env.shell(script, code)`, `env.wri
 
 ## Continuous integration
 
-`.github/workflows/make.yml` builds with `make` (default, `mem` and core) and runs `zig build test` on Ubuntu; `.github/workflows/release.yml` cross-compiles the release targets (Linux, macOS, Windows). The legacy C tests are not run in CI.
+`.github/workflows/make.yml` builds with `make` (default, `mem` and core), runs the legacy C tests (`make test`) and `zig build test` on Ubuntu; `.github/workflows/release.yml` cross-compiles the release targets (Linux, macOS, Windows).

@@ -9,10 +9,11 @@ install:
 	mkdir -p $(DESTDIR)$(BINDIR)
 	install -m 755 zig-out/bin/olaf $(DESTDIR)$(BINDIR)/olaf
 
-#removes all installed files
+#removes the installed binary; the index and cache in ~/.olaf are kept
+#(remove them with 'olaf clear' or by deleting ~/.olaf)
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/olaf
-	rm -rf ~/.olaf
+	@echo "Kept ~/.olaf (database and cache); remove it yourself if no longer needed."
 
 clean:
 	rm -rf .zig-cache zig-out
@@ -42,14 +43,14 @@ compile_core:
 	gcc -c src/olaf_db.c 				-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_db_id.c 			-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer.c 		-W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_fp_db_writer_cache.c -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_fp_db_writer_cache.c -W -Wall -std=c11 -D_POSIX_C_SOURCE=200809L -pedantic -O2
 	gcc -c src/olaf_ep_extractor.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_extractor.c 		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_reader_stream.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_runner.c 			-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_stream_processor.c 	-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_matcher.c 		-W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_config.c 			-W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_config.c 			-W -Wall -std=c11 -D_POSIX_C_SOURCE=200809L -pedantic -O2
 	mkdir -p bin
 	gcc -o bin/olaf_core *.o 			-lc -lm -ffast-math -pthread
 
@@ -57,6 +58,7 @@ compile_core:
 	
 
 lib:
+	rm -f *.o #avoid linking leftover .o files from other GCC targets
 	gcc -c src/pffft.c 					-W -Wall -fPIC -std=gnu11 -pedantic -O2 #pfft needs M_PI and other constants not in the ANSI c standard
 	gcc -c src/midl.c 					-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/mdb.c 					-W -Wall -fPIC -std=c11 -pedantic -O2
@@ -69,14 +71,14 @@ lib:
 	gcc -c src/olaf_db.c 				-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/olaf_db_id.c 			-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer.c 		-W -Wall -fPIC -std=c11 -pedantic -O2
-	gcc -c src/olaf_fp_db_writer_cache.c -W -Wall -fPIC -std=c11 -pedantic -O2
+	gcc -c src/olaf_fp_db_writer_cache.c -W -Wall -fPIC -std=c11 -D_POSIX_C_SOURCE=200809L -pedantic -O2
 	gcc -c src/olaf_ep_extractor.c 		-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_extractor.c 		-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/olaf_reader_stream.c 	-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/olaf_runner.c 			-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/olaf_stream_processor.c 	-W -Wall -fPIC -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_matcher.c 		-W -Wall -fPIC -std=c11 -pedantic -O2
-	gcc -c src/olaf_config.c 			-W -Wall -fPIC -std=c11 -pedantic -O2
+	gcc -c src/olaf_config.c 			-W -Wall -fPIC -std=c11 -D_POSIX_C_SOURCE=200809L -pedantic -O2
 	gcc -c src/olaf_fft.c 				-W -Wall -fPIC -std=c11 -pedantic -O2
 	mkdir -p bin
 	gcc -o bin/libolaf.so *.o 			-lc -lm -fPIC -ffast-math -pthread -shared
@@ -95,14 +97,14 @@ compile_gprof:
 	gcc -c src/olaf_db.c 				-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_db_id.c 			-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer.c 		-pg -W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_fp_db_writer_cache.c -pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_fp_db_writer_cache.c -pg -W -Wall -std=c11 -D_POSIX_C_SOURCE=200809L -pedantic -O2
 	gcc -c src/olaf_ep_extractor.c 		-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_extractor.c 		-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_reader_stream.c 	-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_runner.c 			-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_stream_processor.c 	-pg -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_matcher.c 		-pg -W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_config.c 			-pg -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_config.c 			-pg -W -Wall -std=c11 -D_POSIX_C_SOURCE=200809L -pedantic -O2
 	mkdir -p bin
 	gcc -o bin/olaf_core *.o 			-pg -lc -lm -ffast-math -pthread
 
@@ -119,14 +121,14 @@ mem:
 	gcc -c src/olaf_db_id.c 			 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_db_writer_mem.c 	 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_file_writer.c 	 -Dmem -W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_fp_db_writer_cache.c -Dmem -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_fp_db_writer_cache.c -Dmem -W -Wall -std=c11 -D_POSIX_C_SOURCE=200809L -pedantic -O2
 	gcc -c src/olaf_runner.c 			 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_stream_processor.c 	 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_ep_extractor.c 		 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_extractor.c 		 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_reader_stream.c		 -Dmem -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_fp_matcher.c 		 -Dmem -W -Wall -std=c11 -pedantic -O2
-	gcc -c src/olaf_config.c 			 -Dmem -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_config.c 			 -Dmem -W -Wall -std=c11 -D_POSIX_C_SOURCE=200809L -pedantic -O2
 	mkdir -p bin
 	gcc -o bin/olaf_mem *.o 			-lc -lm -ffast-math
 
@@ -174,7 +176,7 @@ destroy_db:
 #The functional tests are run via `zig build test`, see readme
 test:
 	rm -f *.o #avoid linker collisions with leftover .o from other GCC targets
-	gcc -c src/olaf_config.c -W -Wall -std=c11 -pedantic -O2
+	gcc -c src/olaf_config.c -W -Wall -std=c11 -D_POSIX_C_SOURCE=200809L -pedantic -O2
 	gcc -c src/olaf_reader_stream.c -W -Wall -std=c11 -pedantic -O2
 	gcc -c src/queue.c  		   		-W -Wall -std=c11 -pedantic -O2
 	gcc -c src/olaf_deque.c  	   		-W -Wall -std=c11 -pedantic -O2
@@ -187,6 +189,7 @@ test:
 	gcc -o bin/olaf_tests *.o		-lc -lm -ffast-math
 	mkdir -p tests/olaf_test_db
 	- rm tests/olaf_test_db/*
+	./bin/olaf_tests
 
 #Generate doxygen API documentation
 docs:
