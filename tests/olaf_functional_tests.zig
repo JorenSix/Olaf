@@ -1246,6 +1246,50 @@ test "functional: to_raw / to_wav refuse colliding or in-place outputs" {
     try testing.expectEqual(size_before, (try Io.Dir.cwd().statFile(io, in_wav, .{})).size);
 }
 
+/// Run a shell script in the test env; returns the result (caller frees).
+fn runShell(allocator: std.mem.Allocator, env: *TestEnv, script: []const u8) !std.process.RunResult {
+    return std.process.run(allocator, env.io, .{ .argv = &.{ "/bin/sh", "-c", script }, .environ_map = &env.env_map });
+}
+
+test "functional: relative, absolute and symlinked paths share one identifier" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try setupTestEnv(io, allocator, "canonical");
+    defer env.deinit();
+
+    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
+    const ref_abs = ref_buf[0..ref_n];
+    const ref_dir = std.fs.path.dirname(ref_abs).?;
+    const repo_dir = std.fs.path.dirname(std.fs.path.dirname(ref_dir).?).?;
+
+    const first = try runOlaf(allocator, olaf_bin, &env, &.{ "store", ref_abs }, error.OlafStoreFailed);
+    allocator.free(first.stdout);
+    allocator.free(first.stderr);
+
+    // Same file, spelled relative to the cwd and through a symlinked dir:
+    // both used to get a different identifier and be indexed again.
+    const scripts = [_][]const u8{
+        try std.fmt.allocPrint(allocator, "cd '{s}' && '{s}' store --format csv ./dataset/ref/../ref/11266.mp3", .{ repo_dir, olaf_bin }),
+        try std.fmt.allocPrint(allocator, "ln -s '{s}' '{s}/linked' && '{s}' store --format csv '{s}/linked/11266.mp3'", .{ ref_dir, env.home, olaf_bin, env.home }),
+    };
+    defer for (scripts) |sc| allocator.free(sc);
+
+    for (scripts) |script| {
+        const r = try runShell(allocator, &env, script);
+        defer allocator.free(r.stdout);
+        defer allocator.free(r.stderr);
+        try testing.expect(r.term == .exited and r.term.exited == 0);
+        try testing.expect(std.mem.indexOf(u8, r.stderr, "skip,,,") != null);
+    }
+    try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

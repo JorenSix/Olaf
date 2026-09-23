@@ -83,6 +83,35 @@ test "ensureTrailingSlash" {
     try std.testing.expectEqualStrings("/data/olaf/", kept);
 }
 
+/// Canonical path used for audio paths and default identifiers, so the same
+/// file always maps to the same id however it was typed (relative, absolute,
+/// via a symlinked directory). Existing paths are fully resolved (realpath);
+/// a path that does not exist falls back to `absolutePath` so the caller can
+/// report it. Caller owns the result.
+pub fn canonicalPath(allocator: std.mem.Allocator, io: Io, path: []const u8) ![]u8 {
+    var buf: [fs.max_path_bytes]u8 = undefined;
+    const n = Io.Dir.cwd().realPathFile(io, path, &buf) catch return absolutePath(allocator, io, path);
+    return allocator.dupe(u8, buf[0..n]);
+}
+
+/// Absolute, normalized form of `path` (like Ruby's File.expand_path, which
+/// the original wrapper used): relative paths are resolved against the working
+/// directory and `.`/`..` are removed; symlinks are not followed.
+/// Caller owns the result.
+pub fn absolutePath(allocator: std.mem.Allocator, io: Io, path: []const u8) ![]u8 {
+    if (fs.path.isAbsolute(path)) return fs.path.resolve(allocator, &.{path});
+    var cwd_buf: [fs.max_path_bytes]u8 = undefined;
+    const cwd_len = try std.process.currentPath(io, &cwd_buf);
+    return fs.path.resolve(allocator, &.{ cwd_buf[0..cwd_len], path });
+}
+
+test "absolutePath normalizes absolute paths" {
+    const a = std.testing.allocator;
+    const p = try absolutePath(a, std.testing.io, "/music/./a/../b.mp3");
+    defer a.free(p);
+    try std.testing.expectEqualStrings("/music/b.mp3", p);
+}
+
 /// Represents an audio file with its associated identifier
 pub const AudioFileWithId = struct {
     path: []const u8,
@@ -103,7 +132,9 @@ pub fn audioFileListWithId(
     files: *std.ArrayList(AudioFileWithId),
     allowed_audio_file_extensions: []const []const u8,
 ) !void {
-    const expanded = try expandPath(allocator, home, audio_file_path);
+    const home_expanded = try expandPath(allocator, home, audio_file_path);
+    defer allocator.free(home_expanded);
+    const expanded = try canonicalPath(allocator, io, home_expanded);
     defer allocator.free(expanded);
 
     const stat = Io.Dir.cwd().statFile(io, expanded, .{}) catch |err| {
@@ -161,7 +192,9 @@ pub fn audioFileList(
     files: *std.ArrayList(AudioFileWithId),
     allowed_audio_file_extensions: []const []const u8,
 ) !void {
-    const expanded = try expandPath(allocator, home, arg);
+    const home_expanded = try expandPath(allocator, home, arg);
+    defer allocator.free(home_expanded);
+    const expanded = try canonicalPath(allocator, io, home_expanded);
     defer allocator.free(expanded);
 
     const stat = Io.Dir.cwd().statFile(io, expanded, .{}) catch |err| {
@@ -203,7 +236,9 @@ pub fn audioFileList(
                 while (it.next()) |line| {
                     const trimmed = std.mem.trim(u8, line, " \t\r\n");
                     if (trimmed.len > 0) {
-                        const audio_path = try expandPath(allocator, home, trimmed);
+                        const line_expanded = try expandPath(allocator, home, trimmed);
+                        defer allocator.free(line_expanded);
+                        const audio_path = try canonicalPath(allocator, io, line_expanded);
 
                         const audio_file = AudioFileWithId{
                             .path = audio_path,

@@ -211,7 +211,7 @@ find . -name "*.mp3" > list.txt
 olaf store list.txt
 ```
 
-Internally each audio stream is given an identifier using a one time [Jenkins Hash](https://en.wikipedia.org/wiki/Jenkins_hash_function) function. This identifier is returned when a match is found. A list connecting these identifiers to file names is also stored automatically.
+Internally each audio stream is given an identifier using a one time [Jenkins Hash](https://en.wikipedia.org/wiki/Jenkins_hash_function) function of its canonical absolute path (symlinks resolved), so the same file gets the same identifier however it is referenced. This identifier is returned when a match is found. A list connecting these identifiers to file names is also stored automatically.
 
 ### Query fingerprints
 
