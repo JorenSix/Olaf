@@ -129,7 +129,7 @@ Accepts filenames or numpy arrays (mono audio @ 16kHz sample rate).
 - Thread counts for parallel processing
 - Audio file extensions allowlist
 - Query fragmentation settings
-- File checked in order: executable dir, `~/.olaf/olaf_config.json`
+- File checked in order: `~/.olaf/olaf_config.json`, then `olaf_config.json` next to the executable; unknown keys are warned about, wrongly typed values are an error
 - Use `olaf config` command to view current configuration
 
 ## Testing

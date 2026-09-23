@@ -96,8 +96,15 @@ pub fn getAudioDuration(allocator: std.mem.Allocator, io: Io, audio_file: []cons
         allocator.free(result.stderr);
     }
 
+    // ffprobe fails on unreadable input and prints "N/A" for streams without
+    // a known duration; either way there is nothing to fragment.
     const trimmed = std.mem.trim(u8, result.stdout, " \t\n\r");
-    return try std.fmt.parseFloat(f32, trimmed);
+    const ok = result.term == .exited and result.term.exited == 0;
+    const duration = if (ok) std.fmt.parseFloat(f32, trimmed) catch null else null;
+    return duration orelse {
+        log_err("could not read the duration of '{s}' (ffprobe: {s})", .{ audio_file, if (trimmed.len > 0) trimmed else "no output" });
+        return error.DurationUnavailable;
+    };
 }
 
 /// Converts audio with custom options

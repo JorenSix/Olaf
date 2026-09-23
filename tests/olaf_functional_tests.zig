@@ -1625,6 +1625,22 @@ test "functional: temp audio goes to TMPDIR" {
     try testing.expect(try fileExists(io, allocator, tmp, "olaf_raw_audio_cache"));
 }
 
+test "functional: --fragmented reports an unreadable duration clearly" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    var env = try Fixture.init(allocator, io, "bad_duration");
+    defer env.deinit();
+    const bad = try writeBadAudioFile(&env);
+    defer allocator.free(bad);
+
+    // Used to fail with a bare InvalidCharacter parse error.
+    const r = try env.run(&.{ "query", "--fragmented", bad }, 1);
+    defer r.deinit();
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "could not read the duration of") != null);
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "DurationUnavailable") != null);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

@@ -44,6 +44,7 @@ pub const Config = struct {
     cache_folder: []const u8 = "~/.olaf/cache",
 
     // CLI specific configurations
+    /// Reserved: currently has no effect (kept so existing configs stay valid).
     check_incoming_audio: bool = true,
     skip_duplicates: bool = true,
     fragment_duration_in_seconds: u32 = 30,
