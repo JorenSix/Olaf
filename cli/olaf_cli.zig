@@ -176,7 +176,7 @@ fn run(init: std.process.Init) !void {
     var config = try olaf_cli_config.olafWrapperConfig(allocator, io, home);
     defer {
         debug("Defer config cleanup", .{});
-        config.deinit(allocator);
+        config.deinit();
     }
     config.debugPrint();
 

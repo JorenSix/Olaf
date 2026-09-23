@@ -67,45 +67,53 @@ pub const CoreConfig = struct {
     }
 };
 
+/// CLI config field -> C `Olaf_Config` field. Every algorithm setting is
+/// listed once; copyConfig and the drift test below both use this table.
+const c_fields = .{
+    // Audio
+    .{ "audio_block_size", "audioBlockSize" },
+    .{ "target_sample_rate", "audioSampleRate" },
+    .{ "audio_step_size", "audioStepSize" },
+    .{ "bytes_per_audio_sample", "bytesPerAudioSample" },
+    // Event points
+    .{ "max_event_points", "maxEventPoints" },
+    .{ "event_point_threshold", "eventPointThreshold" },
+    .{ "sqrt_magnitude", "sqrtMagnitude" },
+    .{ "filter_size_frequency", "filterSizeFrequency" },
+    .{ "filter_size_time", "filterSizeTime" },
+    .{ "min_event_point_magnitude", "minEventPointMagnitude" },
+    .{ "max_event_point_usages", "maxEventPointUsages" },
+    .{ "min_frequency_bin", "minFrequencyBin" },
+    .{ "verbose", "verbose" },
+    // Fingerprints
+    .{ "number_of_eps_per_fp", "numberOfEPsPerFP" },
+    .{ "use_magnitude_info", "useMagnitudeInfo" },
+    .{ "min_time_distance", "minTimeDistance" },
+    .{ "max_time_distance", "maxTimeDistance" },
+    .{ "min_freq_distance", "minFreqDistance" },
+    .{ "max_freq_distance", "maxFreqDistance" },
+    .{ "max_fingerprints", "maxFingerprints" },
+    // Matcher
+    .{ "max_results", "maxResults" },
+    .{ "search_range", "searchRange" },
+    .{ "min_match_count", "minMatchCount" },
+    .{ "min_match_time_diff", "minMatchTimeDiff" },
+    .{ "keep_matches_for", "keepMatchesFor" },
+    .{ "print_result_every", "printResultEvery" },
+    .{ "max_db_collisions", "maxDBCollisions" },
+};
+
+/// C fields derived from other settings rather than copied.
+const c_derived_fields = .{ "halfFilterSizeFrequency", "halfFilterSizeTime" };
+
 fn copyConfig(config: *const olaf_cli_config.Config, c_config: *c.Olaf_Config) void {
-    // Audio configurations
-    c_config.audioBlockSize = @intCast(config.audio_block_size);
-    c_config.audioSampleRate = @intCast(config.target_sample_rate);
-    c_config.audioStepSize = @intCast(config.audio_step_size);
-    c_config.bytesPerAudioSample = @intCast(config.bytes_per_audio_sample);
-
-    // Event point configurations
-    c_config.maxEventPoints = @intCast(config.max_event_points);
-    c_config.eventPointThreshold = @intCast(config.event_point_threshold);
-    c_config.sqrtMagnitude = config.sqrt_magnitude;
-    c_config.filterSizeFrequency = @intCast(config.filter_size_frequency);
+    inline for (c_fields) |pair| {
+        const Dest = @TypeOf(@field(c_config, pair[1]));
+        const value = @field(config, pair[0]);
+        @field(c_config, pair[1]) = if (@typeInfo(Dest) == .int) @intCast(value) else value;
+    }
     c_config.halfFilterSizeFrequency = @intCast(config.filter_size_frequency / 2);
-    c_config.filterSizeTime = @intCast(config.filter_size_time);
     c_config.halfFilterSizeTime = @intCast(config.filter_size_time / 2);
-    c_config.minEventPointMagnitude = config.min_event_point_magnitude;
-    c_config.maxEventPointUsages = @intCast(config.max_event_point_usages);
-    c_config.minFrequencyBin = @intCast(config.min_frequency_bin);
-
-    // Debug configuration
-    c_config.verbose = config.verbose;
-
-    // Fingerprint configurations
-    c_config.numberOfEPsPerFP = @intCast(config.number_of_eps_per_fp);
-    c_config.useMagnitudeInfo = config.use_magnitude_info;
-    c_config.minTimeDistance = @intCast(config.min_time_distance);
-    c_config.maxTimeDistance = @intCast(config.max_time_distance);
-    c_config.minFreqDistance = @intCast(config.min_freq_distance);
-    c_config.maxFreqDistance = @intCast(config.max_freq_distance);
-    c_config.maxFingerprints = @intCast(config.max_fingerprints);
-
-    // Matcher configurations
-    c_config.maxResults = @intCast(config.max_results);
-    c_config.searchRange = @intCast(config.search_range);
-    c_config.minMatchCount = @intCast(config.min_match_count);
-    c_config.minMatchTimeDiff = config.min_match_time_diff;
-    c_config.keepMatchesFor = config.keep_matches_for;
-    c_config.printResultEvery = config.print_result_every;
-    c_config.maxDBCollisions = @intCast(config.max_db_collisions);
 }
 
 // Guards against drift between the hand-maintained defaults in
@@ -121,17 +129,13 @@ test "config defaults: olaf_cli_config.zig matches olaf_config.c" {
     defer c.olaf_config_destroy(c_from_zig);
     copyConfig(&zig_default, c_from_zig);
 
-    const fields = .{
-        "audioBlockSize",         "audioSampleRate",         "audioStepSize",  "bytesPerAudioSample",
-        "maxEventPoints",         "eventPointThreshold",     "sqrtMagnitude",  "filterSizeFrequency",
-        "halfFilterSizeFrequency", "filterSizeTime",         "halfFilterSizeTime", "minEventPointMagnitude",
-        "maxEventPointUsages",    "minFrequencyBin",         "verbose",        "numberOfEPsPerFP",
-        "useMagnitudeInfo",       "minTimeDistance",         "maxTimeDistance", "minFreqDistance",
-        "maxFreqDistance",        "maxFingerprints",         "maxResults",     "searchRange",
-        "minMatchCount",          "minMatchTimeDiff",        "keepMatchesFor", "printResultEvery",
-        "maxDBCollisions",
+    const checked = comptime blk: {
+        var names: [c_fields.len + c_derived_fields.len][]const u8 = undefined;
+        for (c_fields, 0..) |pair, i| names[i] = pair[1];
+        for (c_derived_fields, 0..) |name, i| names[c_fields.len + i] = name;
+        break :blk names;
     };
-    inline for (fields) |field_name| {
+    inline for (checked) |field_name| {
         const c_value = @field(c_default.*, field_name);
         const zig_value = @field(c_from_zig.*, field_name);
         std.testing.expectEqual(c_value, zig_value) catch |err| {
