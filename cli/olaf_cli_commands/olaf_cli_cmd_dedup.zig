@@ -40,17 +40,15 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
 
     // dedup means "find duplicates" — self-matches are always filtered.
     if (args.fragmented) {
-        try olaf_cli_threading.executeFragmentedParallel(
+        try olaf_cli_threading.executeFragmentedQuery(
             args.io,
             allocator,
             args.audio_files.items,
             args.config.?,
-            .Query,
             args.threads,
             args.fragment_duration,
             false,
             args.output_format,
-            args.store_format,
         );
     } else {
         try olaf_cli_threading.executeParallel(

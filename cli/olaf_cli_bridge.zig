@@ -350,7 +350,7 @@ fn writeJsonString(w: anytype, s: []const u8) !void {
 
 pub const OutputFormat = enum { csv, json };
 
-pub fn olaf_query(allocator: std.mem.Allocator, q_index: usize, q_total: usize, query_path: []const u8, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config, exclude_identifier: u32, format: OutputFormat) !void {
+pub fn olaf_query(allocator: std.mem.Allocator, q_index: usize, q_total: usize, query_path: []const u8, query_offset: f32, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config, exclude_identifier: u32, format: OutputFormat) !void {
     var cc = try CConfig.init(allocator, config);
     defer cc.deinit();
     const c_config = cc.c_config;
@@ -365,8 +365,8 @@ pub fn olaf_query(allocator: std.mem.Allocator, q_index: usize, q_total: usize, 
     defer allocator.free(c_query_path);
 
     switch (format) {
-        .csv => olaf.olaf_query(c_config, q_index, q_total, c_query_path, c_raw_audio_path, c_audio_identifier, exclude_identifier),
-        .json => olaf.olaf_query_json(c_config, q_index, q_total, c_query_path, c_raw_audio_path, c_audio_identifier, exclude_identifier),
+        .csv => olaf.olaf_query(c_config, q_index, q_total, c_query_path, query_offset, c_raw_audio_path, c_audio_identifier, exclude_identifier),
+        .json => olaf.olaf_query_json(c_config, q_index, q_total, c_query_path, query_offset, c_raw_audio_path, c_audio_identifier, exclude_identifier),
     }
 }
 
@@ -396,7 +396,7 @@ pub fn olaf_query_stdin(
     defer allocator.free(c_audio_identifier);
 
     // raw_audio_path = null -> C reader reads stdin; CSV form streams live.
-    olaf.olaf_query(c_config, 0, 1, c_query_path, null, c_audio_identifier, 0);
+    olaf.olaf_query(c_config, 0, 1, c_query_path, 0, null, c_audio_identifier, 0);
 }
 
 pub fn olaf_delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {

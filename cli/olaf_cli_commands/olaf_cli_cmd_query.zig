@@ -23,17 +23,15 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     debug("Executing query with fragmented={}, threads={}", .{ args.fragmented, args.threads });
 
     if (args.fragmented) {
-        try olaf_cli_threading.executeFragmentedParallel(
+        try olaf_cli_threading.executeFragmentedQuery(
             args.io,
             allocator,
             args.audio_files.items,
             args.config.?,
-            .Query,
             args.threads,
             args.fragment_duration,
             args.allow_identity_match,
             args.output_format,
-            args.store_format,
         );
     } else {
         try olaf_cli_threading.executeParallel(

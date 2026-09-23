@@ -423,6 +423,7 @@ const ParsedResult = struct {
     valid: bool,
     empty_match: bool,
     query: []const u8,
+    query_offset: f32,
     match_count: u32,
     query_start: f32,
     query_stop: f32,
@@ -450,6 +451,7 @@ fn parseResultLine(allocator: std.mem.Allocator, line: []const u8) !?ParsedResul
         .valid = true,
         .empty_match = match_count == 0,
         .query = parts.items[2],
+        .query_offset = std.fmt.parseFloat(f32, parts.items[3]) catch return null,
         .match_count = match_count,
         .query_start = std.fmt.parseFloat(f32, parts.items[5]) catch return null,
         .query_stop = std.fmt.parseFloat(f32, parts.items[6]) catch return null,
@@ -879,6 +881,58 @@ test "functional: usage errors exit with status 2" {
     try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "store", "--with-ids", ref_abs }, 2);
     try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "store", "--with-ids", ref_abs, "--threads" }, 2);
     try runOlafExpectExit(allocator, olaf_bin, &env, &.{"--help"}, 0);
+}
+
+/// Store REF_AUDIO_FILE, run `query --fragmented` on it, and check that each
+/// matched fragment reports its offset: expected offsets must all appear, all
+/// offsets are multiples of `step`, and ref_start ~= query_offset + query_start.
+fn expectFragmentOffsets(allocator: std.mem.Allocator, olaf_bin: []const u8, env: *TestEnv, ref_abs: []const u8, step: f32, expected: []const f32) !void {
+    const store = try runOlaf(allocator, olaf_bin, env, &.{ "store", ref_abs }, error.OlafStoreFailed);
+    allocator.free(store.stdout);
+    allocator.free(store.stderr);
+
+    const result = try runOlaf(allocator, olaf_bin, env, &.{ "query", "--fragmented", ref_abs }, error.OlafQueryFailed);
+    defer allocator.free(result.stdout);
+    defer allocator.free(result.stderr);
+
+    var seen: std.ArrayList(f32) = .empty;
+    defer seen.deinit(allocator);
+
+    var lines = std.mem.splitScalar(u8, result.stdout, '\n');
+    while (lines.next()) |line| {
+        const r = (try parseResultLine(allocator, line)) orelse continue;
+        if (r.empty_match) continue;
+        try testing.expectEqual(@as(f32, 0), @mod(r.query_offset, step));
+        try testing.expect(@abs(r.ref_start - (r.query_offset + r.query_start)) < 2.0);
+        try seen.append(allocator, r.query_offset);
+    }
+    for (expected) |want| {
+        try testing.expect(std.mem.indexOfScalar(f32, seen.items, want) != null);
+    }
+}
+
+test "functional: query --fragmented reports fragment offsets" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try setupTestEnv(io, allocator, "fragmented");
+    defer env.deinit();
+
+    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
+    const ref_abs = ref_buf[0..ref_n];
+
+    // REF_AUDIO_FILE is ~98s: default 30s fragments start at 0, 30, 60, 90.
+    try expectFragmentOffsets(allocator, olaf_bin, &env, ref_abs, 30, &.{ 0, 30, 60 });
+
+    const json_result = try runOlaf(allocator, olaf_bin, &env, &.{ "query", "--fragmented", "--format", "json", ref_abs }, error.OlafQueryFailed);
+    defer allocator.free(json_result.stdout);
+    defer allocator.free(json_result.stderr);
+    try testing.expect(std.mem.indexOf(u8, json_result.stdout, "\"query_offset\": 30.000") != null);
 }
 
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {

@@ -327,7 +327,7 @@ static void olaf_cli_print_match(int matchCount,
 }
 
 
-void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier){
+void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, float q_offset, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier){
 	//store the fingerprints in the database
 	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
 	if(db == NULL){
@@ -353,7 +353,7 @@ void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char 
 	olaf_query_print_context.q_index = q_index;
     olaf_query_print_context.q_total = q_total;
     olaf_query_print_context.query_path = query_path;
-	olaf_query_print_context.q_offset = 0.0f;
+	olaf_query_print_context.q_offset = q_offset;
 	olaf_query_print_context.exclude_identifier = exclude_identifier;
 
 	Olaf_FP_Matcher_Result_Callback result_callback = olaf_cli_print_match;
@@ -371,7 +371,7 @@ void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char 
 	olaf_runner_destroy(runner);
 }
 
-void olaf_query_json(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier){
+void olaf_query_json(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, float q_offset, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier){
 	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
 	if(db == NULL){
 		fprintf(stderr,"Error: Could not open database %s.\n",config->dbFolder);
@@ -391,7 +391,7 @@ void olaf_query_json(Olaf_Config* config, size_t q_index, size_t q_total, const 
 	olaf_query_print_context.q_index = q_index;
 	olaf_query_print_context.q_total = q_total;
 	olaf_query_print_context.query_path = query_path;
-	olaf_query_print_context.q_offset = 0.0f;
+	olaf_query_print_context.q_offset = q_offset;
 	olaf_query_print_context.exclude_identifier = exclude_identifier;
 
 	// Reset & install the collector callback. Suppress the human-readable
@@ -419,7 +419,7 @@ void olaf_query_json(Olaf_Config* config, size_t q_index, size_t q_total, const 
 	printf("  \"query_path\": ");
 	json_print_escaped(stdout, query_path);
 	printf(",\n");
-	printf("  \"query_offset\": %.3f,\n", 0.0);
+	printf("  \"query_offset\": %.3f,\n", q_offset);
 	printf("  \"fingerprints_matched\": %zu,\n", total_fp);
 	printf("  \"query_duration_seconds\": %.3f,\n", audio_duration);
 	printf("  \"fingerprints_per_second\": %.3f,\n", fp_per_second);

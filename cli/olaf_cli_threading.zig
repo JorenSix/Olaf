@@ -57,7 +57,7 @@ pub fn processAudioFile(
     try olaf_cli_util_audio.convertToRaw(allocator, io, audio_file_with_id.path, raw_audio_path, config.target_sample_rate);
 
     switch (action) {
-        .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier, output_format),
+        .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, 0, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier, output_format),
         .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, config, index, total, store_format),
         .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, audio_file_with_id.identifier, config),
     }
@@ -237,8 +237,10 @@ pub fn transcodeAndReport(
     olaf_cli_util.print("{d}/{d},{s},{s}\n", .{ index + 1, total, col1, col2 });
 }
 
-/// Process a single fragment of an audio file
-fn processAudioFragment(
+/// Query one fragment `[fragment_start, fragment_start + fragment_duration)`
+/// of an audio file. The fragment start is reported as query_offset; match
+/// times in the output are relative to it.
+fn queryAudioFragment(
     io: Io,
     allocator: std.mem.Allocator,
     audio_file_with_id: olaf_cli_util.AudioFileWithId,
@@ -246,68 +248,45 @@ fn processAudioFragment(
     index: usize,
     total: usize,
     fragment_start: f32,
-    fragment_duration: u32,
-    action: ProcessAction,
+    fragment_duration: f32,
     exclude_identifier: u32,
     output_format: olaf_cli_bridge.OutputFormat,
-    store_format: olaf_cli_bridge.StoreFormat,
 ) !void {
-    debug("Processing fragment at {d}s for {d}s from {s}", .{ fragment_start, fragment_duration, audio_file_with_id.path });
+    debug("Querying fragment at {d}s for {d}s from {s}", .{ fragment_start, fragment_duration, audio_file_with_id.path });
 
     const raw_audio_path = try createTempRawPath(io, allocator);
     defer allocator.free(raw_audio_path);
     defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch |err| debug("Could not delete temp file {s}: {}", .{ raw_audio_path, err });
 
-    // Convert the fragment to raw audio
     const options = olaf_cli_util_audio.AudioOptions{
         .sample_rate = config.target_sample_rate,
         .output_channels = 1,
         .output_format = "f32le",
         .output_codec = "pcm_f32le",
         .start = fragment_start,
-        .duration = @floatFromInt(fragment_duration),
+        .duration = fragment_duration,
     };
+    try olaf_cli_util_audio.convertAudioWithOptions(allocator, io, audio_file_with_id.path, raw_audio_path, options);
 
-    try olaf_cli_util_audio.convertAudioWithOptions(
-        allocator,
-        io,
-        audio_file_with_id.path,
-        raw_audio_path,
-        options,
-    );
-
-    // Create identifier with fragment offset
-    const fragment_identifier = try std.fmt.allocPrint(
-        allocator,
-        "{s}@{d}",
-        .{ audio_file_with_id.identifier, fragment_start },
-    );
-    defer allocator.free(fragment_identifier);
-
-    switch (action) {
-        .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, raw_audio_path, fragment_identifier, config, exclude_identifier, output_format),
-        .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, config, index, total, store_format),
-        .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, fragment_identifier, config),
-    }
+    try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, fragment_start, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier, output_format);
 }
 
-/// Execute fragmented audio processing. Currently single-threaded; io is
-/// threaded through so it compiles on 0.16. Parallelizing fragment processing
-/// is a deliberate follow-up.
-pub fn executeFragmentedParallel(
+/// Query each audio file in consecutive fragments of `fragment_duration`
+/// seconds. Currently single-threaded: `num_threads` is accepted for API
+/// symmetry but fragments are processed serially (parallelizing is a
+/// deliberate follow-up).
+pub fn executeFragmentedQuery(
     io: Io,
     allocator: std.mem.Allocator,
     audio_files: []const olaf_cli_util.AudioFileWithId,
     config: *const olaf_cli_config.Config,
-    action: ProcessAction,
     num_threads: u32,
     fragment_duration: u32,
     allow_identity_match: bool,
     output_format: olaf_cli_bridge.OutputFormat,
-    store_format: olaf_cli_bridge.StoreFormat,
 ) !void {
-    const filter_identity = (action == .Query) and !allow_identity_match;
-    debug("Processing {d} audio files in fragments of {d}s with {d} threads (filter_identity={})", .{
+    const filter_identity = !allow_identity_match;
+    debug("Querying {d} audio files in fragments of {d}s with {d} threads (filter_identity={})", .{
         audio_files.len, fragment_duration, num_threads, filter_identity,
     });
 
@@ -315,23 +294,19 @@ pub fn executeFragmentedParallel(
         // Get the total duration of the audio file
         const total_duration = try olaf_cli_util_audio.getAudioDuration(allocator, io, audio_file.path);
 
-        // Reference fingerprints are stored under the un-suffixed file
-        // identifier, so the self-id is the hash of audio_file.identifier
-        // (NOT the fragment identifier processAudioFragment constructs).
+        // Reference fingerprints are stored under the file identifier, so the
+        // self-id is the hash of audio_file.identifier.
         const exclude = if (filter_identity)
             try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier)
         else
             @as(u32, 0);
 
         var fragment_start: f32 = 0.0;
-        var fragment_index: usize = 0;
-
         while (fragment_start < total_duration) {
             const remaining = total_duration - fragment_start;
             const current_duration = @min(@as(f32, @floatFromInt(fragment_duration)), remaining);
 
-            // TODO: Implement parallel fragment processing
-            try processAudioFragment(
+            try queryAudioFragment(
                 io,
                 allocator,
                 audio_file,
@@ -339,15 +314,12 @@ pub fn executeFragmentedParallel(
                 file_index,
                 audio_files.len,
                 fragment_start,
-                fragment_duration,
-                action,
+                current_duration,
                 exclude,
                 output_format,
-                store_format,
             );
 
             fragment_start += current_duration;
-            fragment_index += 1;
         }
     }
 }
