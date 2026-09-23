@@ -96,6 +96,11 @@ fn copy_to_c_config(config: *const olaf_cli_config.Config, c_config: *olaf.Olaf_
     debug("Configuration copy complete", .{});
 }
 
+/// Map a C bridge status code (0 ok, -1 raw audio could not be opened) to an error.
+fn check(rc: c_int) !void {
+    if (rc != 0) return error.AudioOpenFailed;
+}
+
 /// Stdin/live queries have no natural end of stream, so results must be
 /// printed periodically and old matches aged out (mirrors src/olaf.c stdin
 /// mode). Only fills in values left at 0, the batch-query defaults, so an
@@ -158,7 +163,7 @@ pub fn olaf_store(
     const runner = olaf.olaf_runner_new(olaf.OLAF_RUNNER_MODE_STORE, c_config, null, null);
     defer olaf.olaf_runner_destroy(runner);
 
-    const processor = olaf.olaf_stream_processor_new(runner, c_raw_audio_path, c_audio_identifier) orelse return;
+    const processor = olaf.olaf_stream_processor_new(runner, c_raw_audio_path, c_audio_identifier) orelse return error.AudioOpenFailed;
     defer olaf.olaf_stream_processor_destroy(processor);
 
     olaf.olaf_stream_processor_set_suppress_summary(processor, true);
@@ -365,8 +370,8 @@ pub fn olaf_query(allocator: std.mem.Allocator, q_index: usize, q_total: usize, 
     defer allocator.free(c_query_path);
 
     switch (format) {
-        .csv => olaf.olaf_query(c_config, q_index, q_total, c_query_path, query_offset, c_raw_audio_path, c_audio_identifier, exclude_identifier),
-        .json => olaf.olaf_query_json(c_config, q_index, q_total, c_query_path, query_offset, c_raw_audio_path, c_audio_identifier, exclude_identifier),
+        .csv => try check(olaf.olaf_query(c_config, q_index, q_total, c_query_path, query_offset, c_raw_audio_path, c_audio_identifier, exclude_identifier)),
+        .json => try check(olaf.olaf_query_json(c_config, q_index, q_total, c_query_path, query_offset, c_raw_audio_path, c_audio_identifier, exclude_identifier)),
     }
 }
 
@@ -396,7 +401,7 @@ pub fn olaf_query_stdin(
     defer allocator.free(c_audio_identifier);
 
     // raw_audio_path = null -> C reader reads stdin; CSV form streams live.
-    olaf.olaf_query(c_config, 0, 1, c_query_path, 0, null, c_audio_identifier, 0);
+    try check(olaf.olaf_query(c_config, 0, 1, c_query_path, 0, null, c_audio_identifier, 0));
 }
 
 pub fn olaf_delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, audio_identifier: []const u8, config: *const olaf_cli_config.Config) !void {
@@ -410,7 +415,7 @@ pub fn olaf_delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, aud
     const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
     defer allocator.free(c_audio_identifier);
 
-    olaf.olaf_delete(c_config, c_raw_audio_path, c_audio_identifier);
+    try check(olaf.olaf_delete(c_config, c_raw_audio_path, c_audio_identifier));
 }
 
 pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_cli_config.Config) !void {
@@ -628,7 +633,7 @@ pub fn olaf_print_to_file(
     const c_meta_fp = olaf.fopen(c_meta_file, "w");
     if (c_meta_fp == null) return error.FdopenFailed;
 
-    olaf.olaf_print_to_file(c_config, c_raw_audio_path, c_audio_identifier, c_cache_fp, c_meta_fp);
+    try check(olaf.olaf_print_to_file(c_config, c_raw_audio_path, c_audio_identifier, c_cache_fp, c_meta_fp));
 }
 
 pub fn olaf_name_to_id(allocator: std.mem.Allocator, audio_identifier: []const u8) !u32 {
@@ -749,4 +754,24 @@ test "applyLiveStreamDefaults fills only zeroed live settings" {
     applyLiveStreamDefaults(c_config);
     try std.testing.expectEqual(@as(f32, 1), c_config.*.printResultEvery);
     try std.testing.expectEqual(@as(f32, 5), c_config.*.keepMatchesFor);
+}
+
+test "bridge calls report a raw audio file that cannot be opened" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const tmp_path = try tmp.dir.realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(tmp_path);
+    const db_folder = try std.fmt.allocPrint(allocator, "{s}/", .{tmp_path});
+    defer allocator.free(db_folder);
+
+    const config = olaf_cli_config.Config{ .db_folder = db_folder };
+    const missing = "/nonexistent/olaf_missing_audio.raw";
+
+    try std.testing.expectError(error.AudioOpenFailed, olaf_store(allocator, missing, "missing", &config, 0, 1, .human));
+    try std.testing.expectError(error.AudioOpenFailed, olaf_query(allocator, 0, 1, "missing", 0, missing, "missing", &config, 0, .csv));
+    try std.testing.expectError(error.AudioOpenFailed, olaf_query(allocator, 0, 1, "missing", 0, missing, "missing", &config, 0, .json));
+    try std.testing.expectError(error.AudioOpenFailed, olaf_delete(allocator, missing, "missing", &config));
 }

@@ -42,24 +42,27 @@ Olaf_Config* olaf_default_config();
 // It processes the audio file and stores the fingerprints in the database.
 void olaf_store(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
 
+// olaf_query, olaf_query_json, olaf_delete and olaf_print_to_file return 0 on
+// success and -1 when the raw audio file could not be opened.
+//
 // `q_offset`: start (s) of this query fragment within `query_path`; reported
 // as query_offset (query_start/query_stop are relative to it). 0 when unfragmented.
 // `exclude_identifier`: when non-zero, suppress result lines whose
 // match_identifier equals this hash (used to filter self-matches in dedup).
 // Pass 0 for no filtering.
-void olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, float q_offset, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier);
+int olaf_query(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, float q_offset, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier);
 
 // Same as olaf_query but prints a single JSON object per query to stdout
 // (instead of CSV lines) and suppresses the human-readable summary on stderr.
-void olaf_query_json(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, float q_offset, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier);
+int olaf_query_json(Olaf_Config* config, size_t q_index, size_t q_total, const char * query_path, float q_offset, const char* raw_audio_path, const char* audio_identifier, uint32_t exclude_identifier);
 
 // Delete fingerprints from the database by audio identifier
-void olaf_delete(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
+int olaf_delete(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
 
 // Print fingerprints to a specified file
 // Takes ownership of fp_cache_file and fp_meta_file: both are closed before
 // returning (also on failure to open the raw audio), unless they are stdout.
-void olaf_print_to_file(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier,FILE * fp_cache_file, FILE * fp_meta_file);
+int olaf_print_to_file(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier,FILE * fp_cache_file, FILE * fp_meta_file);
 
 // Print fingerprints to stdout (for caching)
 void olaf_print(Olaf_Config* config, const char* raw_audio_path, const char* audio_identifier);
