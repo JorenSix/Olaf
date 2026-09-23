@@ -53,6 +53,7 @@ The utilities can be combined to filter, sort and check:
 Stdlib only; requires ffmpeg on PATH for the `check` command.
 """
 
+import csv
 import os
 import subprocess
 import sys
@@ -67,7 +68,10 @@ class OlafResultLine:
     """One CSV line of `olaf query` output (11 comma-separated fields)."""
 
     def __init__(self, line):
-        data = [p.strip() for p in line.split(",")]
+        # olaf quotes paths that contain commas (RFC 4180), so split with the
+        # csv module rather than str.split(",").
+        rows = list(csv.reader([line], skipinitialspace=True))
+        data = [p.strip() for p in rows[0]] if rows else []
         self.valid = len(data) == 11 and data[4].isdigit()
         if self.valid:
             self.index = int(data[0])
@@ -85,10 +89,17 @@ class OlafResultLine:
 
     def __str__(self):
         return (
-            f"{self.index} , {self.total} , {self.query} , {self.query_offset} , "
+            f"{self.index} , {self.total} , {_csv_field(self.query)} , {self.query_offset} , "
             f"{self.match_count} , {self.query_start} , {self.query_stop} , "
-            f"{self.ref_path} , {self.ref_id} , {self.ref_start} , {self.ref_stop}"
+            f"{_csv_field(self.ref_path)} , {self.ref_id} , {self.ref_start} , {self.ref_stop}"
         )
+
+
+def _csv_field(value):
+    """Quote a field the way olaf does: only when it contains , " or a line break."""
+    if any(c in value for c in ',"\r\n'):
+        return '"' + value.replace('"', '""') + '"'
+    return value
 
 
 def store_audio_part(in_audio_file, in_offset, duration, out_audio_file):

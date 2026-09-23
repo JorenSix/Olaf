@@ -288,6 +288,23 @@ static void json_print_escaped(FILE *fp, const char *s){
 	fputc('"', fp);
 }
 
+/** Print `s` as a CSV field, RFC 4180 style (like writeCsvField in the Zig
+ * bridge): quoted only when it contains a comma, quote or line break, with
+ * embedded quotes doubled. Plain paths are printed unchanged. */
+static void csv_print_field(FILE *fp, const char *s){
+	if(s == NULL) return;
+	if(strpbrk(s, ",\"\r\n") == NULL){
+		fputs(s, fp);
+		return;
+	}
+	fputc('"', fp);
+	for(const char *p = s; *p != '\0'; p++){
+		if(*p == '"') fputc('"', fp);
+		fputc(*p, fp);
+	}
+	fputc('"', fp);
+}
+
 static void olaf_cli_print_match(int matchCount,
                                  float queryStart,
                                  float queryStop,
@@ -306,11 +323,11 @@ static void olaf_cli_print_match(int matchCount,
 
 	// query info
 	// "#{index} , #{total} , #{query} , #{query_offset} ,
-    printf("%d ,%d ,%s, %.3f, ",
+	printf("%d ,%d ,",
 			(uint32_t)(olaf_query_print_context.q_index + 1),
-			(uint32_t) olaf_query_print_context.q_total,
-			olaf_query_print_context.query_path,
-			olaf_query_print_context.q_offset);
+			(uint32_t) olaf_query_print_context.q_total);
+	csv_print_field(stdout, olaf_query_print_context.query_path);
+	printf(", %.3f, ", olaf_query_print_context.q_offset);
 
 	// match info
 	// #{match_count} , #{query_start} , #{query_stop},
@@ -319,8 +336,8 @@ static void olaf_cli_print_match(int matchCount,
 		   queryStart,
 		   queryStop);
 
-	printf("%s, %u, %.3f, %.3f\n",
-		   path,
+	csv_print_field(stdout, path);
+	printf(", %u, %.3f, %.3f\n",
 		   matchIdentifier,
 		   referenceStart,
 		   referenceStop);

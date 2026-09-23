@@ -440,9 +440,21 @@ fn parseResultLine(allocator: std.mem.Allocator, line: []const u8) !?ParsedResul
     var parts: std.ArrayList([]const u8) = .empty;
     defer parts.deinit(allocator);
 
-    var it = std.mem.tokenizeAny(u8, line, ",");
-    while (it.next()) |part| {
-        try parts.append(allocator, std.mem.trim(u8, part, " \t\n\r"));
+    // Quote-aware split: olaf quotes path fields containing commas (RFC 4180).
+    // Returned slices point into `line`; quoted fields are returned without
+    // their quotes (paths in tests never contain a literal '"').
+    var i: usize = 0;
+    while (i <= line.len) {
+        while (i < line.len and (line[i] == ' ' or line[i] == '\t')) i += 1;
+        if (i < line.len and line[i] == '"') {
+            const close = std.mem.indexOfScalarPos(u8, line, i + 1, '"') orelse return null;
+            try parts.append(allocator, line[i + 1 .. close]);
+            i = (std.mem.indexOfScalarPos(u8, line, close, ',') orelse line.len) + 1;
+        } else {
+            const end = std.mem.indexOfScalarPos(u8, line, i, ',') orelse line.len;
+            try parts.append(allocator, std.mem.trim(u8, line[i..end], " \t\n\r"));
+            i = end + 1;
+        }
     }
     if (parts.items.len != 11) return null;
 
@@ -1357,6 +1369,43 @@ test "functional: .txt lists skip bad lines instead of aborting" {
     try testing.expect(std.mem.indexOf(u8, r.stderr, "list.txt:4: could not find") != null);
     try testing.expect(std.mem.indexOf(u8, r.stderr, "list.txt:5: not an audio file") != null);
     try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+}
+
+test "functional: query CSV quotes paths with commas" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try setupTestEnv(io, allocator, "comma");
+    defer env.deinit();
+
+    const song = try std.fmt.allocPrint(allocator, "{s}/Crosby, Stills.mp3", .{env.home});
+    defer allocator.free(song);
+    try copyFileTo(io, allocator, REF_AUDIO_FILE, song);
+
+    var song_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const song_n = try Io.Dir.cwd().realPathFile(io, song, &song_buf);
+    const song_abs = song_buf[0..song_n];
+
+    const stored = try runOlaf(allocator, olaf_bin, &env, &.{ "store", song_abs }, error.OlafStoreFailed);
+    allocator.free(stored.stdout);
+    allocator.free(stored.stderr);
+
+    const r = try runOlaf(allocator, olaf_bin, &env, &.{ "query", song_abs }, error.OlafQueryFailed);
+    defer allocator.free(r.stdout);
+    defer allocator.free(r.stderr);
+
+    const quoted = try std.fmt.allocPrint(allocator, "\"{s}\"", .{song_abs});
+    defer allocator.free(quoted);
+    try testing.expect(std.mem.indexOf(u8, r.stdout, quoted) != null);
+
+    const row = (try firstResultLine(allocator, r.stdout)) orelse return error.NoResultLine;
+    try testing.expect(!row.empty_match);
+    try testing.expectEqualStrings(song_abs, row.query);
+    try testing.expectEqualStrings(song_abs, row.ref_path);
 }
 
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
