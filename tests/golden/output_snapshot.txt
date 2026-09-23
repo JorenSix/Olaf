@@ -1,0 +1,730 @@
+== store human
+1/2 Stored 1933 fp's from 98.2s (20 fp/s) in <T>
+2/2 Stored 3159 fp's from 109.5s (29 fp/s) in <T>
+== store human (skip)
+Skipped (already indexed, use -f to re-store): ref-a
+== store csv (skip)
+action,file_index,file_total,audio_identifier,internal_id,fingerprints,audio_seconds,cpu_seconds,fingerprints_per_second,realtime_factor
+skip,,,ref-a,3517681762,,,,,
+== store csv (forced)
+action,file_index,file_total,audio_identifier,internal_id,fingerprints,audio_seconds,cpu_seconds,fingerprints_per_second,realtime_factor
+store,1,2,ref-a,3517681762,1933,98.2,<T>,19.7,<T>
+store,2,2,ref-b,3824301295,3159,109.5,<T>,28.8,<T>
+== store json (skip)
+{"action":"skip","audio_identifier":"ref-b","internal_id":3824301295}
+== store json (forced)
+{"action":"store","file_index":1,"file_total":1,"audio_identifier":"ref-b","internal_id":3824301295,"fingerprints":3159,"audio_seconds":109.5,"cpu_seconds":<T>,"fingerprints_per_second":28.8,"realtime_factor":<T>}
+== store human (comma identifier)
+1/1 Stored 2387 fp's from 92.9s (26 fp/s) in <T>
+== query csv
+query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
+1 ,2 ,<REPO>/dataset/queries/11266_69s-89s.mp3, 0.000, 172 ,1.936 ,19.304, ref-a, 3517681762, 70.864, 88.232
+query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
+2 ,2 ,<REPO>/dataset/queries/173050_86s-106s.mp3, 0.000, 111 ,0.240 ,18.184, ref-b, 3824301295, 86.160, 104.104
+2 ,2 ,<REPO>/dataset/queries/173050_86s-106s.mp3, 0.000, 64 ,0.240 ,18.176, ref-b, 3824301295, 86.168, 104.104
+2 ,2 ,<REPO>/dataset/queries/173050_86s-106s.mp3, 0.000, 25 ,3.976 ,12.752, ref-b, 3824301295, 3.152, 11.928
+2 ,2 ,<REPO>/dataset/queries/173050_86s-106s.mp3, 0.000, 20 ,11.752 ,12.760, ref-b, 3824301295, 10.912, 11.920
+2 ,2 ,<REPO>/dataset/queries/173050_86s-106s.mp3, 0.000, 15 ,2.280 ,17.400, ref-b, 3824301295, 63.432, 78.552
+2 ,2 ,<REPO>/dataset/queries/173050_86s-106s.mp3, 0.000, 12 ,7.072 ,17.400, ref-b, 3824301295, 55.832, 66.160
+2 ,2 ,<REPO>/dataset/queries/173050_86s-106s.mp3, 0.000, 7 ,16.376 ,16.632, ref-b, 3824301295, 6.256, 6.512
+2 ,2 ,<REPO>/dataset/queries/173050_86s-106s.mp3, 0.000, 7 ,6.920 ,7.072, ref-b, 3824301295, 30.888, 31.040
+2 ,2 ,<REPO>/dataset/queries/173050_86s-106s.mp3, 0.000, 6 ,12.000 ,18.184, ref-b, 3824301295, 48.344, 54.528
+2 ,2 ,<REPO>/dataset/queries/173050_86s-106s.mp3, 0.000, 6 ,6.928 ,10.568, ref-b, 3824301295, 13.848, 17.488
+== query json
+{
+  "query_index": 1,
+  "total_queries": 2,
+  "query_path": "<REPO>/dataset/queries/11266_69s-89s.mp3",
+  "query_offset": 0.000,
+  "fingerprints_matched": 460,
+  "query_duration_seconds": 20.036,
+  "fingerprints_per_second": 22.959,
+  "search_time_seconds": <T>,
+  "realtime_factor": <T>,
+  "matches": [
+    {
+      "match_count": 172,
+      "query_start": 1.936,
+      "query_stop": 19.304,
+      "path": "ref-a",
+      "match_identifier": 3517681762,
+      "reference_start": 70.864,
+      "reference_stop": 88.232
+    }
+  ]
+}
+{
+  "query_index": 2,
+  "total_queries": 2,
+  "query_path": "<REPO>/dataset/queries/173050_86s-106s.mp3",
+  "query_offset": 0.000,
+  "fingerprints_matched": 635,
+  "query_duration_seconds": 20.036,
+  "fingerprints_per_second": 31.693,
+  "search_time_seconds": <T>,
+  "realtime_factor": <T>,
+  "matches": [
+    {
+      "match_count": 111,
+      "query_start": 0.240,
+      "query_stop": 18.184,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 86.160,
+      "reference_stop": 104.104
+    },
+    {
+      "match_count": 64,
+      "query_start": 0.240,
+      "query_stop": 18.176,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 86.168,
+      "reference_stop": 104.104
+    },
+    {
+      "match_count": 25,
+      "query_start": 3.976,
+      "query_stop": 12.752,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 3.152,
+      "reference_stop": 11.928
+    },
+    {
+      "match_count": 20,
+      "query_start": 11.752,
+      "query_stop": 12.760,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 10.912,
+      "reference_stop": 11.920
+    },
+    {
+      "match_count": 15,
+      "query_start": 2.280,
+      "query_stop": 17.400,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 63.432,
+      "reference_stop": 78.552
+    },
+    {
+      "match_count": 12,
+      "query_start": 7.072,
+      "query_stop": 17.400,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 55.832,
+      "reference_stop": 66.160
+    },
+    {
+      "match_count": 7,
+      "query_start": 16.376,
+      "query_stop": 16.632,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 6.256,
+      "reference_stop": 6.512
+    },
+    {
+      "match_count": 7,
+      "query_start": 6.920,
+      "query_stop": 7.072,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 30.888,
+      "reference_stop": 31.040
+    },
+    {
+      "match_count": 6,
+      "query_start": 12.000,
+      "query_stop": 18.184,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 48.344,
+      "reference_stop": 54.528
+    },
+    {
+      "match_count": 6,
+      "query_start": 6.928,
+      "query_stop": 10.568,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 13.848,
+      "reference_stop": 17.488
+    }
+  ]
+}
+== query csv --fragmented
+query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
+1 ,1 ,<REPO>/dataset/ref/11266.mp3, 0.000, 532 ,0.096 ,29.440, ref-a, 3517681762, 0.096, 29.440
+query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
+1 ,1 ,<REPO>/dataset/ref/11266.mp3, 30.000, 460 ,0.920 ,29.360, ref-a, 3517681762, 30.920, 59.360
+query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
+1 ,1 ,<REPO>/dataset/ref/11266.mp3, 60.000, 424 ,0.576 ,28.976, ref-a, 3517681762, 60.576, 88.976
+query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
+1 ,1 ,<REPO>/dataset/ref/11266.mp3, 90.000, 125 ,0.088 ,5.928, ref-a, 3517681762, 90.088, 95.928
+== query json --fragmented
+{
+  "query_index": 1,
+  "total_queries": 1,
+  "query_path": "<REPO>/dataset/ref/173050.mp3",
+  "query_offset": 0.000,
+  "fingerprints_matched": 835,
+  "query_duration_seconds": 30.000,
+  "fingerprints_per_second": 27.833,
+  "search_time_seconds": <T>,
+  "realtime_factor": <T>,
+  "matches": [
+    {
+      "match_count": 835,
+      "query_start": 0.248,
+      "query_stop": 29.496,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 0.248,
+      "reference_stop": 29.496
+    },
+    {
+      "match_count": 28,
+      "query_start": 6.256,
+      "query_stop": 24.480,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 43.440,
+      "reference_stop": 61.664
+    },
+    {
+      "match_count": 27,
+      "query_start": 11.160,
+      "query_stop": 20.048,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 97.912,
+      "reference_stop": 106.800
+    },
+    {
+      "match_count": 20,
+      "query_start": 6.096,
+      "query_stop": 29.352,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 30.888,
+      "reference_stop": 54.144
+    },
+    {
+      "match_count": 20,
+      "query_start": 8.440,
+      "query_stop": 24.472,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 45.632,
+      "reference_stop": 61.664
+    },
+    {
+      "match_count": 14,
+      "query_start": 6.248,
+      "query_stop": 24.664,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 55.832,
+      "reference_stop": 74.248
+    },
+    {
+      "match_count": 12,
+      "query_start": 8.560,
+      "query_stop": 17.352,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 20.960,
+      "reference_stop": 29.752
+    },
+    {
+      "match_count": 10,
+      "query_start": 13.840,
+      "query_stop": 16.944,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 30.888,
+      "reference_stop": 33.992
+    },
+    {
+      "match_count": 10,
+      "query_start": 20.952,
+      "query_stop": 27.320,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 8.552,
+      "reference_stop": 14.920
+    },
+    {
+      "match_count": 10,
+      "query_start": 6.248,
+      "query_stop": 16.728,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 68.216,
+      "reference_stop": 78.696
+    },
+    {
+      "match_count": 8,
+      "query_start": 6.248,
+      "query_stop": 29.488,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 80.608,
+      "reference_stop": 103.848
+    },
+    {
+      "match_count": 7,
+      "query_start": 13.856,
+      "query_stop": 29.344,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 60.328,
+      "reference_stop": 75.816
+    },
+    {
+      "match_count": 7,
+      "query_start": 20.040,
+      "query_stop": 20.048,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 75.808,
+      "reference_stop": 75.816
+    },
+    {
+      "match_count": 6,
+      "query_start": 1.592,
+      "query_stop": 13.992,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 94.552,
+      "reference_stop": 106.952
+    },
+    {
+      "match_count": 6,
+      "query_start": 17.352,
+      "query_stop": 17.496,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 22.016,
+      "reference_stop": 22.160
+    },
+    {
+      "match_count": 6,
+      "query_start": 19.920,
+      "query_stop": 20.040,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 58.656,
+      "reference_stop": 58.776
+    },
+    {
+      "match_count": 6,
+      "query_start": 6.248,
+      "query_stop": 14.768,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 64.344,
+      "reference_stop": 72.864
+    }
+  ]
+}
+{
+  "query_index": 1,
+  "total_queries": 1,
+  "query_path": "<REPO>/dataset/ref/173050.mp3",
+  "query_offset": 30.000,
+  "fingerprints_matched": 827,
+  "query_duration_seconds": 30.000,
+  "fingerprints_per_second": 27.567,
+  "search_time_seconds": <T>,
+  "realtime_factor": <T>,
+  "matches": [
+    {
+      "match_count": 571,
+      "query_start": 1.280,
+      "query_stop": 28.776,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 31.280,
+      "reference_stop": 58.776
+    },
+    {
+      "match_count": 33,
+      "query_start": 10.728,
+      "query_stop": 24.528,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 90.304,
+      "reference_stop": 104.104
+    },
+    {
+      "match_count": 28,
+      "query_start": 13.440,
+      "query_stop": 24.528,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 6.256,
+      "reference_stop": 17.344
+    },
+    {
+      "match_count": 17,
+      "query_start": 13.440,
+      "query_stop": 28.536,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 55.832,
+      "reference_stop": 70.928
+    },
+    {
+      "match_count": 11,
+      "query_start": 1.272,
+      "query_stop": 26.488,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 56.056,
+      "reference_stop": 81.272
+    },
+    {
+      "match_count": 11,
+      "query_start": 18.344,
+      "query_stop": 25.832,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 23.552,
+      "reference_stop": 31.040
+    },
+    {
+      "match_count": 9,
+      "query_start": 13.696,
+      "query_stop": 24.504,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 93.248,
+      "reference_stop": 104.056
+    },
+    {
+      "match_count": 8,
+      "query_start": 19.120,
+      "query_stop": 24.504,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 11.920,
+      "reference_stop": 17.304
+    },
+    {
+      "match_count": 7,
+      "query_start": 20.280,
+      "query_stop": 28.776,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 67.312,
+      "reference_stop": 75.808
+    },
+    {
+      "match_count": 6,
+      "query_start": 0.128,
+      "query_stop": 26.056,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 67.312,
+      "reference_stop": 93.240
+    },
+    {
+      "match_count": 6,
+      "query_start": 0.128,
+      "query_stop": 26.224,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 17.728,
+      "reference_stop": 43.824
+    },
+    {
+      "match_count": 6,
+      "query_start": 28.656,
+      "query_stop": 28.776,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 19.920,
+      "reference_stop": 20.040
+    }
+  ]
+}
+{
+  "query_index": 1,
+  "total_queries": 1,
+  "query_path": "<REPO>/dataset/ref/173050.mp3",
+  "query_offset": 60.000,
+  "fingerprints_matched": 904,
+  "query_duration_seconds": 30.000,
+  "fingerprints_per_second": 30.133,
+  "search_time_seconds": <T>,
+  "realtime_factor": <T>,
+  "matches": [
+    {
+      "match_count": 863,
+      "query_start": 0.088,
+      "query_stop": 29.104,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 60.088,
+      "reference_stop": 89.104
+    },
+    {
+      "match_count": 25,
+      "query_start": 0.360,
+      "query_stop": 20.608,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 47.968,
+      "reference_stop": 68.216
+    },
+    {
+      "match_count": 17,
+      "query_start": 1.856,
+      "query_stop": 8.216,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 74.248,
+      "reference_stop": 80.608
+    },
+    {
+      "match_count": 14,
+      "query_start": 4.336,
+      "query_stop": 26.008,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 14.768,
+      "reference_stop": 36.440
+    },
+    {
+      "match_count": 14,
+      "query_start": 8.208,
+      "query_stop": 18.904,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 6.256,
+      "reference_stop": 16.952
+    },
+    {
+      "match_count": 10,
+      "query_start": 1.856,
+      "query_stop": 9.008,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 24.664,
+      "reference_stop": 31.816
+    },
+    {
+      "match_count": 10,
+      "query_start": 3.424,
+      "query_stop": 18.688,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 88.208,
+      "reference_stop": 103.472
+    },
+    {
+      "match_count": 8,
+      "query_start": 4.336,
+      "query_stop": 20.608,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 6.256,
+      "reference_stop": 22.528
+    },
+    {
+      "match_count": 7,
+      "query_start": 0.320,
+      "query_stop": 15.816,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 13.848,
+      "reference_stop": 29.344
+    },
+    {
+      "match_count": 7,
+      "query_start": 15.808,
+      "query_stop": 15.816,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 20.040,
+      "reference_stop": 20.048
+    },
+    {
+      "match_count": 7,
+      "query_start": 7.320,
+      "query_stop": 15.808,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 50.288,
+      "reference_stop": 58.776
+    },
+    {
+      "match_count": 7,
+      "query_start": 8.216,
+      "query_stop": 28.208,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 43.440,
+      "reference_stop": 63.432
+    }
+  ]
+}
+{
+  "query_index": 1,
+  "total_queries": 1,
+  "query_path": "<REPO>/dataset/ref/173050.mp3",
+  "query_offset": 90.000,
+  "fingerprints_matched": 522,
+  "query_duration_seconds": 19.508,
+  "fingerprints_per_second": 26.759,
+  "search_time_seconds": <T>,
+  "realtime_factor": <T>,
+  "matches": [
+    {
+      "match_count": 329,
+      "query_start": 0.120,
+      "query_stop": 17.192,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 90.120,
+      "reference_stop": 107.192
+    },
+    {
+      "match_count": 34,
+      "query_start": 3.400,
+      "query_stop": 14.104,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 43.824,
+      "reference_stop": 54.528
+    },
+    {
+      "match_count": 18,
+      "query_start": 1.456,
+      "query_stop": 16.800,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 4.704,
+      "reference_stop": 20.048
+    },
+    {
+      "match_count": 17,
+      "query_start": 3.392,
+      "query_stop": 13.472,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 56.224,
+      "reference_stop": 66.304
+    },
+    {
+      "match_count": 14,
+      "query_start": 6.360,
+      "query_stop": 14.112,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 22.000,
+      "reference_stop": 29.752
+    },
+    {
+      "match_count": 9,
+      "query_start": 4.544,
+      "query_stop": 13.320,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 69.776,
+      "reference_stop": 78.552
+    },
+    {
+      "match_count": 8,
+      "query_start": 16.800,
+      "query_stop": 16.952,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 30.888,
+      "reference_stop": 31.040
+    },
+    {
+      "match_count": 7,
+      "query_start": 4.560,
+      "query_stop": 16.952,
+      "path": "ref-b",
+      "match_identifier": 3824301295,
+      "reference_start": 1.600,
+      "reference_stop": 13.992
+    }
+  ]
+}
+== query csv comma path
+query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 2386 ,0.256 ,91.224, "Crosby, Stills", 3331107306, 0.256, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 781 ,4.096 ,91.224, "Crosby, Stills", 3331107306, 0.256, 87.384
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 777 ,0.256 ,87.384, "Crosby, Stills", 3331107306, 4.096, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 495 ,7.936 ,91.224, "Crosby, Stills", 3331107306, 0.256, 83.544
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 483 ,0.256 ,83.544, "Crosby, Stills", 3331107306, 7.936, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 325 ,31.704 ,91.224, "Crosby, Stills", 3331107306, 0.984, 60.504
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 311 ,0.984 ,60.504, "Crosby, Stills", 3331107306, 31.704, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 196 ,12.008 ,91.224, "Crosby, Stills", 3331107306, 0.488, 79.704
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 184 ,0.488 ,79.704, "Crosby, Stills", 3331107306, 12.008, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 177 ,27.136 ,91.224, "Crosby, Stills", 3331107306, 0.256, 64.344
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 163 ,34.816 ,91.224, "Crosby, Stills", 3331107306, 0.256, 56.664
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 161 ,0.256 ,64.344, "Crosby, Stills", 3331107306, 27.136, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 159 ,23.312 ,88.784, "Crosby, Stills", 3331107306, 0.256, 65.728
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 152 ,0.256 ,64.344, "Crosby, Stills", 3331107306, 23.296, 87.384
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 147 ,38.656 ,90.464, "Crosby, Stills", 3331107306, 0.256, 52.064
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 144 ,0.256 ,56.664, "Crosby, Stills", 3331107306, 34.816, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 132 ,0.256 ,52.064, "Crosby, Stills", 3331107306, 38.656, 90.464
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 103 ,43.224 ,90.464, "Crosby, Stills", 3331107306, 0.984, 48.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 92 ,19.456 ,91.224, "Crosby, Stills", 3331107306, 0.256, 72.024
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 88 ,0.984 ,48.224, "Crosby, Stills", 3331107306, 43.224, 90.464
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 83 ,0.256 ,72.024, "Crosby, Stills", 3331107306, 19.456, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 72 ,15.680 ,87.384, "Crosby, Stills", 3331107306, 0.320, 72.024
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 64 ,0.320 ,72.024, "Crosby, Stills", 3331107306, 15.680, 87.384
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 51 ,50.176 ,91.224, "Crosby, Stills", 3331107306, 0.256, 41.304
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 50 ,46.336 ,87.384, "Crosby, Stills", 3331107306, 0.256, 41.304
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 36 ,57.856 ,91.224, "Crosby, Stills", 3331107306, 0.256, 33.624
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 35 ,56.680 ,88.784, "Crosby, Stills", 3331107306, 2.904, 35.008
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 34 ,0.256 ,41.304, "Crosby, Stills", 3331107306, 46.336, 87.384
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 34 ,0.256 ,41.304, "Crosby, Stills", 3331107306, 50.176, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 24 ,1.704 ,50.176, "Crosby, Stills", 3331107306, 36.272, 84.744
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 22 ,0.256 ,33.624, "Crosby, Stills", 3331107306, 57.856, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,0.320 ,57.856, "Crosby, Stills", 3331107306, 27.208, 84.744
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,1.704 ,46.536, "Crosby, Stills", 3331107306, 43.952, 88.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,1.704 ,50.176, "Crosby, Stills", 3331107306, 32.432, 80.904
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,19.496 ,47.304, "Crosby, Stills", 3331107306, 57.928, 85.736
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,19.520 ,81.096, "Crosby, Stills", 3331107306, 27.208, 88.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 18 ,15.680 ,73.216, "Crosby, Stills", 3331107306, 27.208, 84.744
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 18 ,2.904 ,33.624, "Crosby, Stills", 3331107306, 56.664, 87.384
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 18 ,63.144 ,91.224, "Crosby, Stills", 3331107306, 1.704, 29.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 17 ,0.312 ,38.848, "Crosby, Stills", 3331107306, 50.248, 88.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 17 ,4.152 ,35.008, "Crosby, Stills", 3331107306, 57.928, 88.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 16 ,0.320 ,27.136, "Crosby, Stills", 3331107306, 57.928, 84.744
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 16 ,1.392 ,38.848, "Crosby, Stills", 3331107306, 47.488, 84.944
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 16 ,1.392 ,69.568, "Crosby, Stills", 3331107306, 20.608, 88.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 16 ,23.360 ,82.696, "Crosby, Stills", 3331107306, 27.208, 86.544
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 14 ,4.152 ,65.728, "Crosby, Stills", 3331107306, 27.208, 88.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 13 ,14.192 ,69.568, "Crosby, Stills", 3331107306, 29.568, 84.944
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 11 ,1.680 ,24.264, "Crosby, Stills", 3331107306, 63.152, 85.736
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 11 ,2.904 ,29.784, "Crosby, Stills", 3331107306, 64.344, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 11 ,6.520 ,90.184, "Crosby, Stills", 3331107306, 2.688, 86.352
+== query csv --no-identity-match (--with-ids)
+query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
+== stats
+[MDB database statistics]
+=========================
+> Size of database page:        16384
+> Depth of the B-tree:          2
+> Number of items in databases: 7421
+> File size of the databases:   0MB
+=========================
+  key  	duration(s)	Prints(#)	Prints(#/s)	path
+  3331107306	92.880s	  2387fps	25.700fps/s	'Crosby, Stills'
+  3517681762	98.200s	  1933fps	19.684fps/s	'ref-a'
+  3824301295	109.508s	  3159fps	28.847fps/s	'ref-b'
+Number of songs (#):	3
+Total duration (s):	300.587
+Avg prints/s (fp/s):	24.881

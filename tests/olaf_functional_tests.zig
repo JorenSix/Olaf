@@ -1474,6 +1474,228 @@ test "functional: parallel store matches serial store" {
     try testing.expectEqualStrings(top_ids[0], top_ids[1]);
 }
 
+// ============================================================================
+// Output snapshot: locks the exact CLI output (store/query in every format,
+// skip records, fragmented and comma paths, stats) so refactors can prove
+// they are byte-for-byte behaviour preserving. Regenerate deliberately with
+// OLAF_UPDATE_GOLDEN=1 zig build test.
+// ============================================================================
+
+const GOLDEN_SNAPSHOT = "tests/golden/output_snapshot.txt";
+
+/// Replace `"key":<number>` / `"key": <number>` values with <T>.
+fn maskJsonNumber(allocator: std.mem.Allocator, line: []const u8, key: []const u8) ![]u8 {
+    const needle = try std.fmt.allocPrint(allocator, "\"{s}\":", .{key});
+    defer allocator.free(needle);
+    const at = std.mem.indexOf(u8, line, needle) orelse return allocator.dupe(u8, line);
+    var start = at + needle.len;
+    while (start < line.len and line[start] == ' ') start += 1;
+    var end = start;
+    while (end < line.len and line[end] != ',' and line[end] != '}' and line[end] != '\n') end += 1;
+    return std.fmt.allocPrint(allocator, "{s}<T>{s}", .{ line[0..start], line[end..] });
+}
+
+/// Mask machine-dependent parts of one output line: absolute path prefixes
+/// and timing values (cpu time, realtime factor, search time).
+fn maskVolatile(allocator: std.mem.Allocator, raw: []const u8, repo: []const u8, home: []const u8) ![]u8 {
+    var line = try std.mem.replaceOwned(u8, allocator, raw, home, "<HOME>");
+    {
+        const next = try std.mem.replaceOwned(u8, allocator, line, repo, "<REPO>");
+        allocator.free(line);
+        line = next;
+    }
+    for ([_][]const u8{ "cpu_seconds", "realtime_factor", "search_time_seconds" }) |key| {
+        const next = try maskJsonNumber(allocator, line, key);
+        allocator.free(line);
+        line = next;
+    }
+    if (std.mem.startsWith(u8, line, "store,")) {
+        // ...,audio_seconds,cpu_seconds,fingerprints_per_second,realtime_factor
+        const c1 = std.mem.lastIndexOfScalar(u8, line, ',').?;
+        const c2 = std.mem.lastIndexOfScalar(u8, line[0..c1], ',').?;
+        const c3 = std.mem.lastIndexOfScalar(u8, line[0..c2], ',').?;
+        const next = try std.fmt.allocPrint(allocator, "{s},<T>{s},<T>", .{ line[0..c3], line[c2..c1] });
+        allocator.free(line);
+        line = next;
+    } else if (std.mem.indexOf(u8, line, " Stored ") != null) {
+        if (std.mem.lastIndexOf(u8, line, " in ")) |i| {
+            const next = try std.fmt.allocPrint(allocator, "{s} in <T>", .{line[0..i]});
+            allocator.free(line);
+            line = next;
+        }
+    }
+    return line;
+}
+
+fn lessThanStr(_: void, a: []u8, b: []u8) bool {
+    return std.mem.lessThan(u8, a, b);
+}
+
+/// Matches with equal scores are ordered by the core's qsort, which is not
+/// stable and differs between libcs (macOS vs glibc on CI). Put tied rows in
+/// a canonical order so the snapshot checks formatting and score order, not
+/// the tie-break. CSV: consecutive rows with the same query, offset and
+/// match_count. JSON: consecutive match objects with the same match_count.
+fn canonicalizeTies(allocator: std.mem.Allocator, lines: [][]u8) !void {
+    // CSV rows
+    var i: usize = 0;
+    while (i < lines.len) {
+        const r = (try parseResultLine(allocator, lines[i])) orelse {
+            i += 1;
+            continue;
+        };
+        var j = i + 1;
+        while (j < lines.len) : (j += 1) {
+            const n = (try parseResultLine(allocator, lines[j])) orelse break;
+            if (n.match_count != r.match_count or n.query_offset != r.query_offset or !std.mem.eql(u8, n.query, r.query)) break;
+        }
+        std.mem.sort([]u8, lines[i..j], {}, lessThanStr);
+        i = j;
+    }
+
+    // JSON match objects: "    {", 7 field lines, "    }" or "    },"
+    const block_len = 9;
+    i = 0;
+    while (i + block_len <= lines.len) {
+        if (!std.mem.eql(u8, lines[i], "    {")) {
+            i += 1;
+            continue;
+        }
+        var j = i;
+        while (j + block_len <= lines.len and std.mem.eql(u8, lines[j], "    {") and
+            std.mem.eql(u8, lines[j + 1], lines[i + 1])) : (j += block_len)
+        {}
+        const count = (j - i) / block_len;
+        if (count > 1) {
+            const last_end = lines[j - 1];
+            // Sort blocks by their joined field lines.
+            const Block = struct { key: []u8, first: usize };
+            const blocks = try allocator.alloc(Block, count);
+            defer allocator.free(blocks);
+            for (blocks, 0..) |*b, k| {
+                const first = i + k * block_len;
+                b.* = .{ .key = try std.mem.join(allocator, "\n", lines[first + 1 .. first + block_len - 1]), .first = first };
+            }
+            defer for (blocks) |b| allocator.free(b.key);
+            std.mem.sort(Block, blocks, {}, struct {
+                fn lt(_: void, a: Block, b: Block) bool {
+                    return std.mem.lessThan(u8, a.key, b.key);
+                }
+            }.lt);
+            const copy = try allocator.alloc([]u8, j - i);
+            defer allocator.free(copy);
+            for (blocks, 0..) |b, k| @memcpy(copy[k * block_len ..][0..block_len], lines[b.first..][0..block_len]);
+            @memcpy(lines[i..j], copy);
+            // Restore the separators: every block ends in "}," except that
+            // the group's last block keeps the original last ending.
+            for (0..count) |k| {
+                const end_idx = i + k * block_len + block_len - 1;
+                const want: []const u8 = if (k == count - 1) last_end else "    },";
+                if (!std.mem.eql(u8, lines[end_idx], want)) {
+                    // Swap in a line with the wanted ending from the group.
+                    for (0..count) |m| {
+                        const other = i + m * block_len + block_len - 1;
+                        if (std.mem.eql(u8, lines[other], want)) {
+                            std.mem.swap([]u8, &lines[end_idx], &lines[other]);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        i = if (j > i) j else i + 1;
+    }
+}
+
+test "functional: output snapshot" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_and_queries);
+
+    var env = try setupTestEnv(io, allocator, "snapshot");
+    defer env.deinit();
+
+    const repo = try Io.Dir.cwd().realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(repo);
+    const ref_a = try std.fmt.allocPrint(allocator, "{s}/dataset/ref/11266.mp3", .{repo});
+    defer allocator.free(ref_a);
+    const ref_b = try std.fmt.allocPrint(allocator, "{s}/dataset/ref/173050.mp3", .{repo});
+    defer allocator.free(ref_b);
+    const q_a = try std.fmt.allocPrint(allocator, "{s}/dataset/queries/11266_69s-89s.mp3", .{repo});
+    defer allocator.free(q_a);
+    const q_b = try std.fmt.allocPrint(allocator, "{s}/dataset/queries/173050_86s-106s.mp3", .{repo});
+    defer allocator.free(q_b);
+    const comma = try std.fmt.allocPrint(allocator, "{s}/Crosby, Stills.mp3", .{env.home});
+    defer allocator.free(comma);
+    // Distinct audio (not a copy of ref-a/ref-b): identical references would
+    // produce equal-score ties whose order depends on the libc qsort.
+    try copyFileTo(io, allocator, "dataset/ref/1051039.mp3", comma);
+
+    const Step = struct { title: []const u8, args: []const []const u8, stream: enum { stdout, stderr } };
+    // Stable --with-ids identifiers keep internal ids independent of where
+    // the repository is checked out.
+    const steps = [_]Step{
+        .{ .title = "store human", .args = &.{ "store", "--with-ids", ref_a, "ref-a", ref_b, "ref-b" }, .stream = .stderr },
+        .{ .title = "store human (skip)", .args = &.{ "store", "--with-ids", ref_a, "ref-a" }, .stream = .stderr },
+        .{ .title = "store csv (skip)", .args = &.{ "store", "--format", "csv", "--with-ids", ref_a, "ref-a" }, .stream = .stderr },
+        .{ .title = "store csv (forced)", .args = &.{ "store", "-f", "--format", "csv", "--with-ids", ref_a, "ref-a", ref_b, "ref-b" }, .stream = .stderr },
+        .{ .title = "store json (skip)", .args = &.{ "store", "--format", "json", "--with-ids", ref_b, "ref-b" }, .stream = .stderr },
+        .{ .title = "store json (forced)", .args = &.{ "store", "-f", "--format", "json", "--with-ids", ref_b, "ref-b" }, .stream = .stderr },
+        .{ .title = "store human (comma identifier)", .args = &.{ "store", "--with-ids", comma, "Crosby, Stills" }, .stream = .stderr },
+        .{ .title = "query csv", .args = &.{ "query", q_a, q_b }, .stream = .stdout },
+        .{ .title = "query json", .args = &.{ "query", "--format", "json", q_a, q_b }, .stream = .stdout },
+        .{ .title = "query csv --fragmented", .args = &.{ "query", "--fragmented", ref_a }, .stream = .stdout },
+        .{ .title = "query json --fragmented", .args = &.{ "query", "--fragmented", "--format", "json", ref_b }, .stream = .stdout },
+        .{ .title = "query csv comma path", .args = &.{ "query", comma }, .stream = .stdout },
+        .{ .title = "query csv --no-identity-match (--with-ids)", .args = &.{ "query", "--no-identity-match", "--with-ids", ref_b, "ref-b" }, .stream = .stdout },
+        .{ .title = "stats", .args = &.{"stats"}, .stream = .stdout },
+    };
+
+    var transcript: std.Io.Writer.Allocating = .init(allocator);
+    defer transcript.deinit();
+    for (steps) |step| {
+        const r = try runOlaf(allocator, olaf_bin, &env, step.args, error.OlafSnapshotStepFailed);
+        defer allocator.free(r.stdout);
+        defer allocator.free(r.stderr);
+        try transcript.writer.print("== {s}\n", .{step.title});
+        const text = if (step.stream == .stdout) r.stdout else r.stderr;
+        var masked_lines: std.ArrayList([]u8) = .empty;
+        defer {
+            for (masked_lines.items) |l| allocator.free(l);
+            masked_lines.deinit(allocator);
+        }
+        var lines = std.mem.splitScalar(u8, text, '\n');
+        while (lines.next()) |raw| {
+            if (raw.len == 0) continue;
+            try masked_lines.append(allocator, try maskVolatile(allocator, raw, repo, env.home));
+        }
+        try canonicalizeTies(allocator, masked_lines.items);
+        for (masked_lines.items) |l| try transcript.writer.print("{s}\n", .{l});
+    }
+    const actual = transcript.written();
+
+    if (getEnvVar("OLAF_UPDATE_GOLDEN") != null) {
+        try Io.Dir.cwd().createDirPath(io, "tests/golden");
+        const f = try Io.Dir.cwd().createFile(io, GOLDEN_SNAPSHOT, .{});
+        defer f.close(io);
+        try f.writeStreamingAll(io, actual);
+        return;
+    }
+
+    const expected = Io.Dir.cwd().readFileAlloc(io, GOLDEN_SNAPSHOT, allocator, .limited(4 * 1024 * 1024)) catch |err| {
+        std.debug.print("\nMissing {s} ({}); generate it with OLAF_UPDATE_GOLDEN=1 zig build test\n", .{ GOLDEN_SNAPSHOT, err });
+        return err;
+    };
+    defer allocator.free(expected);
+    testing.expectEqualStrings(expected, actual) catch |err| {
+        std.debug.print("\nOutput differs from {s}. If the change is intended, regenerate with OLAF_UPDATE_GOLDEN=1 zig build test\n", .{GOLDEN_SNAPSHOT});
+        return err;
+    };
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);
