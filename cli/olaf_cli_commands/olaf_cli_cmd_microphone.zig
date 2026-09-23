@@ -58,6 +58,10 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         });
 
         const io = args.io;
+        // Check the database before spawning ffmpeg, so a database problem
+        // cannot leave the capture running.
+        try olaf_cli_session.prepareDb(allocator, config, true);
+
         var child = try std.process.spawn(io, .{
             .argv = &argv,
             .stdin = .ignore,

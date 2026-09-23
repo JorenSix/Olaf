@@ -1679,6 +1679,38 @@ test "functional: delete skips files that are not indexed" {
     try testing.expectEqual(@as(u32, 0), try env.songCount());
 }
 
+test "functional: an unwritable database is reported before any work starts" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "db_readonly");
+    defer env.deinit();
+    try env.ok(&.{ "store", env.ref });
+
+    // As root (e.g. in a container) chmod does not stop writes, and the
+    // commands below simply succeed: skip then.
+    const lock = try std.fmt.allocPrint(allocator, "chmod a-w '{s}/data.mdb' && [ ! -w '{s}/data.mdb' ]", .{ env.db_dir, env.db_dir });
+    defer allocator.free(lock);
+    const locked = env.shell(lock, 0) catch return error.SkipZigTest;
+    locked.deinit();
+    const unlock = try std.fmt.allocPrint(allocator, "chmod u+w '{s}/data.mdb'", .{env.db_dir});
+    defer allocator.free(unlock);
+    defer if (env.shell(unlock, 0)) |r| r.deinit() else |_| {};
+
+    // Used to exit(214) from inside the core ("Database Error in
+    // 'mdb_env_open': Permission denied"), for queries too.
+    for ([_][]const []const u8{
+        &.{ "query", env.ref },
+        &.{ "store", "-f", "--threads", "2", env.ref },
+    }) |args| {
+        const r = try env.run(args, 1);
+        defer r.deinit();
+        try testing.expect(std.mem.indexOf(u8, r.stderr, "is not readable and writable") != null);
+        try testing.expect(std.mem.indexOf(u8, r.stderr, "Database Error") == null);
+    }
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

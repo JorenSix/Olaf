@@ -213,6 +213,7 @@ fn audioWorker(job: AudioJob, file: AudioFileWithId, index: usize, total: usize,
 }
 
 fn runAudioJob(io: Io, allocator: std.mem.Allocator, files: []const AudioFileWithId, num_threads: u32, job: AudioJob) !void {
+    try olaf_cli_session.prepareDb(allocator, job.config, job.action != .Delete);
     const failures = try forEachParallel(AudioFileWithId, AudioJob, io, allocator, files, num_threads, job, audioWorker, audioFileLabel);
     if (failures > 0) return error.ProcessingFailed;
 }

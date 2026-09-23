@@ -522,6 +522,42 @@ pub const ReadDb = struct {
     }
 };
 
+/// Check the database before any worker starts, and create it when missing.
+/// LMDB failures inside the core call exit() (src/olaf_db.c), which would
+/// abort a parallel batch midway without cleanup, so the common causes are
+/// reported here, cleanly, instead:
+/// - with `create`, a missing database is created once, on this thread
+///   (parallel queries on a fresh index would otherwise race to create it);
+///   `delete` passes false: there is nothing to delete from a missing one;
+/// - the folder and the data/lock files must be writable. The bundled LMDB
+///   opens a write-only descriptor on data.mdb even to read, so this holds
+///   for queries too.
+/// Failures that cannot be foreseen (e.g. a disk filling up mid-run) still
+/// end in the core's exit().
+pub fn prepareDb(allocator: std.mem.Allocator, config: *const Config, create: bool) !void {
+    const io = olaf_cli_util.defaultIo();
+    const folder = config.db_folder;
+    Io.Dir.cwd().access(io, folder, .{ .write = true }) catch |err| {
+        std.log.err("database folder '{s}' is not writable ({})", .{ folder, err });
+        return error.DatabaseNotWritable;
+    };
+    for ([_][]const u8{ "data.mdb", "lock.mdb" }) |name| {
+        const path = try std.fs.path.join(allocator, &.{ folder, name });
+        defer allocator.free(path);
+        Io.Dir.cwd().access(io, path, .{ .read = true, .write = true }) catch |err| switch (err) {
+            error.FileNotFound => {},
+            else => {
+                std.log.err("database file '{s}' is not readable and writable ({}); the bundled LMDB needs write access even to query", .{ path, err });
+                return error.DatabaseNotWritable;
+            },
+        };
+    }
+    if (!create) return;
+    var session = try Session.init(allocator, config);
+    defer session.deinit();
+    try session.ensureDb();
+}
+
 /// For each identifier, whether it is already indexed. Caller owns the slice.
 pub fn storedFlags(allocator: std.mem.Allocator, config: *const Config, identifiers: []const []const u8) ![]bool {
     const flags = try allocator.alloc(bool, identifiers.len);

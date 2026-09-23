@@ -102,6 +102,7 @@ pub fn main(init: std.process.Init) !u8 {
         // The offending setting was already logged by the config loader.
         error.InvalidConfigValue => return 1,
         error.NoHomeDirectory => return 1,
+        error.DatabaseNotWritable => return 1,
         else => return err,
     };
     return 0;

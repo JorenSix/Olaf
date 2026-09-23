@@ -107,6 +107,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
 
     if (to_store.items.len > 0) {
         debug("Storing {d} cache files", .{to_store.items.len});
+        try olaf_cli_session.prepareDb(allocator, config, true);
         try olaf_cli_session.storeCachedFiles(allocator, to_store.items, config);
     }
 
