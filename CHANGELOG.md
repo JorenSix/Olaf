@@ -2,6 +2,25 @@
 
 All notable changes to Olaf. The release notes on GitHub are taken from the section of the released version.
 
+## [3.1.0] - 2026-09-23
+
+Core safety improvements for native and embedded use. Default fingerprints and existing databases remain compatible; unsafe custom configurations are now rejected.
+
+### Fixed
+
+- Fingerprint database writers flush at buffer capacity, preventing buffer overruns when extraction produces large batches.
+- LMDB handles for the same directory share an environment with coordinated writer and snapshot lifetimes, avoiding premature environment closure and races during parallel CLI work.
+- Core constructors validate configuration before allocating buffers or opening audio, return NULL with EINVAL for invalid settings, and clean up partial allocations on ENOMEM. Configurations must outlive their objects and structural settings must remain unchanged while in use.
+- The CLI validates JSON and programmatic configurations before narrowing C casts, creating storage, decoding audio, or starting workers. The schema documents supported bounds and relationships.
+- Event-point extraction uses an owned time-filter scratch buffer; ARM NEON handles short and non-multiple-of-four filters safely.
+- Matcher duration conversions use checked double-precision arithmetic, and configuration-sized result buffers are allocated during construction.
+- Zig, standalone C, Python, and ESP32 callers handle constructor failures and partial initialization safely.
+
+### Tests
+
+- Added buffer-capacity, LMDB concurrency, configuration-boundary, allocation-failure, C/Zig parity, and Python cleanup regressions.
+- Verified native and Linux ASan/UBSan checks, database TSan checks, 32-bit compilation, memory-backend and shared-library builds. ESP32 hardware validation was not run; WASM-specific work is excluded.
+
 ## [3.0.0] - 2026-09-23
 
 A robustness release of the Zig command line interface. The C core and its public headers are unchanged, so existing databases stay compatible.
