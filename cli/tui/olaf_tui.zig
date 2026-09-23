@@ -4,7 +4,7 @@ const zz = @import("zigzag");
 const olaf_cli_config = @import("../olaf_cli_config.zig");
 const olaf_cli_util = @import("../olaf_cli_util.zig");
 const olaf_cli_util_audio = @import("../olaf_cli_util_audio.zig");
-const olaf_cli_bridge = @import("../olaf_cli_bridge.zig");
+const olaf_cli_session = @import("../olaf_cli_session.zig");
 const olaf_cli_threading = @import("../olaf_cli_threading.zig");
 
 const max_log_lines = 200;
@@ -19,7 +19,7 @@ const Model = struct {
     config: *const olaf_cli_config.Config,
 
     picker: zz.components.FilePicker,
-    stats: ?olaf_cli_bridge.Stats,
+    stats: ?olaf_cli_session.Stats,
 
     // Bounded ring of log lines shown in the right column. Each line is owned.
     log_lines: std.ArrayList([]const u8),
@@ -135,14 +135,14 @@ const Model = struct {
         };
         defer self.cleanupRaw(raw);
 
-        const result = olaf_cli_bridge.olaf_store_collect(self.allocator, raw, path, self.config) catch |e| {
+        const result = olaf_cli_session.store(self.allocator, raw, path, self.config) catch |e| {
             self.appendLog("  store failed: {s}", .{@errorName(e)});
             return;
         };
-        const rt: f64 = if (result.cpu_seconds > 0) result.audio_seconds / result.cpu_seconds else 0;
+        const rt: f64 = if (result.stats.cpu_seconds > 0) result.stats.audio_seconds / result.stats.cpu_seconds else 0;
         self.appendLog("  Stored {s}", .{std.fs.path.basename(path)});
-        self.appendLog("  {d:.1}s audio in {d:.2}s = {d:.0}x realtime", .{ result.audio_seconds, result.cpu_seconds, rt });
-        self.appendLog("  {d} fingerprints  id={d}", .{ result.fingerprints, result.internal_id });
+        self.appendLog("  {d:.1}s audio in {d:.2}s = {d:.0}x realtime", .{ result.stats.audio_seconds, result.stats.cpu_seconds, rt });
+        self.appendLog("  {d} fingerprints  id={d}", .{ result.stats.fingerprints, result.internal_id });
     }
 
     fn runQuery(self: *Model, path: []const u8) void {
@@ -152,11 +152,11 @@ const Model = struct {
         };
         defer self.cleanupRaw(raw);
 
-        const matches = olaf_cli_bridge.olaf_query_collect(self.allocator, path, raw, path, self.config, 0) catch |e| {
+        const matches = olaf_cli_session.queryCollect(self.allocator, raw, path, self.config, 0) catch |e| {
             self.appendLog("  query failed: {s}", .{@errorName(e)});
             return;
         };
-        defer olaf_cli_bridge.freeQueryMatches(self.allocator, matches);
+        defer olaf_cli_session.freeMatches(self.allocator, matches);
 
         if (matches.len == 0) {
             self.appendLog("  no matches", .{});
@@ -195,11 +195,11 @@ const Model = struct {
                 continue;
             };
 
-            const matches = olaf_cli_bridge.olaf_query_collect(self.allocator, path, raw, path, self.config, 0) catch |e| {
+            const matches = olaf_cli_session.queryCollect(self.allocator, raw, path, self.config, 0) catch |e| {
                 self.appendLog("  frag {d:.0}-{d:.0}s: query failed: {s}", .{ frag_start, frag_end, @errorName(e) });
                 continue;
             };
-            defer olaf_cli_bridge.freeQueryMatches(self.allocator, matches);
+            defer olaf_cli_session.freeMatches(self.allocator, matches);
 
             const window = FragWindow{ .start = frag_start, .end = frag_end };
             if (matches.len == 0) {
@@ -215,7 +215,7 @@ const Model = struct {
     /// Pick the highest-scoring match, look up its metadata, and emit a
     /// summarized block. When `frag` is set the output is prefixed with the
     /// fragment window. Falls back to id + raw times when metadata is missing.
-    fn logBestMatch(self: *Model, matches: []olaf_cli_bridge.QueryMatch, frag: ?FragWindow) void {
+    fn logBestMatch(self: *Model, matches: []olaf_cli_session.Match, frag: ?FragWindow) void {
         var best = matches[0];
         var distinct = std.AutoHashMap(u32, void).init(self.allocator);
         defer distinct.deinit();
@@ -230,7 +230,7 @@ const Model = struct {
         } else "";
         defer if (frag != null and prefix.len > 0) self.allocator.free(prefix);
 
-        const meta = olaf_cli_bridge.olaf_lookup_meta(self.allocator, self.config, best.match_identifier) catch null;
+        const meta = olaf_cli_session.lookupMeta(self.allocator, self.config, best.match_identifier) catch null;
         if (meta) |md| {
             defer self.allocator.free(md.path);
             self.appendLog("  {s}Match: {s}  (id {d})", .{ prefix, std.fs.path.basename(md.path), best.match_identifier });
@@ -284,7 +284,7 @@ const Model = struct {
     }
 
     fn refreshStats(self: *Model) void {
-        self.stats = olaf_cli_bridge.olaf_stats_struct(self.allocator, self.config) catch null;
+        self.stats = olaf_cli_session.stats(self.allocator, self.config) catch null;
     }
 
     fn appendLog(self: *Model, comptime fmt: []const u8, args: anytype) void {
@@ -460,7 +460,7 @@ fn prepare(
         .io = io,
         .config = config,
         .picker = picker,
-        .stats = olaf_cli_bridge.olaf_stats_struct(allocator, config) catch null,
+        .stats = olaf_cli_session.stats(allocator, config) catch null,
         .log_lines = .empty,
         .running = false,
         .pending = null,

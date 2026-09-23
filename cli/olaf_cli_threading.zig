@@ -4,7 +4,9 @@ const Io = std.Io;
 const olaf_cli_config = @import("olaf_cli_config.zig");
 const olaf_cli_util = @import("olaf_cli_util.zig");
 const olaf_cli_util_audio = @import("olaf_cli_util_audio.zig");
-const olaf_cli_bridge = @import("olaf_cli_bridge.zig");
+const olaf_cli_core = @import("olaf_cli_core.zig");
+const olaf_cli_output = @import("olaf_cli_output.zig");
+const olaf_cli_session = @import("olaf_cli_session.zig");
 
 const debug = std.log.scoped(.olaf_cli_threading).debug;
 
@@ -45,8 +47,8 @@ pub fn processAudioFile(
     total: usize,
     action: ProcessAction,
     exclude_identifier: u32,
-    output_format: olaf_cli_bridge.OutputFormat,
-    store_format: olaf_cli_bridge.StoreFormat,
+    output_format: olaf_cli_output.OutputFormat,
+    store_format: olaf_cli_output.StoreFormat,
 ) !void {
     debug("Processing audio file {d}/{d}: {s}", .{ index + 1, total, audio_file_with_id.path });
 
@@ -57,9 +59,20 @@ pub fn processAudioFile(
     try olaf_cli_util_audio.convertToRaw(allocator, io, audio_file_with_id.path, raw_audio_path, config.target_sample_rate);
 
     switch (action) {
-        .Query => try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, 0, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier, output_format),
-        .Store => try olaf_cli_bridge.olaf_store(allocator, raw_audio_path, audio_file_with_id.identifier, config, index, total, store_format),
-        .Delete => try olaf_cli_bridge.olaf_delete(allocator, raw_audio_path, audio_file_with_id.identifier, config),
+        .Query => try olaf_cli_session.query(allocator, .{ .index = index, .total = total, .path = audio_file_with_id.path, .offset = 0 }, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier, output_format),
+        .Store => {
+            const r = try olaf_cli_session.store(allocator, raw_audio_path, audio_file_with_id.identifier, config);
+            try olaf_cli_output.writeStoreSummary(store_format, .{
+                .index = index,
+                .total = total,
+                .audio_identifier = audio_file_with_id.identifier,
+                .internal_id = r.internal_id,
+                .fingerprints = r.stats.fingerprints,
+                .audio_seconds = r.stats.audio_seconds,
+                .cpu_seconds = r.stats.cpu_seconds,
+            });
+        },
+        .Delete => try olaf_cli_session.delete(allocator, raw_audio_path, audio_file_with_id.identifier, config),
     }
 }
 
@@ -75,8 +88,8 @@ pub fn executeParallel(
     action: ProcessAction,
     num_threads: u32,
     allow_identity_match: bool,
-    output_format: olaf_cli_bridge.OutputFormat,
-    store_format: olaf_cli_bridge.StoreFormat,
+    output_format: olaf_cli_output.OutputFormat,
+    store_format: olaf_cli_output.StoreFormat,
 ) !void {
     const filter_identity = (action == .Query) and !allow_identity_match;
     const actual_threads = @min(num_threads, audio_files.len);
@@ -88,7 +101,7 @@ pub fn executeParallel(
         var failures: usize = 0;
         for (audio_files, 0..) |audio_file, i| {
             const exclude = if (filter_identity)
-                try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier)
+                olaf_cli_core.nameToId(audio_file.identifier)
             else
                 @as(u32, 0);
             processAudioFile(io, allocator, audio_file, config, i, audio_files.len, action, exclude, output_format, store_format) catch |err| {
@@ -117,8 +130,8 @@ pub fn executeParallel(
             total: usize,
             act: ProcessAction,
             exclude: u32,
-            out_fmt: olaf_cli_bridge.OutputFormat,
-            store_fmt: olaf_cli_bridge.StoreFormat,
+            out_fmt: olaf_cli_output.OutputFormat,
+            store_fmt: olaf_cli_output.StoreFormat,
             s: *Io.Semaphore,
             m: *Io.Mutex,
             count: *usize,
@@ -137,7 +150,7 @@ pub fn executeParallel(
     var group: Io.Group = .init;
     for (audio_files, 0..) |audio_file, i| {
         const exclude = if (filter_identity)
-            try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier)
+            olaf_cli_core.nameToId(audio_file.identifier)
         else
             @as(u32, 0);
         group.async(io, Runner.run, .{ io, allocator, audio_file, config, i, audio_files.len, action, exclude, output_format, store_format, &sem, &error_mutex, &error_count });
@@ -312,7 +325,7 @@ fn queryAudioFragment(
     fragment_start: f32,
     fragment_duration: f32,
     exclude_identifier: u32,
-    output_format: olaf_cli_bridge.OutputFormat,
+    output_format: olaf_cli_output.OutputFormat,
 ) !void {
     debug("Querying fragment at {d}s for {d}s from {s}", .{ fragment_start, fragment_duration, audio_file_with_id.path });
 
@@ -330,7 +343,7 @@ fn queryAudioFragment(
     };
     try olaf_cli_util_audio.convertAudioWithOptions(allocator, io, audio_file_with_id.path, raw_audio_path, options);
 
-    try olaf_cli_bridge.olaf_query(allocator, index, total, audio_file_with_id.path, fragment_start, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier, output_format);
+    try olaf_cli_session.query(allocator, .{ .index = index, .total = total, .path = audio_file_with_id.path, .offset = fragment_start }, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier, output_format);
 }
 
 /// Query each audio file in consecutive fragments of `fragment_duration`
@@ -345,7 +358,7 @@ pub fn executeFragmentedQuery(
     num_threads: u32,
     fragment_duration: u32,
     allow_identity_match: bool,
-    output_format: olaf_cli_bridge.OutputFormat,
+    output_format: olaf_cli_output.OutputFormat,
 ) !void {
     // A 0s fragment would never advance fragment_start: loop forever.
     if (fragment_duration == 0) {
@@ -377,7 +390,7 @@ fn queryFragmentsOfFile(
     total_files: usize,
     fragment_duration: u32,
     filter_identity: bool,
-    output_format: olaf_cli_bridge.OutputFormat,
+    output_format: olaf_cli_output.OutputFormat,
 ) !void {
     // Get the total duration of the audio file
     const total_duration = try olaf_cli_util_audio.getAudioDuration(allocator, io, audio_file.path);
@@ -385,7 +398,7 @@ fn queryFragmentsOfFile(
     // Reference fingerprints are stored under the file identifier, so the
     // self-id is the hash of audio_file.identifier.
     const exclude = if (filter_identity)
-        try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier)
+        olaf_cli_core.nameToId(audio_file.identifier)
     else
         @as(u32, 0);
 

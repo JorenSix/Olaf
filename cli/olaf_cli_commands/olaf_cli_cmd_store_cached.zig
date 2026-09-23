@@ -2,7 +2,7 @@ const std = @import("std");
 
 const olaf_cli_config = @import("../olaf_cli_config.zig");
 const olaf_cli_util = @import("../olaf_cli_util.zig");
-const olaf_cli_bridge = @import("../olaf_cli_bridge.zig");
+const olaf_cli_session = @import("../olaf_cli_session.zig");
 const types = @import("../olaf_cli_types.zig");
 
 const debug = std.log.scoped(.olaf_cli_store_cached).debug;
@@ -107,13 +107,13 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     for (entries.items, identifiers) |e, *id| id.* = e.identifier;
 
     const stored = if (config.skip_duplicates and !args.force)
-        try olaf_cli_bridge.olaf_stored_flags(allocator, config, identifiers)
+        try olaf_cli_session.storedFlags(allocator, config, identifiers)
     else
         try allocator.alloc(bool, identifiers.len);
     defer allocator.free(stored);
     if (!(config.skip_duplicates and !args.force)) @memset(stored, false);
 
-    var to_store: std.ArrayList(olaf_cli_bridge.CachedFile) = .empty;
+    var to_store: std.ArrayList(olaf_cli_session.CachedFile) = .empty;
     defer to_store.deinit(allocator);
 
     for (entries.items, stored) |e, is_stored| {
@@ -122,7 +122,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
 
     if (to_store.items.len > 0) {
         debug("Storing {d} cache files", .{to_store.items.len});
-        try olaf_cli_bridge.olaf_store_cached_files(allocator, to_store.items, config);
+        try olaf_cli_session.storeCachedFiles(allocator, to_store.items, config);
     }
 
     const total = entries.items.len;

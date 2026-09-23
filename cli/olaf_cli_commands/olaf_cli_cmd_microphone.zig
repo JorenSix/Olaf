@@ -1,6 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const olaf_cli_bridge = @import("../olaf_cli_bridge.zig");
+const olaf_cli_session = @import("../olaf_cli_session.zig");
 const olaf_cli_util = @import("../olaf_cli_util.zig");
 const types = @import("../olaf_cli_types.zig");
 
@@ -79,7 +79,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
 
         // Blocks, matching and printing CSV rows live until the stream ends
         // (Ctrl+C / ffmpeg exit / EOF).
-        try olaf_cli_bridge.olaf_query_stdin(allocator, "microphone", config);
+        try olaf_cli_session.queryStdin(allocator, "microphone", config);
 
         // A capture that ends on its own is ffmpeg failing (bad input format,
         // no device, no permission); report it instead of exiting silently.

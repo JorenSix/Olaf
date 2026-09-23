@@ -1,6 +1,8 @@
 const std = @import("std");
 const olaf_cli_threading = @import("../olaf_cli_threading.zig");
-const olaf_cli_bridge = @import("../olaf_cli_bridge.zig");
+const olaf_cli_core = @import("../olaf_cli_core.zig");
+const olaf_cli_output = @import("../olaf_cli_output.zig");
+const olaf_cli_session = @import("../olaf_cli_session.zig");
 const olaf_cli_util = @import("../olaf_cli_util.zig");
 const types = @import("../olaf_cli_types.zig");
 
@@ -25,7 +27,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     // can parse it with csv.DictReader. JSON is NDJSON (no header) and
     // human keeps its legacy free-form sentence per file.
     if (args.store_format == .csv) {
-        try std.Io.File.stderr().writeStreamingAll(args.io, olaf_cli_bridge.store_csv_header);
+        try std.Io.File.stderr().writeStreamingAll(args.io, olaf_cli_output.store_csv_header);
     }
 
     try storeFiles(allocator, args);
@@ -46,13 +48,13 @@ pub fn storeFiles(allocator: std.mem.Allocator, args: *types.Args) !void {
         defer allocator.free(identifiers);
         for (all, identifiers) |f, *id| id.* = f.identifier;
 
-        const stored = try olaf_cli_bridge.olaf_stored_flags(allocator, config, identifiers);
+        const stored = try olaf_cli_session.storedFlags(allocator, config, identifiers);
         defer allocator.free(stored);
 
         for (all, stored) |f, is_stored| {
             if (is_stored) {
-                const internal_id = try olaf_cli_bridge.olaf_name_to_id(allocator, f.identifier);
-                try olaf_cli_bridge.writeStoreSkip(args.store_format, f.identifier, internal_id);
+                const internal_id = olaf_cli_core.nameToId(f.identifier);
+                try olaf_cli_output.writeStoreSkip(args.store_format, f.identifier, internal_id);
             } else {
                 try to_store.append(allocator, f);
             }

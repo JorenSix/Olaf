@@ -3,7 +3,8 @@ const std = @import("std");
 const olaf_cli_config = @import("../olaf_cli_config.zig");
 const olaf_cli_util = @import("../olaf_cli_util.zig");
 const olaf_cli_util_audio = @import("../olaf_cli_util_audio.zig");
-const olaf_cli_bridge = @import("../olaf_cli_bridge.zig");
+const olaf_cli_core = @import("../olaf_cli_core.zig");
+const olaf_cli_session = @import("../olaf_cli_session.zig");
 const olaf_cli_threading = @import("../olaf_cli_threading.zig");
 const types = @import("../olaf_cli_types.zig");
 
@@ -65,7 +66,7 @@ fn cacheAudioFile(
     debug("Caching audio file {d}/{d}: {s}", .{ index + 1, total, audio_file.path });
 
     // Get audio identifier (hash)
-    const audio_id = try olaf_cli_bridge.olaf_name_to_id(allocator, audio_file.identifier);
+    const audio_id = olaf_cli_core.nameToId(audio_file.identifier);
 
     // Create cache file path
     const cache_folder_expanded = try olaf_cli_util.expandPath(allocator, config.home, config.cache_folder);
@@ -97,7 +98,7 @@ fn cacheAudioFile(
 
     // A partial .tdb would make every later run skip this file ("cache file
     // already present"), so remove both outputs if extraction fails.
-    olaf_cli_bridge.olaf_print_to_file(allocator, raw_audio_path, audio_file.identifier, config, cache_file_path, meta_file_path) catch |err| {
+    olaf_cli_session.cacheToFiles(allocator, raw_audio_path, audio_file.identifier, config, cache_file_path, meta_file_path) catch |err| {
         Io.Dir.cwd().deleteFile(io, cache_file_path) catch {};
         Io.Dir.cwd().deleteFile(io, meta_file_path) catch {};
         return err;

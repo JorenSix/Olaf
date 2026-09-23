@@ -1,0 +1,614 @@
+//! Everything the CLI does with the Olaf C core: one runner/stream-processor
+//! lifecycle (`Session.run`) and the store / query / delete / cache
+//! operations built on it, plus read-only database access. Only the public
+//! core API (src/*.h) is used.
+const std = @import("std");
+const Io = std.Io;
+const debug = std.log.scoped(.olaf_cli_session).debug;
+
+const core = @import("olaf_cli_core.zig");
+const c = core.c;
+const output = @import("olaf_cli_output.zig");
+const olaf_cli_config = @import("olaf_cli_config.zig");
+const olaf_cli_util = @import("olaf_cli_util.zig");
+
+const Config = olaf_cli_config.Config;
+
+pub const Match = output.Match;
+
+/// Per-file processing statistics reported by the stream processor.
+pub const RunStats = struct {
+    audio_seconds: f64,
+    cpu_seconds: f64,
+    fingerprints: usize,
+};
+
+pub const Mode = enum(c_int) {
+    query = c.OLAF_RUNNER_MODE_QUERY,
+    store = c.OLAF_RUNNER_MODE_STORE,
+    delete = c.OLAF_RUNNER_MODE_DELETE,
+    cache = c.OLAF_RUNNER_MODE_CACHE,
+};
+
+// ---------------------------------------------------------------------------
+// Match sink: the core reports matches through a plain C callback without a
+// user-data pointer, so the destination lives in a thread-local. The callback
+// runs synchronously inside olaf_stream_processor_process on the same thread.
+// ---------------------------------------------------------------------------
+
+pub const Sink = struct {
+    /// Drop matches against this id (self-matches in dedup); 0 = keep all.
+    exclude: u32 = 0,
+    target: union(enum) {
+        /// Print CSV rows as they are reported (the matchCount == 0 "no
+        /// results" row too, so every query has an end marker).
+        print: output.QueryInfo,
+        /// Collect real matches (paths copied into `allocator`).
+        collect: struct { allocator: std.mem.Allocator, list: *std.ArrayList(Match) },
+    },
+    err: ?anyerror = null,
+};
+
+threadlocal var current_sink: ?*Sink = null;
+
+fn resultCallback(
+    match_count: c_int,
+    query_start: f32,
+    query_stop: f32,
+    path: [*c]const u8,
+    match_identifier: u32,
+    reference_start: f32,
+    reference_stop: f32,
+) callconv(.c) void {
+    const sink = current_sink orelse return;
+    if (sink.exclude != 0 and match_count > 0 and match_identifier == sink.exclude) return;
+    const m = Match{
+        .match_count = match_count,
+        .query_start = query_start,
+        .query_stop = query_stop,
+        .path = if (path) |p| std.mem.span(p) else "",
+        .match_identifier = match_identifier,
+        .reference_start = reference_start,
+        .reference_stop = reference_stop,
+    };
+    switch (sink.target) {
+        .print => |q| output.writeMatchRow(q, m),
+        .collect => |col| {
+            if (match_count == 0) return; // the "no results" sentinel
+            var owned = m;
+            owned.path = col.allocator.dupe(u8, m.path) catch |e| {
+                sink.err = e;
+                return;
+            };
+            col.list.append(col.allocator, owned) catch |e| {
+                col.allocator.free(owned.path);
+                sink.err = e;
+            };
+        },
+    }
+}
+
+pub fn freeMatches(allocator: std.mem.Allocator, matches: []Match) void {
+    for (matches) |m| allocator.free(m.path);
+    allocator.free(matches);
+}
+
+// ---------------------------------------------------------------------------
+// Session: C config + the single runner / stream processor lifecycle
+// ---------------------------------------------------------------------------
+
+pub const RunOptions = struct {
+    /// CACHE mode output files; ownership passes to the core, which closes
+    /// them (also when the audio cannot be opened, see `run`).
+    cache_files: ?struct { fingerprints: *c.FILE, meta: *c.FILE } = null,
+    sink: ?*Sink = null,
+    /// CSV header the core prints before each block of results.
+    header: ?[:0]const u8 = null,
+    /// Suppress the core's human-readable summary line on stderr.
+    suppress_summary: bool = false,
+};
+
+pub const Session = struct {
+    allocator: std.mem.Allocator,
+    config: core.CoreConfig,
+
+    pub fn init(allocator: std.mem.Allocator, config: *const Config) !Session {
+        return .{ .allocator = allocator, .config = try core.CoreConfig.init(allocator, config) };
+    }
+
+    pub fn deinit(self: *Session) void {
+        self.config.deinit();
+    }
+
+    /// Run one stream processor over `raw_path` (null = stdin).
+    pub fn run(self: *Session, mode: Mode, raw_path: ?[]const u8, identifier: []const u8, opts: RunOptions) !RunStats {
+        const c_raw = if (raw_path) |p| try self.allocator.dupeZ(u8, p) else null;
+        defer if (c_raw) |p| self.allocator.free(p);
+        const c_id = try self.allocator.dupeZ(u8, identifier);
+        defer self.allocator.free(c_id);
+
+        const files = opts.cache_files;
+        const runner = c.olaf_runner_new(@intFromEnum(mode), self.config.ptr, if (files) |f| f.fingerprints else null, if (files) |f| f.meta else null);
+        defer c.olaf_runner_destroy(runner);
+
+        const processor = c.olaf_stream_processor_new(runner, if (c_raw) |p| p.ptr else null, c_id.ptr) orelse {
+            // The file writer that would close the cache files is only created
+            // while processing.
+            if (files) |f| {
+                _ = c.fclose(f.meta);
+                _ = c.fclose(f.fingerprints);
+            }
+            return error.AudioOpenFailed;
+        };
+        defer c.olaf_stream_processor_destroy(processor);
+
+        if (opts.sink != null) c.olaf_stream_processor_set_result_callback(processor, resultCallback);
+        if (opts.header) |h| c.olaf_stream_processor_set_result_header(processor, h.ptr);
+        if (opts.suppress_summary) c.olaf_stream_processor_set_suppress_summary(processor, true);
+
+        const previous = current_sink;
+        current_sink = opts.sink;
+        defer current_sink = previous;
+        c.olaf_stream_processor_process(processor);
+        if (opts.sink) |s| if (s.err) |e| return e;
+
+        return .{
+            .audio_seconds = c.olaf_stream_processor_audio_duration(processor),
+            .cpu_seconds = c.olaf_stream_processor_cpu_time(processor),
+            .fingerprints = c.olaf_stream_processor_total_fingerprints(processor),
+        };
+    }
+
+    /// Open (creating when missing) and close the database, so the read-only
+    /// env of a query never meets a missing data file (which exit()s in C).
+    fn ensureDb(self: *Session) void {
+        c.olaf_db_destroy(c.olaf_db_new(self.config.db_folder.ptr, false));
+    }
+};
+
+fn openCacheFiles(fingerprints_path: [:0]const u8, meta_path: [:0]const u8) !@FieldType(RunOptions, "cache_files") {
+    const fp = c.fopen(fingerprints_path.ptr, "w") orelse return error.CacheFileOpenFailed;
+    const meta = c.fopen(meta_path.ptr, "w") orelse {
+        _ = c.fclose(fp);
+        return error.CacheFileOpenFailed;
+    };
+    return .{ .fingerprints = fp, .meta = meta };
+}
+
+// ---------------------------------------------------------------------------
+// Operations
+// ---------------------------------------------------------------------------
+
+pub const StoreResult = struct {
+    internal_id: u32,
+    stats: RunStats,
+};
+
+/// Store one audio file, in three phases so that `store --threads N` runs the
+/// expensive part in parallel:
+///
+/// 1. Extract without a database. A STORE-mode runner opens the LMDB env up
+///    front, and a write env holds the process-global writer lock
+///    (src/olaf_db.c) until the runner is destroyed, which serialized every
+///    worker's FFT and hashing. A CACHE-mode runner never opens the DB; it
+///    writes the fingerprints to a temporary .tdb file instead.
+/// 2. Parse the .tdb into LMDB keys/values, still unlocked.
+/// 3. Open the DB (taking the writer lock), store keys, values and meta-data,
+///    commit.
+///
+/// The stored keys, values and meta-data are exactly what the STORE-mode
+/// path writes (see the equivalence test below). Prints nothing.
+pub fn store(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifier: []const u8, config: *const Config) !StoreResult {
+    var session = try Session.init(allocator, config);
+    defer session.deinit();
+
+    // Resolve the identifier to its on-disk numeric id (the number itself for
+    // --with-ids 173050, else hash(identifier)); query results report the
+    // same value as match_identifier.
+    const internal_id = core.nameToId(identifier);
+
+    // Phase 1: extract into <raw>.tdb / <raw>.meta (no DB, no lock).
+    const io = olaf_cli_util.defaultIo();
+    // Report unreadable audio as such, before creating the cache files next to it.
+    Io.Dir.cwd().access(io, raw_audio_path, .{}) catch return error.AudioOpenFailed;
+
+    const tdb_path = try std.fmt.allocPrintSentinel(allocator, "{s}.tdb", .{raw_audio_path}, 0);
+    defer allocator.free(tdb_path);
+    defer Io.Dir.cwd().deleteFile(io, tdb_path) catch {};
+    const meta_path = try std.fmt.allocPrintSentinel(allocator, "{s}.meta", .{raw_audio_path}, 0);
+    defer allocator.free(meta_path);
+    defer Io.Dir.cwd().deleteFile(io, meta_path) catch {};
+
+    const run_stats = try session.run(.cache, raw_audio_path, identifier, .{
+        .cache_files = try openCacheFiles(tdb_path, meta_path),
+        .suppress_summary = true,
+    });
+
+    // Phase 2: parse the cached fingerprints (still unlocked).
+    var keys: std.ArrayList(u64) = .empty;
+    defer keys.deinit(allocator);
+    var values: std.ArrayList(u64) = .empty;
+    defer values.deinit(allocator);
+    try parseCachedFingerprints(allocator, io, tdb_path, internal_id, &keys, &values);
+
+    // Phase 3: write. olaf_db_new takes the writer lock, olaf_db_destroy
+    // commits and releases it.
+    const db = c.olaf_db_new(session.config.db_folder.ptr, false);
+    defer c.olaf_db_destroy(db);
+
+    // Same batch size as the core fingerprint writer.
+    const chunk: usize = 1 << 12;
+    var off: usize = 0;
+    while (off < keys.items.len) : (off += chunk) {
+        const n = @min(chunk, keys.items.len - off);
+        c.olaf_db_store(db, keys.items[off..].ptr, values.items[off..].ptr, n);
+    }
+
+    // Same meta-data as the STORE-mode stream processor writes.
+    var meta: c.Olaf_Resource_Meta_data = std.mem.zeroes(c.Olaf_Resource_Meta_data);
+    meta.duration = @floatCast(run_stats.audio_seconds);
+    meta.fingerprints = @intCast(run_stats.fingerprints);
+    const path_len = @min(identifier.len, meta.path.len - 1);
+    @memcpy(meta.path[0..path_len], identifier[0..path_len]);
+    var key: u32 = internal_id;
+    c.olaf_db_store_meta_data(db, &key, &meta);
+
+    return .{ .internal_id = internal_id, .stats = run_stats };
+}
+
+/// Read a fingerprint cache file written by the CACHE-mode file writer
+/// (header line, then "hash, t1, f1, m1, ..." per fingerprint) into LMDB
+/// keys/values, encoded exactly like olaf_fp_db_writer_store:
+/// key = hash, value = (t1 << 32) + audio_id.
+fn parseCachedFingerprints(
+    allocator: std.mem.Allocator,
+    io: Io,
+    tdb_path: []const u8,
+    audio_id: u32,
+    keys: *std.ArrayList(u64),
+    values: *std.ArrayList(u64),
+) !void {
+    const content = try Io.Dir.cwd().readFileAlloc(io, tdb_path, allocator, .unlimited);
+    defer allocator.free(content);
+
+    var lines = std.mem.splitScalar(u8, content, '\n');
+    _ = lines.next(); // header: "fp_hash, t1, f1, m1, ..."
+    while (lines.next()) |line| {
+        if (std.mem.trim(u8, line, " \t\r").len == 0) continue;
+        var cols = std.mem.splitScalar(u8, line, ',');
+        const hash_str = std.mem.trim(u8, cols.next() orelse return error.MalformedCacheFile, " \t\r");
+        const t1_str = std.mem.trim(u8, cols.next() orelse return error.MalformedCacheFile, " \t\r");
+        const hash = std.fmt.parseInt(u64, hash_str, 10) catch return error.MalformedCacheFile;
+        const t1 = std.fmt.parseInt(u64, t1_str, 10) catch return error.MalformedCacheFile;
+        try keys.append(allocator, hash);
+        try values.append(allocator, (t1 << 32) + audio_id);
+    }
+}
+
+/// Query one raw audio file, printing CSV rows (as they are reported) or one
+/// JSON object per query to stdout.
+pub fn query(
+    allocator: std.mem.Allocator,
+    info: output.QueryInfo,
+    raw_audio_path: []const u8,
+    identifier: []const u8,
+    config: *const Config,
+    exclude_identifier: u32,
+    format: output.OutputFormat,
+) !void {
+    var session = try Session.init(allocator, config);
+    defer session.deinit();
+    session.ensureDb();
+
+    switch (format) {
+        .csv => {
+            var sink = Sink{ .exclude = exclude_identifier, .target = .{ .print = info } };
+            _ = try session.run(.query, raw_audio_path, identifier, .{ .sink = &sink, .header = output.query_csv_header });
+        },
+        .json => {
+            var list: std.ArrayList(Match) = .empty;
+            defer {
+                for (list.items) |m| allocator.free(m.path);
+                list.deinit(allocator);
+            }
+            var sink = Sink{ .exclude = exclude_identifier, .target = .{ .collect = .{ .allocator = allocator, .list = &list } } };
+            const run_stats = try session.run(.query, raw_audio_path, identifier, .{ .sink = &sink, .suppress_summary = true });
+            try output.writeQueryJson(allocator, info, .{
+                .fingerprints = run_stats.fingerprints,
+                .audio_seconds = run_stats.audio_seconds,
+                .cpu_seconds = run_stats.cpu_seconds,
+            }, list.items);
+        },
+    }
+}
+
+/// Query raw f32le PCM arriving on this process's stdin, printing CSV rows
+/// live. The identifier must be "stdin": the core only prints its live
+/// "Time: …s fps: …" progress line to stderr for that name.
+pub fn queryStdin(allocator: std.mem.Allocator, query_path: []const u8, config: *const Config) !void {
+    var session = try Session.init(allocator, config);
+    defer session.deinit();
+    session.config.applyLiveStreamDefaults();
+    session.ensureDb();
+
+    var sink = Sink{ .target = .{ .print = .{ .index = 0, .total = 1, .path = query_path, .offset = 0 } } };
+    _ = try session.run(.query, null, "stdin", .{ .sink = &sink, .header = output.query_csv_header });
+}
+
+/// Query and return the matches instead of printing them (TUI). Caller frees
+/// with `freeMatches`.
+pub fn queryCollect(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifier: []const u8, config: *const Config, exclude_identifier: u32) ![]Match {
+    var session = try Session.init(allocator, config);
+    defer session.deinit();
+    session.ensureDb();
+
+    var list: std.ArrayList(Match) = .empty;
+    errdefer {
+        for (list.items) |m| allocator.free(m.path);
+        list.deinit(allocator);
+    }
+    var sink = Sink{ .exclude = exclude_identifier, .target = .{ .collect = .{ .allocator = allocator, .list = &list } } };
+    _ = try session.run(.query, raw_audio_path, identifier, .{ .sink = &sink, .suppress_summary = true });
+    return list.toOwnedSlice(allocator);
+}
+
+pub fn delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifier: []const u8, config: *const Config) !void {
+    var session = try Session.init(allocator, config);
+    defer session.deinit();
+    // Deleting requires an existing database; this read-only open exits with
+    // a clear LMDB error when there is none, as before.
+    c.olaf_db_destroy(c.olaf_db_new(session.config.db_folder.ptr, true));
+    _ = try session.run(.delete, raw_audio_path, identifier, .{});
+}
+
+/// Extract fingerprints into a cache file pair (`olaf cache`).
+pub fn cacheToFiles(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifier: []const u8, config: *const Config, fingerprints_path: []const u8, meta_path: []const u8) !void {
+    var session = try Session.init(allocator, config);
+    defer session.deinit();
+    const fp_z = try allocator.dupeZ(u8, fingerprints_path);
+    defer allocator.free(fp_z);
+    const meta_z = try allocator.dupeZ(u8, meta_path);
+    defer allocator.free(meta_z);
+    _ = try session.run(.cache, raw_audio_path, identifier, .{ .cache_files = try openCacheFiles(fp_z, meta_z) });
+}
+
+pub const CachedFile = struct {
+    cache_path: []const u8,
+    audio_path: []const u8,
+};
+
+/// Store cache files written by `olaf cache` (`olaf store_cached`), in one
+/// database session.
+pub fn storeCachedFiles(allocator: std.mem.Allocator, entries: []const CachedFile, config: *const Config) !void {
+    var session = try Session.init(allocator, config);
+    defer session.deinit();
+
+    const db = c.olaf_db_new(session.config.db_folder.ptr, false);
+    defer c.olaf_db_destroy(db);
+
+    for (entries) |entry| {
+        const c_cache_file = try allocator.dupeZ(u8, entry.cache_path);
+        defer allocator.free(c_cache_file);
+        const c_audio_path = try allocator.dupeZ(u8, entry.audio_path);
+        defer allocator.free(c_audio_path);
+
+        const cache_writer = c.olaf_fp_db_writer_cache_new(db, session.config.ptr, c_cache_file.ptr);
+        c.olaf_fp_db_writer_cache_set_audio_file_info(cache_writer, c_audio_path.ptr, core.nameToId(entry.audio_path));
+        c.olaf_fp_db_writer_cache_store(cache_writer);
+        c.olaf_fp_db_writer_cache_destroy(cache_writer);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Read-only database access
+// ---------------------------------------------------------------------------
+
+/// Aggregated database statistics.
+pub const Stats = struct {
+    song_count: u32,
+    total_duration: f32,
+    total_fingerprints: i64,
+};
+
+/// Metadata for a stored resource, looked up by numeric audio id.
+pub const ResourceMeta = struct {
+    duration: f32,
+    fingerprints: i64,
+    path: []const u8,
+};
+
+/// A read-only database handle. `open` returns null when there is no
+/// database yet (a read-only open of a missing database exit()s in C).
+pub const ReadDb = struct {
+    session: Session,
+    db: *c.Olaf_DB,
+
+    pub fn open(allocator: std.mem.Allocator, config: *const Config) !?ReadDb {
+        if (!try core.dbExists(allocator, config)) return null;
+        var session = try Session.init(allocator, config);
+        errdefer session.deinit();
+        const db = c.olaf_db_new(session.config.db_folder.ptr, true) orelse return error.DatabaseOpenFailed;
+        return .{ .session = session, .db = db };
+    }
+
+    pub fn close(self: *ReadDb) void {
+        c.olaf_db_destroy(self.db);
+        self.session.deinit();
+    }
+
+    pub fn isStored(self: *ReadDb, identifier: []const u8) bool {
+        var key = core.nameToId(identifier);
+        return c.olaf_db_has_meta_data(self.db, &key);
+    }
+
+    /// Metadata for `id`, or null. Caller owns `path`.
+    pub fn meta(self: *ReadDb, allocator: std.mem.Allocator, id: u32) !?ResourceMeta {
+        var key = id;
+        if (!c.olaf_db_has_meta_data(self.db, &key)) return null;
+        var m: c.Olaf_Resource_Meta_data = undefined;
+        c.olaf_db_find_meta_data(self.db, &key, &m);
+        return .{
+            .duration = m.duration,
+            .fingerprints = @intCast(m.fingerprints),
+            .path = try allocator.dupe(u8, std.mem.sliceTo(&m.path, 0)),
+        };
+    }
+
+    pub fn stats(self: *ReadDb) Stats {
+        const s = c.olaf_db_stats_struct(self.db);
+        return .{ .song_count = s.song_count, .total_duration = s.total_duration, .total_fingerprints = @intCast(s.total_fingerprints) };
+    }
+
+    /// The core's human-readable statistics on stdout (`olaf stats`).
+    pub fn printStats(self: *ReadDb) void {
+        c.olaf_db_stats(self.db, self.session.config.ptr.verbose);
+    }
+};
+
+/// For each identifier, whether it is already indexed. Caller owns the slice.
+pub fn storedFlags(allocator: std.mem.Allocator, config: *const Config, identifiers: []const []const u8) ![]bool {
+    const flags = try allocator.alloc(bool, identifiers.len);
+    errdefer allocator.free(flags);
+    @memset(flags, false);
+    if (identifiers.len == 0) return flags;
+    var db = try ReadDb.open(allocator, config) orelse return flags;
+    defer db.close();
+    for (identifiers, flags) |identifier, *flag| flag.* = db.isStored(identifier);
+    return flags;
+}
+
+/// Database statistics; zeros when there is no database yet.
+pub fn stats(allocator: std.mem.Allocator, config: *const Config) !Stats {
+    var db = try ReadDb.open(allocator, config) orelse return .{ .song_count = 0, .total_duration = 0, .total_fingerprints = 0 };
+    defer db.close();
+    return db.stats();
+}
+
+/// Metadata for `id`; null when unknown or there is no database yet.
+pub fn lookupMeta(allocator: std.mem.Allocator, config: *const Config, id: u32) !?ResourceMeta {
+    var db = try ReadDb.open(allocator, config) orelse return null;
+    defer db.close();
+    return db.meta(allocator, id);
+}
+
+/// `olaf stats`: the core's statistics, or zeros when there is no database.
+pub fn printStats(allocator: std.mem.Allocator, config: *const Config) !void {
+    var db = try ReadDb.open(allocator, config) orelse {
+        olaf_cli_util.print("Number of songs (#):\t0\nTotal duration (s):\t0.0\nAvg prints/s (fp/s):\t0.0\n", .{});
+        return;
+    };
+    defer db.close();
+    db.printStats();
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+test "session calls report a raw audio file that cannot be opened" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const tmp_path = try tmp.dir.realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(tmp_path);
+    const db_folder = try std.fmt.allocPrint(allocator, "{s}/", .{tmp_path});
+    defer allocator.free(db_folder);
+
+    const config = Config{ .db_folder = db_folder };
+    const missing = "/nonexistent/olaf_missing_audio.raw";
+    const info = output.QueryInfo{ .index = 0, .total = 1, .path = "missing", .offset = 0 };
+
+    try std.testing.expectError(error.AudioOpenFailed, store(allocator, missing, "missing", &config));
+    try std.testing.expectError(error.AudioOpenFailed, query(allocator, info, missing, "missing", &config, 0, .csv));
+    try std.testing.expectError(error.AudioOpenFailed, query(allocator, info, missing, "missing", &config, 0, .json));
+    try std.testing.expectError(error.AudioOpenFailed, delete(allocator, missing, "missing", &config));
+
+    // The cache files are opened (and must be closed) before the audio fails.
+    const tdb = try std.fmt.allocPrint(allocator, "{s}1.tdb", .{db_folder});
+    defer allocator.free(tdb);
+    const meta = try std.fmt.allocPrint(allocator, "{s}1.meta", .{db_folder});
+    defer allocator.free(meta);
+    try std.testing.expectError(error.AudioOpenFailed, cacheToFiles(allocator, missing, "missing", &config, tdb, meta));
+
+    // Unopenable cache path: fails cleanly without touching the core.
+    try std.testing.expectError(error.CacheFileOpenFailed, cacheToFiles(allocator, missing, "missing", &config, "/nonexistent/dir/1.tdb", meta));
+    try std.testing.expectError(error.CacheFileOpenFailed, cacheToFiles(allocator, missing, "missing", &config, tdb, "/nonexistent/dir/1.meta"));
+}
+
+test "three-phase store writes the same database content as the direct STORE path" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+
+    const ref = "dataset/ref/11266.mp3";
+    Io.Dir.cwd().access(io, ref, .{}) catch return error.SkipZigTest;
+
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const tmp_path = try tmp.dir.realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(tmp_path);
+
+    const raw = try std.fmt.allocPrint(allocator, "{s}/ref.raw", .{tmp_path});
+    defer allocator.free(raw);
+    const cut = try std.fmt.allocPrint(allocator, "{s}/cut.raw", .{tmp_path});
+    defer allocator.free(cut);
+    // Plain ffmpeg calls: importing olaf_cli_util_audio would add nothing here.
+    ffmpegToRaw(allocator, io, ref, raw, &.{}) catch return error.SkipZigTest; // no ffmpeg
+    try ffmpegToRaw(allocator, io, ref, cut, &.{ "-ss", "20", "-t", "20" });
+
+    const db_a = try std.fmt.allocPrint(allocator, "{s}/a/", .{tmp_path});
+    defer allocator.free(db_a);
+    const db_b = try std.fmt.allocPrint(allocator, "{s}/b/", .{tmp_path});
+    defer allocator.free(db_b);
+    try Io.Dir.cwd().createDirPath(io, db_a);
+    try Io.Dir.cwd().createDirPath(io, db_b);
+    const config_a = Config{ .db_folder = db_a };
+    const config_b = Config{ .db_folder = db_b };
+
+    const id = "/music/reference.mp3";
+    {
+        // Direct STORE-mode path: the core's own fingerprint DB writer.
+        var session = try Session.init(allocator, &config_a);
+        defer session.deinit();
+        _ = try session.run(.store, raw, id, .{ .suppress_summary = true });
+    }
+    _ = try store(allocator, raw, id, &config_b); // three-phase path
+
+    const internal_id = core.nameToId(id);
+    const meta_a = (try lookupMeta(allocator, &config_a, internal_id)).?;
+    defer allocator.free(meta_a.path);
+    const meta_b = (try lookupMeta(allocator, &config_b, internal_id)).?;
+    defer allocator.free(meta_b.path);
+    try std.testing.expectEqual(meta_a.duration, meta_b.duration);
+    try std.testing.expectEqual(meta_a.fingerprints, meta_b.fingerprints);
+    try std.testing.expectEqualStrings(meta_a.path, meta_b.path);
+
+    // Matching reads the stored fingerprints themselves: identical match
+    // lists mean identical keys and values.
+    const matches_a = try queryCollect(allocator, cut, "cut", &config_a, 0);
+    defer freeMatches(allocator, matches_a);
+    const matches_b = try queryCollect(allocator, cut, "cut", &config_b, 0);
+    defer freeMatches(allocator, matches_b);
+    try std.testing.expect(matches_a.len > 0);
+    try std.testing.expectEqual(matches_a.len, matches_b.len);
+    for (matches_a, matches_b) |ma, mb| {
+        try std.testing.expectEqual(ma.match_identifier, mb.match_identifier);
+        try std.testing.expectEqual(ma.match_count, mb.match_count);
+        try std.testing.expectEqual(ma.query_start, mb.query_start);
+        try std.testing.expectEqual(ma.reference_start, mb.reference_start);
+        try std.testing.expectEqual(ma.reference_stop, mb.reference_stop);
+    }
+}
+
+fn ffmpegToRaw(allocator: std.mem.Allocator, io: Io, input: []const u8, output_path: []const u8, extra: []const []const u8) !void {
+    var argv: std.ArrayList([]const u8) = .empty;
+    defer argv.deinit(allocator);
+    try argv.appendSlice(allocator, &.{ "ffmpeg", "-hide_banner", "-y", "-loglevel", "error", "-i", input });
+    try argv.appendSlice(allocator, extra);
+    try argv.appendSlice(allocator, &.{ "-ac", "1", "-ar", "16000", "-f", "f32le", "-acodec", "pcm_f32le", output_path });
+    const r = try std.process.run(allocator, io, .{ .argv = argv.items });
+    defer allocator.free(r.stdout);
+    defer allocator.free(r.stderr);
+    if (r.term != .exited or r.term.exited != 0) return error.FFmpegFailed;
+}

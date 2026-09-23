@@ -17,7 +17,7 @@ pub fn build(b: *std.Build) void {
             }),
         });
 
-        addCoreSources(lib, b, &cflags, false, false, false); // false = no LMDB sources
+        addCoreSources(lib, b, &cflags, false, false); // false = no LMDB sources
         lib.root_module.link_libc = true;
         b.installArtifact(lib);
     } else {
@@ -32,7 +32,7 @@ pub fn build(b: *std.Build) void {
                 }),
             });
 
-            addCoreSources(exe, b, &cflags, true, true, false);
+            addCoreSources(exe, b, &cflags, true, true);
             exe.root_module.link_libc = true;
             b.installArtifact(exe);
 
@@ -57,7 +57,7 @@ pub fn build(b: *std.Build) void {
             exe.root_module.addIncludePath(b.path("src"));
             const zigzag = b.dependency("zigzag", .{ .target = target, .optimize = optimize });
             exe.root_module.addImport("zigzag", zigzag.module("zigzag"));
-            addCoreSources(exe, b, &cflags, true, false, true); // true = include LMDB sources
+            addCoreSources(exe, b, &cflags, true, false); // true = include LMDB sources
             exe.root_module.link_libc = true;
             b.installArtifact(exe);
 
@@ -79,9 +79,10 @@ pub fn build(b: *std.Build) void {
         const test_files = [_][]const u8{
             "tests/olaf_unit_tests.zig",
             "tests/olaf_functional_tests.zig",
-            // Bridge tests (config drift cross-check) live in the cli module
-            // because tests/ files cannot import across the module root.
-            "cli/olaf_cli_bridge.zig",
+            // Core binding + session tests (config drift cross-check, store
+            // equivalence) live in the cli module because tests/ files cannot
+            // import across the module root.
+            "cli/olaf_cli_session.zig",
         };
 
         for (test_files) |test_file| {
@@ -95,7 +96,7 @@ pub fn build(b: *std.Build) void {
 
             tests.root_module.addIncludePath(b.path("cli"));
             tests.root_module.addIncludePath(b.path("src"));
-            addCoreSources(tests, b, &cflags, true, false, true);
+            addCoreSources(tests, b, &cflags, true, false);
             tests.root_module.link_libc = true;
 
             const run_tests = b.addRunArtifact(tests);
@@ -116,7 +117,6 @@ fn addCoreSources(
     cflags: []const []const u8,
     include_lmdb: bool,
     include_olaf_main: bool,
-    include_cli: bool,
 ) void {
     // Common sources used by all builds
     const common_sources = [_][]const u8{
@@ -170,10 +170,5 @@ fn addCoreSources(
     // Optionally add main executable source
     if (include_olaf_main) {
         exe.root_module.addCSourceFile(.{ .file = b.path("./src/olaf.c"), .flags = cflags });
-    }
-
-    // Optionally add wrapper bridge
-    if (include_cli) {
-        exe.root_module.addCSourceFile(.{ .file = b.path("./cli/olaf_cli_bridge.c"), .flags = cflags });
     }
 }

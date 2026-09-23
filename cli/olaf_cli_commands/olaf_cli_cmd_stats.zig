@@ -1,5 +1,5 @@
 const std = @import("std");
-const olaf_cli_bridge = @import("../olaf_cli_bridge.zig");
+const olaf_cli_session = @import("../olaf_cli_session.zig");
 const olaf_cli_config = @import("../olaf_cli_config.zig");
 const types = @import("../olaf_cli_types.zig");
 
@@ -14,5 +14,5 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
 
     //config: *const olaf_cli_config.Config = args.config;
 
-    try olaf_cli_bridge.olaf_stats(allocator, args.config.?);
+    try olaf_cli_session.printStats(allocator, args.config.?);
 }
