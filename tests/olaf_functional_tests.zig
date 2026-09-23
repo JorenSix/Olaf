@@ -74,18 +74,6 @@ test "dataset: ensure reference and query files are downloaded" {
 // Functional Tests - Testing CLI Commands
 // ============================================================================
 
-/// Helper to create a test database directory
-fn createTestDbDir(io: Io, allocator: std.mem.Allocator) ![]const u8 {
-    const test_db_path = try std.fmt.allocPrint(
-        allocator,
-        "tests/test_db_{d}",
-        .{nextUnique()},
-    );
-
-    try Io.Dir.cwd().createDirPath(io, test_db_path);
-    return test_db_path;
-}
-
 /// Helper to clean up test database directory
 fn cleanupTestDbDir(io: Io, path: []const u8) void {
     Io.Dir.cwd().deleteTree(io, path) catch |err| {
@@ -129,212 +117,171 @@ fn freeOlafBin(allocator: std.mem.Allocator, olaf_bin: []const u8) void {
     if (!std.mem.eql(u8, olaf_bin, DEFAULT_OLAF_BIN)) allocator.free(olaf_bin);
 }
 
-/// Isolated runtime sandbox for an olaf CLI invocation: a fresh tempdir laid
-/// out as `<tests/test_home_<label>_<ts>>/.olaf/{db,cache}` with a config
-/// file pointing the CLI at those paths, plus an env map with HOME overridden.
-const TestEnv = struct {
+/// Output of one CLI run; `deinit` frees it.
+const Result = struct {
+    allocator: std.mem.Allocator,
+    stdout: []u8,
+    stderr: []u8,
+    term: std.process.Child.Term,
+
+    fn deinit(self: Result) void {
+        self.allocator.free(self.stdout);
+        self.allocator.free(self.stderr);
+    }
+};
+
+/// Everything a functional test needs: the olaf binary (skipping the test
+/// when it or ffmpeg is missing), an isolated HOME laid out as
+/// `tests/test_home_<label>_<n>/.olaf/{db,cache}` with a config pointing
+/// there, an environment with HOME overridden, and the canonical path of
+/// REF_AUDIO_FILE (empty when the dataset is not downloaded).
+const Fixture = struct {
     allocator: std.mem.Allocator,
     io: Io,
+    bin: []const u8,
+    ref: []u8,
     home: []u8,
     olaf_dir: []u8,
     db_dir: []u8,
     cache_dir: []u8,
     env_map: Environ.Map,
 
-    fn deinit(self: *TestEnv) void {
+    fn init(allocator: std.mem.Allocator, io: Io, label: []const u8) !Fixture {
+        const bin = try resolveOlafBinAndDeps(io, allocator);
+        errdefer freeOlafBin(allocator, bin);
+
+        const cwd_path = try Io.Dir.cwd().realPathFileAlloc(io, ".", allocator);
+        defer allocator.free(cwd_path);
+
+        const home = try std.fmt.allocPrint(allocator, "{s}/tests/test_home_{s}_{d}", .{ cwd_path, label, nextUnique() });
+        errdefer allocator.free(home);
+        const olaf_dir = try std.fmt.allocPrint(allocator, "{s}/.olaf", .{home});
+        errdefer allocator.free(olaf_dir);
+        const db_dir = try std.fmt.allocPrint(allocator, "{s}/db", .{olaf_dir});
+        errdefer allocator.free(db_dir);
+        const cache_dir = try std.fmt.allocPrint(allocator, "{s}/cache", .{olaf_dir});
+        errdefer allocator.free(cache_dir);
+        try Io.Dir.cwd().createDirPath(io, db_dir);
+        try Io.Dir.cwd().createDirPath(io, cache_dir);
+
+        var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+        const ref_n = Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf) catch 0;
+        const ref = try allocator.dupe(u8, ref_buf[0..ref_n]);
+        errdefer allocator.free(ref);
+
+        var env_map = try currentEnvMap(allocator);
+        errdefer env_map.deinit();
+        try env_map.put("HOME", home);
+
+        var fx = Fixture{
+            .allocator = allocator,
+            .io = io,
+            .bin = bin,
+            .ref = ref,
+            .home = home,
+            .olaf_dir = olaf_dir,
+            .db_dir = db_dir,
+            .cache_dir = cache_dir,
+            .env_map = env_map,
+        };
+        try fx.writeConfig(TEST_CONFIG_JSON);
+        return fx;
+    }
+
+    fn deinit(self: *Fixture) void {
         self.env_map.deinit();
         cleanupTestDbDir(self.io, self.home);
         self.allocator.free(self.cache_dir);
         self.allocator.free(self.db_dir);
         self.allocator.free(self.olaf_dir);
         self.allocator.free(self.home);
+        self.allocator.free(self.ref);
+        freeOlafBin(self.allocator, self.bin);
+    }
+
+    /// Replace the fixture's olaf_config.json.
+    fn writeConfig(self: *Fixture, config_json: []const u8) !void {
+        const config_path = try std.fmt.allocPrint(self.allocator, "{s}/olaf_config.json", .{self.olaf_dir});
+        defer self.allocator.free(config_path);
+        const f = try Io.Dir.cwd().createFile(self.io, config_path, .{});
+        defer f.close(self.io);
+        try f.writeStreamingAll(self.io, config_json);
+    }
+
+    /// Run `argv` in the fixture's environment and check that it exited
+    /// normally with `expected` status (a panic always fails). On a mismatch
+    /// the output is printed and error.UnexpectedExitStatus returned.
+    fn exec(self: *Fixture, argv: []const []const u8, expected: u8) !Result {
+        const r = try std.process.run(self.allocator, self.io, .{ .argv = argv, .environ_map = &self.env_map });
+        const result = Result{ .allocator = self.allocator, .stdout = r.stdout, .stderr = r.stderr, .term = r.term };
+        const ok_status = switch (r.term) {
+            .exited => |code| code == expected,
+            else => false,
+        };
+        if (!ok_status) {
+            defer result.deinit();
+            const joined = try std.mem.join(self.allocator, " ", argv);
+            defer self.allocator.free(joined);
+            std.debug.print("\n{s}: expected exit {d}, got {}\nstdout:\n{s}\nstderr:\n{s}\n", .{ joined, expected, r.term, r.stdout, r.stderr });
+            return error.UnexpectedExitStatus;
+        }
+        return result;
+    }
+
+    /// Run `olaf <args>`, expecting exit status `expected`.
+    fn run(self: *Fixture, args: []const []const u8, expected: u8) !Result {
+        var argv: std.ArrayList([]const u8) = .empty;
+        defer argv.deinit(self.allocator);
+        try argv.append(self.allocator, self.bin);
+        try argv.appendSlice(self.allocator, args);
+        return self.exec(argv.items, expected);
+    }
+
+    /// Run `olaf <args>`, expecting success, ignoring the output.
+    fn ok(self: *Fixture, args: []const []const u8) !void {
+        (try self.run(args, 0)).deinit();
+    }
+
+    /// Run `olaf <args>`, expecting exit status `expected`, ignoring the output.
+    fn expectExit(self: *Fixture, args: []const []const u8, expected: u8) !void {
+        (try self.run(args, expected)).deinit();
+    }
+
+    /// Run a /bin/sh script in the fixture's environment.
+    fn shell(self: *Fixture, script: []const u8, expected: u8) !Result {
+        return self.exec(&.{ "/bin/sh", "-c", script }, expected);
+    }
+
+    /// `olaf stats`, parsed song count.
+    fn songCount(self: *Fixture) !u32 {
+        const r = try self.run(&.{"stats"}, 0);
+        defer r.deinit();
+        return parseSongCount(r.stdout);
+    }
+
+    /// Store every file in REF_FILES_FOR_QUERY.
+    fn storeAllRefs(self: *Fixture) !void {
+        for (REF_FILES_FOR_QUERY) |ref_rel| {
+            var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+            const ref_n = try Io.Dir.cwd().realPathFile(self.io, ref_rel, &ref_buf);
+            try self.ok(&.{ "store", ref_buf[0..ref_n] });
+        }
     }
 };
-
-fn setupTestEnv(io: Io, allocator: std.mem.Allocator, label: []const u8) !TestEnv {
-    const cwd_path = try Io.Dir.cwd().realPathFileAlloc(io, ".", allocator);
-    defer allocator.free(cwd_path);
-
-    const home = try std.fmt.allocPrint(
-        allocator,
-        "{s}/tests/test_home_{s}_{d}",
-        .{ cwd_path, label, nextUnique() },
-    );
-    errdefer allocator.free(home);
-
-    const olaf_dir = try std.fmt.allocPrint(allocator, "{s}/.olaf", .{home});
-    errdefer allocator.free(olaf_dir);
-    try Io.Dir.cwd().createDirPath(io, olaf_dir);
-
-    const db_dir = try std.fmt.allocPrint(allocator, "{s}/db", .{olaf_dir});
-    errdefer allocator.free(db_dir);
-    try Io.Dir.cwd().createDirPath(io, db_dir);
-
-    const cache_dir = try std.fmt.allocPrint(allocator, "{s}/cache", .{olaf_dir});
-    errdefer allocator.free(cache_dir);
-    try Io.Dir.cwd().createDirPath(io, cache_dir);
-
-    {
-        const config_path = try std.fmt.allocPrint(allocator, "{s}/olaf_config.json", .{olaf_dir});
-        defer allocator.free(config_path);
-        const f = try Io.Dir.cwd().createFile(io, config_path, .{});
-        defer f.close(io);
-        try f.writeStreamingAll(io, TEST_CONFIG_JSON);
-    }
-
-    var env_map = try currentEnvMap(allocator);
-    errdefer env_map.deinit();
-    try env_map.put("HOME", home);
-
-    return .{
-        .allocator = allocator,
-        .io = io,
-        .home = home,
-        .olaf_dir = olaf_dir,
-        .db_dir = db_dir,
-        .cache_dir = cache_dir,
-        .env_map = env_map,
-    };
-}
-
-/// Run an olaf CLI command in the given test environment. On success, returns
-/// the captured stdout/stderr — caller frees both. On failure, prints diagnostics
-/// and returns `err_on_fail`.
-fn runOlaf(
-    allocator: std.mem.Allocator,
-    olaf_bin: []const u8,
-    env: *TestEnv,
-    args: []const []const u8,
-    err_on_fail: anyerror,
-) !std.process.RunResult {
-    var argv: std.ArrayList([]const u8) = .empty;
-    defer argv.deinit(allocator);
-    try argv.append(allocator, olaf_bin);
-    try argv.appendSlice(allocator, args);
-
-    const result = try std.process.run(allocator, env.io, .{
-        .argv = argv.items,
-        .environ_map = &env.env_map,
-    });
-
-    switch (result.term) {
-        .exited => |code| if (code != 0) {
-            std.debug.print("\nolaf {s} exited {d}\nstdout:\n{s}\nstderr:\n{s}\n", .{
-                args[0], code, result.stdout, result.stderr,
-            });
-            allocator.free(result.stdout);
-            allocator.free(result.stderr);
-            return err_on_fail;
-        },
-        else => {
-            std.debug.print("\nolaf {s} terminated abnormally: {}\n", .{ args[0], result.term });
-            allocator.free(result.stdout);
-            allocator.free(result.stderr);
-            return err_on_fail;
-        },
-    }
-
-    return result;
-}
-
-/// Run an olaf CLI command and assert it exited normally with `expected`
-/// status. A panic (signal / abnormal termination) always fails the test.
-fn runOlafExpectExit(
-    allocator: std.mem.Allocator,
-    olaf_bin: []const u8,
-    env: *TestEnv,
-    args: []const []const u8,
-    expected: u8,
-) !void {
-    var argv: std.ArrayList([]const u8) = .empty;
-    defer argv.deinit(allocator);
-    try argv.append(allocator, olaf_bin);
-    try argv.appendSlice(allocator, args);
-
-    const result = try std.process.run(allocator, env.io, .{
-        .argv = argv.items,
-        .environ_map = &env.env_map,
-    });
-    defer {
-        allocator.free(result.stdout);
-        allocator.free(result.stderr);
-    }
-
-    const ok = switch (result.term) {
-        .exited => |code| code == expected,
-        else => false,
-    };
-    if (!ok) {
-        const joined = try std.mem.join(allocator, " ", args);
-        defer allocator.free(joined);
-        std.debug.print("\nolaf {s}: expected exit {d}, got {}\nstdout:\n{s}\nstderr:\n{s}\n", .{
-            joined, expected, result.term, result.stdout, result.stderr,
-        });
-        return error.UnexpectedExitStatus;
-    }
-}
-
-/// Store every file in REF_FILES_FOR_QUERY using the CLI.
-fn storeAllRefs(
-    io: Io,
-    allocator: std.mem.Allocator,
-    olaf_bin: []const u8,
-    env: *TestEnv,
-) !void {
-    for (REF_FILES_FOR_QUERY) |ref_rel| {
-        var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
-        const ref_n = try Io.Dir.cwd().realPathFile(io, ref_rel, &ref_buf);
-        const ref_abs = ref_buf[0..ref_n];
-
-        const result = try runOlaf(
-            allocator,
-            olaf_bin,
-            env,
-            &[_][]const u8{ "store", ref_abs },
-            error.OlafStoreFailed,
-        );
-        allocator.free(result.stdout);
-        allocator.free(result.stderr);
-    }
-}
-
-/// Run `olaf stats` and return the parsed song count.
-fn statsSongCount(
-    allocator: std.mem.Allocator,
-    olaf_bin: []const u8,
-    env: *TestEnv,
-) !u32 {
-    const result = try runOlaf(
-        allocator,
-        olaf_bin,
-        env,
-        &[_][]const u8{"stats"},
-        error.OlafStatsFailed,
-    );
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
-    return parseSongCount(result.stdout);
-}
 
 test "functional: store reference audio file" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
 
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var env = try setupTestEnv(io, allocator, "store");
+    var env = try Fixture.init(allocator, io, "store");
     defer env.deinit();
 
-    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
-    const ref_abs = ref_buf[0..ref_n];
+    const ref_abs = env.ref;
 
-    const result = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "store", ref_abs }, error.OlafStoreFailed);
-    allocator.free(result.stdout);
-    allocator.free(result.stderr);
+    try env.ok(&[_][]const u8{ "store", ref_abs });
 
     // Verify the audio identifier landed in the LMDB-backed metadata table.
     // The CLI uses the file path as the identifier and `olaf_db_string_hash`
@@ -353,25 +300,19 @@ test "functional: store via CLI and verify via stats command" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
 
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var env = try setupTestEnv(io, allocator, "stats");
+    var env = try Fixture.init(allocator, io, "stats");
     defer env.deinit();
 
-    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
-    const ref_abs = ref_buf[0..ref_n];
+    const ref_abs = env.ref;
 
-    try testing.expectEqual(@as(u32, 0), try statsSongCount(allocator, olaf_bin, &env));
+    try testing.expectEqual(@as(u32, 0), try env.songCount());
 
-    const store_result = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "store", ref_abs }, error.OlafStoreFailed);
-    allocator.free(store_result.stdout);
-    allocator.free(store_result.stderr);
+    try env.ok(&[_][]const u8{ "store", ref_abs });
 
-    try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+    try testing.expectEqual(@as(u32, 1), try env.songCount());
 }
 
 const QueryExpectation = struct {
@@ -487,24 +428,21 @@ test "functional: query against stored references" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
 
     try dataset.ensureDataset(io, allocator, .ref_and_queries);
 
-    var env = try setupTestEnv(io, allocator, "query");
+    var env = try Fixture.init(allocator, io, "query");
     defer env.deinit();
 
-    try storeAllRefs(io, allocator, olaf_bin, &env);
+    try env.storeAllRefs();
 
     for (QUERY_EXPECTATIONS) |exp| {
         var q_buf: [std.fs.max_path_bytes]u8 = undefined;
         const query_n = try Io.Dir.cwd().realPathFile(io, exp.query_file, &q_buf);
         const query_abs = q_buf[0..query_n];
 
-        const result = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "query", query_abs }, error.OlafQueryFailed);
-        defer allocator.free(result.stdout);
-        defer allocator.free(result.stderr);
+        const result = try env.run(&[_][]const u8{ "query", query_abs }, 0);
+        defer result.deinit();
 
         const top = (try firstResultLine(allocator, result.stdout)) orelse {
             std.debug.print("\nNo parseable result line for {s}\nstdout:\n{s}\n", .{ exp.query_file, result.stdout });
@@ -559,18 +497,16 @@ test "functional: delete removes a stored reference" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
 
     try dataset.ensureDataset(io, allocator, .ref_and_queries);
 
-    var env = try setupTestEnv(io, allocator, "delete");
+    var env = try Fixture.init(allocator, io, "delete");
     defer env.deinit();
 
-    try storeAllRefs(io, allocator, olaf_bin, &env);
+    try env.storeAllRefs();
 
     const total_refs: u32 = @intCast(REF_FILES_FOR_QUERY.len);
-    try testing.expectEqual(total_refs, try statsSongCount(allocator, olaf_bin, &env));
+    try testing.expectEqual(total_refs, try env.songCount());
 
     // Pick the last ref — it has a corresponding query file we can re-query
     // to confirm the match disappears after delete.
@@ -587,21 +523,18 @@ test "functional: delete removes a stored reference" {
 
     // Confirm the query matches before deletion.
     {
-        const result = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "query", q_abs }, error.OlafQueryFailed);
-        defer allocator.free(result.stdout);
-        defer allocator.free(result.stderr);
+        const result = try env.run(&[_][]const u8{ "query", q_abs }, 0);
+        defer result.deinit();
         const top = (try firstResultLine(allocator, result.stdout)) orelse return error.OlafQueryNoResult;
         try testing.expect(!top.empty_match);
     }
 
     // Delete the target ref.
     {
-        const result = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "delete", target_abs }, error.OlafDeleteFailed);
-        allocator.free(result.stdout);
-        allocator.free(result.stderr);
+        try env.ok(&[_][]const u8{ "delete", target_abs });
     }
 
-    try testing.expectEqual(total_refs - 1, try statsSongCount(allocator, olaf_bin, &env));
+    try testing.expectEqual(total_refs - 1, try env.songCount());
 
     // The metadata for the deleted ref should be gone from the LMDB store.
     {
@@ -617,9 +550,8 @@ test "functional: delete removes a stored reference" {
 
     // Re-querying the same query file should no longer find the deleted ref.
     {
-        const result = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "query", q_abs }, error.OlafQueryFailed);
-        defer allocator.free(result.stdout);
-        defer allocator.free(result.stderr);
+        const result = try env.run(&[_][]const u8{ "query", q_abs }, 0);
+        defer result.deinit();
 
         const top = (try firstResultLine(allocator, result.stdout)) orelse return error.OlafQueryNoResult;
         if (!top.empty_match) {
@@ -634,23 +566,19 @@ test "functional: delete removes a stored reference" {
 
     // Re-store the deleted ref and confirm the count returns to the original.
     {
-        const result = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "store", target_abs }, error.OlafStoreFailed);
-        allocator.free(result.stdout);
-        allocator.free(result.stderr);
+        try env.ok(&[_][]const u8{ "store", target_abs });
     }
-    try testing.expectEqual(total_refs, try statsSongCount(allocator, olaf_bin, &env));
+    try testing.expectEqual(total_refs, try env.songCount());
 }
 
 test "functional: dedup ignores self-matches and surfaces duplicates" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
 
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var env = try setupTestEnv(io, allocator, "dedup");
+    var env = try Fixture.init(allocator, io, "dedup");
     defer env.deinit();
 
     // Pick two distinct reference files. Copy the first one to a fresh path
@@ -675,15 +603,8 @@ test "functional: dedup ignores self-matches and surfaces duplicates" {
     const dup_n = try Io.Dir.cwd().realPathFile(io, dup_path, &dup_buf);
     const dup_abs = dup_buf[0..dup_n];
 
-    const result = try runOlaf(
-        allocator,
-        olaf_bin,
-        &env,
-        &[_][]const u8{ "dedup", orig_abs, dup_abs, other_abs },
-        error.OlafDedupFailed,
-    );
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
+    const result = try env.run(&.{ "dedup", orig_abs, dup_abs, other_abs }, 0);
+    defer result.deinit();
 
     // Expectation: we see at least one non-empty match line where the query
     // is the duplicate and the matched ref is the original (or vice versa),
@@ -731,12 +652,10 @@ test "functional: query --json emits a parseable object with summary + matches" 
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
 
     try dataset.ensureDataset(io, allocator, .ref_and_queries);
 
-    var env = try setupTestEnv(io, allocator, "json");
+    var env = try Fixture.init(allocator, io, "json");
     defer env.deinit();
 
     const ref_rel = "dataset/ref/1051039.mp3";
@@ -747,18 +666,15 @@ test "functional: query --json emits a parseable object with summary + matches" 
     const ref_abs = ref_buf[0..ref_n];
 
     {
-        const r = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "store", ref_abs }, error.OlafStoreFailed);
-        allocator.free(r.stdout);
-        allocator.free(r.stderr);
+        try env.ok(&[_][]const u8{ "store", ref_abs });
     }
 
     var q_buf: [std.fs.max_path_bytes]u8 = undefined;
     const q_n = try Io.Dir.cwd().realPathFile(io, query_rel, &q_buf);
     const q_abs = q_buf[0..q_n];
 
-    const result = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "query", "--format", "json", q_abs }, error.OlafQueryFailed);
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
+    const result = try env.run(&[_][]const u8{ "query", "--format", "json", q_abs }, 0);
+    defer result.deinit();
 
     var parsed = std.json.parseFromSlice(std.json.Value, allocator, result.stdout, .{}) catch |err| {
         std.debug.print("\nFailed to parse JSON ({}):\n{s}\n", .{ err, result.stdout });
@@ -822,21 +738,18 @@ test "functional: query --json on empty DB returns empty matches array" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
 
     try dataset.ensureDataset(io, allocator, .ref_and_queries);
 
-    var env = try setupTestEnv(io, allocator, "json_empty");
+    var env = try Fixture.init(allocator, io, "json_empty");
     defer env.deinit();
 
     var q_buf: [std.fs.max_path_bytes]u8 = undefined;
     const q_n = try Io.Dir.cwd().realPathFile(io, "dataset/queries/1051039_34s-54s.mp3", &q_buf);
     const q_abs = q_buf[0..q_n];
 
-    const result = try runOlaf(allocator, olaf_bin, &env, &[_][]const u8{ "query", "--format", "json", q_abs }, error.OlafQueryFailed);
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
+    const result = try env.run(&[_][]const u8{ "query", "--format", "json", q_abs }, 0);
+    defer result.deinit();
 
     var parsed = try std.json.parseFromSlice(std.json.Value, allocator, result.stdout, .{});
     defer parsed.deinit();
@@ -872,41 +785,35 @@ test "functional: usage errors exit with status 2" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
 
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var env = try setupTestEnv(io, allocator, "usage");
+    var env = try Fixture.init(allocator, io, "usage");
     defer env.deinit();
 
-    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
-    const ref_abs = ref_buf[0..ref_n];
+    const ref_abs = env.ref;
 
-    try runOlafExpectExit(allocator, olaf_bin, &env, &.{"nosuchcmd"}, 2);
-    try runOlafExpectExit(allocator, olaf_bin, &env, &.{"query"}, 2);
-    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--format", "xml", ref_abs }, 2);
-    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--threads" }, 2);
-    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--threads", "abc", ref_abs }, 2);
-    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--threads", "0", ref_abs }, 2);
-    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "store", "--with-ids", ref_abs }, 2);
-    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "store", "--with-ids", ref_abs, "--threads" }, 2);
-    try runOlafExpectExit(allocator, olaf_bin, &env, &.{"--help"}, 0);
+    try env.expectExit(&.{"nosuchcmd"}, 2);
+    try env.expectExit(&.{"query"}, 2);
+    try env.expectExit(&.{ "query", "--format", "xml", ref_abs }, 2);
+    try env.expectExit(&.{ "query", "--threads" }, 2);
+    try env.expectExit(&.{ "query", "--threads", "abc", ref_abs }, 2);
+    try env.expectExit(&.{ "query", "--threads", "0", ref_abs }, 2);
+    try env.expectExit(&.{ "store", "--with-ids", ref_abs }, 2);
+    try env.expectExit(&.{ "store", "--with-ids", ref_abs, "--threads" }, 2);
+    try env.expectExit(&.{"--help"}, 0);
 }
 
 /// Store REF_AUDIO_FILE, run `query --fragmented` on it, and check that each
 /// matched fragment reports its offset: expected offsets must all appear, all
 /// offsets are multiples of `step`, and for strong matches
 /// ref_start ~= query_offset + query_start.
-fn expectFragmentOffsets(allocator: std.mem.Allocator, olaf_bin: []const u8, env: *TestEnv, ref_abs: []const u8, step: f32, expected: []const f32) !void {
-    const store = try runOlaf(allocator, olaf_bin, env, &.{ "store", ref_abs }, error.OlafStoreFailed);
-    allocator.free(store.stdout);
-    allocator.free(store.stderr);
+fn expectFragmentOffsets(env: *Fixture, ref_abs: []const u8, step: f32, expected: []const f32) !void {
+    const allocator = env.allocator;
+    try env.ok(&.{ "store", ref_abs });
 
-    const result = try runOlaf(allocator, olaf_bin, env, &.{ "query", "--fragmented", ref_abs }, error.OlafQueryFailed);
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
+    const result = try env.run(&.{ "query", "--fragmented", ref_abs }, 0);
+    defer result.deinit();
 
     var seen: std.ArrayList(f32) = .empty;
     defer seen.deinit(allocator);
@@ -931,41 +838,25 @@ test "functional: query --fragmented reports fragment offsets" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var env = try setupTestEnv(io, allocator, "fragmented");
+    var env = try Fixture.init(allocator, io, "fragmented");
     defer env.deinit();
 
-    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
-    const ref_abs = ref_buf[0..ref_n];
+    const ref_abs = env.ref;
 
     // REF_AUDIO_FILE is ~98s: default 30s fragments start at 0, 30, 60, 90.
-    try expectFragmentOffsets(allocator, olaf_bin, &env, ref_abs, 30, &.{ 0, 30, 60 });
+    try expectFragmentOffsets(&env, ref_abs, 30, &.{ 0, 30, 60 });
 
-    const json_result = try runOlaf(allocator, olaf_bin, &env, &.{ "query", "--fragmented", "--format", "json", ref_abs }, error.OlafQueryFailed);
-    defer allocator.free(json_result.stdout);
-    defer allocator.free(json_result.stderr);
+    const json_result = try env.run(&.{ "query", "--fragmented", "--format", "json", ref_abs }, 0);
+    defer json_result.deinit();
     try testing.expect(std.mem.indexOf(u8, json_result.stdout, "\"query_offset\": 30.000") != null);
-}
-
-/// Replace the test env's olaf_config.json (written by setupTestEnv).
-fn writeTestConfig(env: *TestEnv, config_json: []const u8) !void {
-    const config_path = try std.fmt.allocPrint(env.allocator, "{s}/olaf_config.json", .{env.olaf_dir});
-    defer env.allocator.free(config_path);
-    const f = try Io.Dir.cwd().createFile(env.io, config_path, .{});
-    defer f.close(env.io);
-    try f.writeStreamingAll(env.io, config_json);
 }
 
 test "functional: query --fragmented honours fragment_duration_in_seconds" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_only);
 
     var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -973,21 +864,21 @@ test "functional: query --fragmented honours fragment_duration_in_seconds" {
     const ref_abs = ref_buf[0..ref_n];
 
     {
-        var env = try setupTestEnv(io, allocator, "frag20");
+        var env = try Fixture.init(allocator, io, "frag20");
         defer env.deinit();
-        try writeTestConfig(&env,
+        try env.writeConfig(
             \\{"db_folder": "~/.olaf/db/", "cache_folder": "~/.olaf/cache/", "fragment_duration_in_seconds": 20}
         );
-        try expectFragmentOffsets(allocator, olaf_bin, &env, ref_abs, 20, &.{ 0, 20, 40 });
+        try expectFragmentOffsets(&env, ref_abs, 20, &.{ 0, 20, 40 });
     }
     {
         // 0 used to spin forever (fragment_start never advances); now a config error.
-        var env = try setupTestEnv(io, allocator, "frag0");
+        var env = try Fixture.init(allocator, io, "frag0");
         defer env.deinit();
-        try writeTestConfig(&env,
+        try env.writeConfig(
             \\{"db_folder": "~/.olaf/db/", "cache_folder": "~/.olaf/cache/", "fragment_duration_in_seconds": 0}
         );
-        try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--fragmented", ref_abs }, 1);
+        try env.expectExit(&.{ "query", "--fragmented", ref_abs }, 1);
     }
 }
 
@@ -1004,7 +895,7 @@ fn countFilesWithSuffix(io: Io, dir_path: []const u8, suffix: []const u8) !usize
 }
 
 /// Write a file with an audio extension but non-audio content, so ffmpeg fails.
-fn writeBadAudioFile(env: *TestEnv) ![]u8 {
+fn writeBadAudioFile(env: *Fixture) ![]u8 {
     const path = try std.fmt.allocPrint(env.allocator, "{s}/bad.mp3", .{env.home});
     errdefer env.allocator.free(path);
     const f = try Io.Dir.cwd().createFile(env.io, path, .{});
@@ -1017,25 +908,21 @@ test "functional: cache leaves no partial files when a file fails" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var env = try setupTestEnv(io, allocator, "cache");
+    var env = try Fixture.init(allocator, io, "cache");
     defer env.deinit();
 
     const bad = try writeBadAudioFile(&env);
     defer allocator.free(bad);
 
-    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "cache", bad }, 1);
+    try env.expectExit(&.{ "cache", bad }, 1);
     try testing.expectEqual(@as(usize, 0), try countFilesWithSuffix(io, env.cache_dir, ".tdb"));
     try testing.expectEqual(@as(usize, 0), try countFilesWithSuffix(io, env.cache_dir, ".meta"));
 
     var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
     const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
-    const result = try runOlaf(allocator, olaf_bin, &env, &.{ "cache", ref_buf[0..ref_n] }, error.OlafCacheFailed);
-    allocator.free(result.stdout);
-    allocator.free(result.stderr);
+    try env.ok(&.{ "cache", ref_buf[0..ref_n] });
     try testing.expectEqual(@as(usize, 1), try countFilesWithSuffix(io, env.cache_dir, ".tdb"));
     try testing.expectEqual(@as(usize, 1), try countFilesWithSuffix(io, env.cache_dir, ".meta"));
     try testing.expectEqual(@as(usize, 0), try countFilesWithSuffix(io, env.cache_dir, ".tmp"));
@@ -1045,8 +932,6 @@ test "functional: store continues past a bad file (serial and parallel)" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_only);
 
     var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -1054,15 +939,15 @@ test "functional: store continues past a bad file (serial and parallel)" {
     const ref_abs = ref_buf[0..ref_n];
 
     for ([_][]const u8{ "1", "2" }) |threads| {
-        var env = try setupTestEnv(io, allocator, "store_bad");
+        var env = try Fixture.init(allocator, io, "store_bad");
         defer env.deinit();
 
         const bad = try writeBadAudioFile(&env);
         defer allocator.free(bad);
 
         // The bad file comes first: a serial run used to abort right there.
-        try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "store", "--threads", threads, bad, ref_abs }, 1);
-        try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+        try env.expectExit(&.{ "store", "--threads", threads, bad, ref_abs }, 1);
+        try testing.expectEqual(@as(u32, 1), try env.songCount());
     }
 }
 
@@ -1070,67 +955,53 @@ test "functional: db_folder without trailing slash still reports stats" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var env = try setupTestEnv(io, allocator, "noslash");
+    var env = try Fixture.init(allocator, io, "noslash");
     defer env.deinit();
-    try writeTestConfig(&env,
+    try env.writeConfig(
         \\{"db_folder": "~/.olaf/db", "cache_folder": "~/.olaf/cache/"}
     );
 
     var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
     const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
-    const result = try runOlaf(allocator, olaf_bin, &env, &.{ "store", ref_buf[0..ref_n] }, error.OlafStoreFailed);
-    allocator.free(result.stdout);
-    allocator.free(result.stderr);
+    try env.ok(&.{ "store", ref_buf[0..ref_n] });
 
     // Used to report 0 songs: stats looked for "<db>data.mdb".
-    try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+    try testing.expectEqual(@as(u32, 1), try env.songCount());
 }
 
 test "functional: store skips already indexed files unless forced" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
-    const ref_abs = ref_buf[0..ref_n];
-
-    var env = try setupTestEnv(io, allocator, "skipdup");
+    var env = try Fixture.init(allocator, io, "skipdup");
     defer env.deinit();
+    const ref_abs = env.ref;
 
-    const first = try runOlaf(allocator, olaf_bin, &env, &.{ "store", ref_abs }, error.OlafStoreFailed);
-    allocator.free(first.stdout);
-    allocator.free(first.stderr);
+    try env.ok(&.{ "store", ref_abs });
 
     {
-        const again = try runOlaf(allocator, olaf_bin, &env, &.{ "store", "--format", "csv", ref_abs }, error.OlafStoreFailed);
-        defer allocator.free(again.stdout);
-        defer allocator.free(again.stderr);
+        const again = try env.run(&.{ "store", "--format", "csv", ref_abs }, 0);
+        defer again.deinit();
         try testing.expect(std.mem.indexOf(u8, again.stderr, "skip,,,") != null);
         try testing.expect(std.mem.indexOf(u8, again.stderr, "store,") == null);
     }
     {
-        const forced = try runOlaf(allocator, olaf_bin, &env, &.{ "store", "-f", "--format", "csv", ref_abs }, error.OlafStoreFailed);
-        defer allocator.free(forced.stdout);
-        defer allocator.free(forced.stderr);
+        const forced = try env.run(&.{ "store", "-f", "--format", "csv", ref_abs }, 0);
+        defer forced.deinit();
         try testing.expect(std.mem.indexOf(u8, forced.stderr, "store,1,1,") != null);
     }
-    try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+    try testing.expectEqual(@as(u32, 1), try env.songCount());
 
     // skip_duplicates: false restores the old always-store behaviour.
-    try writeTestConfig(&env,
+    try env.writeConfig(
         \\{"db_folder": "~/.olaf/db/", "cache_folder": "~/.olaf/cache/", "skip_duplicates": false}
     );
-    const unskipped = try runOlaf(allocator, olaf_bin, &env, &.{ "store", "--format", "csv", ref_abs }, error.OlafStoreFailed);
-    defer allocator.free(unskipped.stdout);
-    defer allocator.free(unskipped.stderr);
+    const unskipped = try env.run(&.{ "store", "--format", "csv", ref_abs }, 0);
+    defer unskipped.deinit();
     try testing.expect(std.mem.indexOf(u8, unskipped.stderr, "store,1,1,") != null);
 }
 
@@ -1138,26 +1009,17 @@ test "functional: output redirected to a file keeps every line" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
 
-    var env = try setupTestEnv(io, allocator, "redirect");
+    var env = try Fixture.init(allocator, io, "redirect");
     defer env.deinit();
 
     const out_path = try std.fmt.allocPrint(allocator, "{s}/help.txt", .{env.home});
     defer allocator.free(out_path);
     // `--help` is printed with many separate print() calls; pipes (as used by
-    // runOlaf) hide the bug, a regular file shows it.
-    const cmd = try std.fmt.allocPrint(allocator, "'{s}' --help > '{s}'", .{ olaf_bin, out_path });
+    // Fixture.run) hide the bug, a regular file shows it.
+    const cmd = try std.fmt.allocPrint(allocator, "'{s}' --help > '{s}'", .{ env.bin, out_path });
     defer allocator.free(cmd);
-
-    const result = try std.process.run(allocator, io, .{
-        .argv = &.{ "/bin/sh", "-c", cmd },
-        .environ_map = &env.env_map,
-    });
-    allocator.free(result.stdout);
-    allocator.free(result.stderr);
-    try testing.expect(result.term == .exited and result.term.exited == 0);
+    (try env.shell(cmd, 0)).deinit();
 
     const content = try Io.Dir.cwd().readFileAlloc(io, out_path, allocator, .limited(1024 * 1024));
     defer allocator.free(content);
@@ -1171,42 +1033,35 @@ test "functional: cache then store_cached on a fresh database" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var env = try setupTestEnv(io, allocator, "store_cached");
+    var env = try Fixture.init(allocator, io, "store_cached");
     defer env.deinit();
 
     var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
     const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
-    const cached = try runOlaf(allocator, olaf_bin, &env, &.{ "cache", ref_buf[0..ref_n] }, error.OlafCacheFailed);
-    allocator.free(cached.stdout);
-    allocator.free(cached.stderr);
+    try env.ok(&.{ "cache", ref_buf[0..ref_n] });
 
     {
         // Used to exit() in the C core: the duplicate check opened a
         // read-only env on a database that did not exist yet.
-        const r = try runOlaf(allocator, olaf_bin, &env, &.{"store_cached"}, error.OlafStoreCachedFailed);
-        defer allocator.free(r.stdout);
-        defer allocator.free(r.stderr);
+        const r = try env.run(&.{"store_cached"}, 0);
+        defer r.deinit();
         try testing.expect(std.mem.indexOf(u8, r.stdout, "1/1, ") != null);
         try testing.expect(std.mem.indexOf(u8, r.stdout, "stored from cache") != null);
         // olaf_has used to print this header + a row per file to stdout.
         try testing.expect(std.mem.indexOf(u8, r.stdout, "internal identifier") == null);
     }
-    try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+    try testing.expectEqual(@as(u32, 1), try env.songCount());
     {
-        const r = try runOlaf(allocator, olaf_bin, &env, &.{"store_cached"}, error.OlafStoreCachedFailed);
-        defer allocator.free(r.stdout);
-        defer allocator.free(r.stderr);
+        const r = try env.run(&.{"store_cached"}, 0);
+        defer r.deinit();
         try testing.expect(std.mem.indexOf(u8, r.stdout, "SKIPPED: already indexed") != null);
         try testing.expect(std.mem.indexOf(u8, r.stdout, "Stored 0 cache file(s), skipped 1") != null);
     }
     {
-        const r = try runOlaf(allocator, olaf_bin, &env, &.{ "store_cached", "-f" }, error.OlafStoreCachedFailed);
-        defer allocator.free(r.stdout);
-        defer allocator.free(r.stderr);
+        const r = try env.run(&.{ "store_cached", "-f" }, 0);
+        defer r.deinit();
         try testing.expect(std.mem.indexOf(u8, r.stdout, "Stored 1 cache file(s)") != null);
     }
 }
@@ -1224,11 +1079,9 @@ test "functional: to_raw / to_wav refuse colliding or in-place outputs" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var env = try setupTestEnv(io, allocator, "transcode");
+    var env = try Fixture.init(allocator, io, "transcode");
     defer env.deinit();
 
     const a = try std.fmt.allocPrint(allocator, "{s}/a/song.mp3", .{env.home});
@@ -1243,73 +1096,55 @@ test "functional: to_raw / to_wav refuse colliding or in-place outputs" {
 
     // to_raw writes olaf_audio_song.raw into the cwd for both inputs: the
     // second used to be reported as converted while silently reusing the first.
-    const script = try std.fmt.allocPrint(allocator, "cd '{s}' && '{s}' to_raw '{s}' '{s}'", .{ env.home, olaf_bin, a, b });
+    const script = try std.fmt.allocPrint(allocator, "cd '{s}' && '{s}' to_raw '{s}' '{s}'", .{ env.home, env.bin, a, b });
     defer allocator.free(script);
-    const result = try std.process.run(allocator, io, .{ .argv = &.{ "/bin/sh", "-c", script }, .environ_map = &env.env_map });
-    allocator.free(result.stdout);
-    allocator.free(result.stderr);
-    try testing.expect(result.term == .exited and result.term.exited == 1);
+    (try env.shell(script, 1)).deinit();
     try testing.expect(try fileExists(io, allocator, env.home, "olaf_audio_song.raw"));
     try testing.expect(!try fileExists(io, allocator, env.home, "olaf_audio_song.raw.part"));
 
     // to_wav on a .wav would target its own input: used to be a silent no-op.
     const size_before = (try Io.Dir.cwd().statFile(io, in_wav, .{})).size;
-    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "to_wav", in_wav }, 1);
+    try env.expectExit(&.{ "to_wav", in_wav }, 1);
     try testing.expectEqual(size_before, (try Io.Dir.cwd().statFile(io, in_wav, .{})).size);
-}
-
-/// Run a shell script in the test env; returns the result (caller frees).
-fn runShell(allocator: std.mem.Allocator, env: *TestEnv, script: []const u8) !std.process.RunResult {
-    return std.process.run(allocator, env.io, .{ .argv = &.{ "/bin/sh", "-c", script }, .environ_map = &env.env_map });
 }
 
 test "functional: relative, absolute and symlinked paths share one identifier" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var env = try setupTestEnv(io, allocator, "canonical");
+    var env = try Fixture.init(allocator, io, "canonical");
     defer env.deinit();
 
-    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
-    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
-    const ref_abs = ref_buf[0..ref_n];
+    const ref_abs = env.ref;
     const ref_dir = std.fs.path.dirname(ref_abs).?;
     const repo_dir = std.fs.path.dirname(std.fs.path.dirname(ref_dir).?).?;
 
-    const first = try runOlaf(allocator, olaf_bin, &env, &.{ "store", ref_abs }, error.OlafStoreFailed);
-    allocator.free(first.stdout);
-    allocator.free(first.stderr);
+    try env.ok(&.{ "store", ref_abs });
 
     // Same file, spelled relative to the cwd and through a symlinked dir:
     // both used to get a different identifier and be indexed again.
     const scripts = [_][]const u8{
-        try std.fmt.allocPrint(allocator, "cd '{s}' && '{s}' store --format csv ./dataset/ref/../ref/11266.mp3", .{ repo_dir, olaf_bin }),
-        try std.fmt.allocPrint(allocator, "ln -s '{s}' '{s}/linked' && '{s}' store --format csv '{s}/linked/11266.mp3'", .{ ref_dir, env.home, olaf_bin, env.home }),
+        try std.fmt.allocPrint(allocator, "cd '{s}' && '{s}' store --format csv ./dataset/ref/../ref/11266.mp3", .{ repo_dir, env.bin }),
+        try std.fmt.allocPrint(allocator, "ln -s '{s}' '{s}/linked' && '{s}' store --format csv '{s}/linked/11266.mp3'", .{ ref_dir, env.home, env.bin, env.home }),
     };
     defer for (scripts) |sc| allocator.free(sc);
 
     for (scripts) |script| {
-        const r = try runShell(allocator, &env, script);
-        defer allocator.free(r.stdout);
-        defer allocator.free(r.stderr);
-        try testing.expect(r.term == .exited and r.term.exited == 0);
+        const r = try env.shell(script, 0);
+        defer r.deinit();
         try testing.expect(std.mem.indexOf(u8, r.stderr, "skip,,,") != null);
     }
-    try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+    try testing.expectEqual(@as(u32, 1), try env.songCount());
 }
 
 test "functional: directory arguments are processed in sorted order" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
 
-    var env = try setupTestEnv(io, allocator, "order");
+    var env = try Fixture.init(allocator, io, "order");
     defer env.deinit();
 
     // Created out of order; APFS/ext4 readdir order is not alphabetical
@@ -1321,12 +1156,8 @@ test "functional: directory arguments are processed in sorted order" {
 
     // Empty files fail in ffmpeg; with the continue-on-error policy each
     // failure is logged in processing order, which is all this test needs.
-    var argv: std.ArrayList([]const u8) = .empty;
-    defer argv.deinit(allocator);
-    try argv.appendSlice(allocator, &.{ olaf_bin, "store", dir });
-    const r = try std.process.run(allocator, io, .{ .argv = argv.items, .environ_map = &env.env_map });
-    defer allocator.free(r.stdout);
-    defer allocator.free(r.stderr);
+    const r = try env.run(&.{ "store", dir }, 1);
+    defer r.deinit();
 
     var last: usize = 0;
     for ([_][]const u8{ "a.mp3", "b.mp3", "c.mp3", "d.mp3", "e.mp3", "f.mp3" }) |n| {
@@ -1342,11 +1173,9 @@ test "functional: .txt lists skip bad lines instead of aborting" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var env = try setupTestEnv(io, allocator, "txtlist");
+    var env = try Fixture.init(allocator, io, "txtlist");
     defer env.deinit();
 
     var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -1363,23 +1192,20 @@ test "functional: .txt lists skip bad lines instead of aborting" {
         try f.writeStreamingAll(io, list);
     }
 
-    const r = try runOlaf(allocator, olaf_bin, &env, &.{ "store", list_path }, error.OlafStoreFailed);
-    defer allocator.free(r.stdout);
-    defer allocator.free(r.stderr);
+    const r = try env.run(&.{ "store", list_path }, 0);
+    defer r.deinit();
     try testing.expect(std.mem.indexOf(u8, r.stderr, "list.txt:4: could not find") != null);
     try testing.expect(std.mem.indexOf(u8, r.stderr, "list.txt:5: not an audio file") != null);
-    try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+    try testing.expectEqual(@as(u32, 1), try env.songCount());
 }
 
 test "functional: query CSV quotes paths with commas" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_only);
 
-    var env = try setupTestEnv(io, allocator, "comma");
+    var env = try Fixture.init(allocator, io, "comma");
     defer env.deinit();
 
     const song = try std.fmt.allocPrint(allocator, "{s}/Crosby, Stills.mp3", .{env.home});
@@ -1390,13 +1216,10 @@ test "functional: query CSV quotes paths with commas" {
     const song_n = try Io.Dir.cwd().realPathFile(io, song, &song_buf);
     const song_abs = song_buf[0..song_n];
 
-    const stored = try runOlaf(allocator, olaf_bin, &env, &.{ "store", song_abs }, error.OlafStoreFailed);
-    allocator.free(stored.stdout);
-    allocator.free(stored.stderr);
+    try env.ok(&.{ "store", song_abs });
 
-    const r = try runOlaf(allocator, olaf_bin, &env, &.{ "query", song_abs }, error.OlafQueryFailed);
-    defer allocator.free(r.stdout);
-    defer allocator.free(r.stderr);
+    const r = try env.run(&.{ "query", song_abs }, 0);
+    defer r.deinit();
 
     const quoted = try std.fmt.allocPrint(allocator, "\"{s}\"", .{song_abs});
     defer allocator.free(quoted);
@@ -1413,21 +1236,17 @@ test "functional: microphone reports a capture failure" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
 
-    var env = try setupTestEnv(io, allocator, "microphone");
+    var env = try Fixture.init(allocator, io, "microphone");
     defer env.deinit();
     // ffmpeg fails immediately on an unknown input format: no real
     // microphone is needed. This used to end silently with exit status 0.
-    try writeTestConfig(&env,
+    try env.writeConfig(
         \\{"db_folder": "~/.olaf/db/", "cache_folder": "~/.olaf/cache/", "microphone_input_format": "no_such_format"}
     );
 
-    const r = try std.process.run(allocator, io, .{ .argv = &.{ olaf_bin, "microphone" }, .environ_map = &env.env_map });
-    defer allocator.free(r.stdout);
-    defer allocator.free(r.stderr);
-    try testing.expect(r.term == .exited and r.term.exited == 1);
+    const r = try env.run(&.{"microphone"}, 1);
+    defer r.deinit();
     try testing.expect(std.mem.indexOf(u8, r.stderr, "microphone capture failed") != null);
     // ffmpeg's own reason is no longer hidden by -loglevel panic.
     try testing.expect(std.mem.indexOf(u8, r.stderr, "no_such_format") != null);
@@ -1437,8 +1256,6 @@ test "functional: parallel store matches serial store" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_and_queries);
 
     var ref_dir_buf: [std.fs.max_path_bytes]u8 = undefined;
@@ -1449,20 +1266,17 @@ test "functional: parallel store matches serial store" {
     var stats_out: [2][]u8 = undefined;
     var top_ids: [2][]u8 = undefined;
     for ([_][]const u8{ "1", "4" }, 0..) |threads, i| {
-        var env = try setupTestEnv(io, allocator, "par_store");
+        var env = try Fixture.init(allocator, io, "par_store");
         defer env.deinit();
 
-        const st = try runOlaf(allocator, olaf_bin, &env, &.{ "store", "--threads", threads, ref_dir_buf[0..ref_dir_n] }, error.OlafStoreFailed);
-        allocator.free(st.stdout);
-        allocator.free(st.stderr);
+        try env.ok(&.{ "store", "--threads", threads, ref_dir_buf[0..ref_dir_n] });
 
-        const stats = try runOlaf(allocator, olaf_bin, &env, &.{"stats"}, error.OlafStatsFailed);
+        const stats = try env.run(&.{"stats"}, 0);
         allocator.free(stats.stderr);
         stats_out[i] = stats.stdout;
 
-        const q = try runOlaf(allocator, olaf_bin, &env, &.{ "query", q_buf[0..q_n] }, error.OlafQueryFailed);
-        defer allocator.free(q.stdout);
-        defer allocator.free(q.stderr);
+        const q = try env.run(&.{ "query", q_buf[0..q_n] }, 0);
+        defer q.deinit();
         const row = (try firstResultLine(allocator, q.stdout)) orelse return error.NoResultLine;
         try testing.expect(!row.empty_match);
         top_ids[i] = try allocator.dupe(u8, row.ref_id);
@@ -1628,11 +1442,9 @@ test "functional: output snapshot" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
     try dataset.ensureDataset(io, allocator, .ref_and_queries);
 
-    var env = try setupTestEnv(io, allocator, "snapshot");
+    var env = try Fixture.init(allocator, io, "snapshot");
     defer env.deinit();
 
     const repo = try Io.Dir.cwd().realPathFileAlloc(io, ".", allocator);
@@ -1674,9 +1486,8 @@ test "functional: output snapshot" {
     var transcript: std.Io.Writer.Allocating = .init(allocator);
     defer transcript.deinit();
     for (steps) |step| {
-        const r = try runOlaf(allocator, olaf_bin, &env, step.args, error.OlafSnapshotStepFailed);
-        defer allocator.free(r.stdout);
-        defer allocator.free(r.stderr);
+        const r = try env.run(step.args, 0);
+        defer r.deinit();
         try transcript.writer.print("== {s}\n", .{step.title});
         const text = if (step.stream == .stdout) r.stdout else r.stderr;
         var masked_lines: std.ArrayList([]u8) = .empty;
@@ -1743,18 +1554,14 @@ test "functional: clear -f deletes only olaf files" {
     const allocator = testing.allocator;
     const io = testing.io;
 
-    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
-    defer freeOlafBin(allocator, olaf_bin);
 
-    var env = try setupTestEnv(io, allocator, "clear");
+    var env = try Fixture.init(allocator, io, "clear");
     defer env.deinit();
 
     for ([_][]const u8{ "data.mdb", "lock.mdb", "keep.txt", "sub/nested.mdb" }) |n| try touchFile(io, allocator, env.db_dir, n);
     for ([_][]const u8{ "1.tdb", "1.meta", "notes.txt" }) |n| try touchFile(io, allocator, env.cache_dir, n);
 
-    const result = try runOlaf(allocator, olaf_bin, &env, &.{ "clear", "-f" }, error.OlafClearFailed);
-    allocator.free(result.stdout);
-    allocator.free(result.stderr);
+    try env.ok(&.{ "clear", "-f" });
 
     // Olaf-owned files are gone...
     try testing.expect(!try fileExists(io, allocator, env.db_dir, "data.mdb"));
@@ -1791,41 +1598,4 @@ test "benchmark: fingerprint extraction speed" {
 
     // This is a skeleton for benchmarking fingerprint extraction
     std.debug.print("\nBenchmark test skeleton - implement timing tests\n", .{});
-}
-
-// ============================================================================
-// Test Runner Utilities
-// ============================================================================
-
-/// Run all C unit tests by calling the compiled olaf_tests binary
-pub fn runCUnitTests(io: Io, allocator: std.mem.Allocator) !void {
-    const result = try std.process.run(allocator, io, .{
-        .argv = &[_][]const u8{"bin/olaf_tests"},
-    });
-    defer allocator.free(result.stdout);
-    defer allocator.free(result.stderr);
-
-    if (result.term.exited != 0) {
-        std.debug.print("C unit tests failed:\n{s}\n", .{result.stderr});
-        return error.CUnitTestsFailed;
-    }
-
-    std.debug.print("C unit tests passed:\n{s}\n", .{result.stdout});
-}
-
-/// Main test entry point - can be called from build.zig
-pub fn runAllTests(io: Io, allocator: std.mem.Allocator) !void {
-    std.debug.print("\n=== Running Olaf Test Suite ===\n\n", .{});
-
-    // Run C unit tests if binary exists
-    std.debug.print("Running C unit tests...\n", .{});
-    runCUnitTests(io, allocator) catch |err| {
-        if (err == error.FileNotFound) {
-            std.debug.print("C unit tests not found - run 'make test' first\n", .{});
-        } else {
-            return err;
-        }
-    };
-
-    std.debug.print("\nAll Zig unit tests are run automatically by 'zig build test'\n", .{});
 }
