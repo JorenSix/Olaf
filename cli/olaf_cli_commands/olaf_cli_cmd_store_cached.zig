@@ -17,25 +17,10 @@ pub const CommandInfo = struct {
 
 const print = olaf_cli_util.print;
 
-fn readMetaPath(io: Io, allocator: std.mem.Allocator, meta_file_path: []const u8) !?[]u8 {
-    const content = try Io.Dir.cwd().readFileAlloc(io, meta_file_path, allocator, .limited(64 * 1024));
-    defer allocator.free(content);
-
-    var lines = std.mem.tokenizeAny(u8, content, "\r\n");
-    while (lines.next()) |line| {
-        if (std.mem.startsWith(u8, line, "path=")) {
-            const value = std.mem.trim(u8, line["path=".len..], " \t");
-            if (value.len == 0) return null;
-            return try allocator.dupe(u8, value);
-        }
-    }
-    return null;
-}
-
-/// A cached fingerprint file plus the audio identifier recorded in its .meta.
+/// A cached fingerprint file plus what its .meta records.
 const CacheEntry = struct {
     cache_path: []u8,
-    identifier: []u8,
+    meta: olaf_cli_session.CacheMeta,
 
     fn lessThan(_: void, a: CacheEntry, b: CacheEntry) bool {
         return std.mem.lessThan(u8, a.cache_path, b.cache_path);
@@ -65,7 +50,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     defer {
         for (entries.items) |e| {
             allocator.free(e.cache_path);
-            allocator.free(e.identifier);
+            allocator.free(e.meta.identifier);
         }
         entries.deinit(allocator);
     }
@@ -79,7 +64,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         const meta_file_path = try std.fmt.allocPrint(allocator, "{s}/{s}.meta", .{ cache_folder_expanded, stem });
         defer allocator.free(meta_file_path);
 
-        const identifier = readMetaPath(io, allocator, meta_file_path) catch |err| {
+        const meta = olaf_cli_session.readCacheMeta(io, allocator, meta_file_path) catch |err| {
             print("WARNING: {s} could not be read ({}): skipping\n", .{ meta_file_path, err });
             warnings += 1;
             continue;
@@ -88,10 +73,10 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             warnings += 1;
             continue;
         };
-        errdefer allocator.free(identifier);
+        errdefer allocator.free(meta.identifier);
 
         const cache_file_path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ cache_folder_expanded, entry.name });
-        try entries.append(allocator, .{ .cache_path = cache_file_path, .identifier = identifier });
+        try entries.append(allocator, .{ .cache_path = cache_file_path, .meta = meta });
     }
 
     if (entries.items.len == 0) {
@@ -104,7 +89,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     // stdout, and crashed on a database that does not exist yet).
     const identifiers = try allocator.alloc([]const u8, entries.items.len);
     defer allocator.free(identifiers);
-    for (entries.items, identifiers) |e, *id| id.* = e.identifier;
+    for (entries.items, identifiers) |e, *id| id.* = e.meta.identifier;
 
     const stored = if (config.skip_duplicates and !args.force)
         try olaf_cli_session.storedFlags(allocator, config, identifiers)
@@ -117,7 +102,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     defer to_store.deinit(allocator);
 
     for (entries.items, stored) |e, is_stored| {
-        if (!is_stored) try to_store.append(allocator, .{ .cache_path = e.cache_path, .audio_path = e.identifier });
+        if (!is_stored) try to_store.append(allocator, .{ .cache_path = e.cache_path, .meta = e.meta });
     }
 
     if (to_store.items.len > 0) {
@@ -128,7 +113,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     const total = entries.items.len;
     for (entries.items, stored, 1..) |e, is_stored, index| {
         const status = if (is_stored) "SKIPPED: already indexed audio file" else "stored from cache";
-        print("{d}/{d}, {s}, {s}\n", .{ index, total, e.identifier, status });
+        print("{d}/{d}, {s}, {s}\n", .{ index, total, e.meta.identifier, status });
     }
 
     print("Stored {d} cache file(s), skipped {d} already indexed, {d} warning(s)\n", .{ to_store.items.len, total - to_store.items.len, warnings });

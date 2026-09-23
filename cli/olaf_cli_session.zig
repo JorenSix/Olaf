@@ -237,25 +237,28 @@ pub fn store(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifie
     // commits and releases it.
     const db = c.olaf_db_new(session.config.db_folder.ptr, false);
     defer c.olaf_db_destroy(db);
-
-    // Same batch size as the core fingerprint writer.
-    const chunk: usize = 1 << 12;
-    var off: usize = 0;
-    while (off < keys.items.len) : (off += chunk) {
-        const n = @min(chunk, keys.items.len - off);
-        c.olaf_db_store(db, keys.items[off..].ptr, values.items[off..].ptr, n);
-    }
-
-    // Same meta-data as the STORE-mode stream processor writes.
-    var meta: c.Olaf_Resource_Meta_data = std.mem.zeroes(c.Olaf_Resource_Meta_data);
-    meta.duration = @floatCast(run_stats.audio_seconds);
-    meta.fingerprints = @intCast(run_stats.fingerprints);
-    const path_len = @min(identifier.len, meta.path.len - 1);
-    @memcpy(meta.path[0..path_len], identifier[0..path_len]);
-    var key: u32 = internal_id;
-    c.olaf_db_store_meta_data(db, &key, &meta);
+    writeFingerprints(db, keys.items, values.items, identifier, @floatCast(run_stats.audio_seconds), @intCast(run_stats.fingerprints));
 
     return .{ .internal_id = internal_id, .stats = run_stats };
+}
+
+/// Store fingerprints and the meta-data of one audio file: exactly what the
+/// STORE-mode stream processor writes (same batch size as the core writer).
+fn writeFingerprints(db: ?*c.Olaf_DB, keys: []u64, values: []u64, identifier: []const u8, duration: f32, fingerprints: i64) void {
+    const chunk: usize = 1 << 12;
+    var off: usize = 0;
+    while (off < keys.len) : (off += chunk) {
+        const n = @min(chunk, keys.len - off);
+        c.olaf_db_store(db, keys[off..].ptr, values[off..].ptr, n);
+    }
+
+    var meta: c.Olaf_Resource_Meta_data = std.mem.zeroes(c.Olaf_Resource_Meta_data);
+    meta.duration = duration;
+    meta.fingerprints = @intCast(fingerprints);
+    const path_len = @min(identifier.len, meta.path.len - 1);
+    @memcpy(meta.path[0..path_len], identifier[0..path_len]);
+    var key: u32 = core.nameToId(identifier);
+    c.olaf_db_store_meta_data(db, &key, &meta);
 }
 
 /// Read a fingerprint cache file written by the CACHE-mode file writer
@@ -378,30 +381,68 @@ pub fn cacheToFiles(allocator: std.mem.Allocator, raw_audio_path: []const u8, id
     _ = try session.run(.cache, raw_audio_path, identifier, .{ .cache_files = try openCacheFiles(fp_z, meta_z) });
 }
 
+/// What a `.meta` file written by `olaf cache` records: the identifier (as
+/// `path=`), the exact duration and the fingerprint count.
+pub const CacheMeta = struct {
+    identifier: []u8,
+    duration: f32,
+    fingerprints: i64,
+};
+
+/// Parse a `.meta` file; null when it has no `path=` entry. Caller owns
+/// `identifier`.
+pub fn readCacheMeta(io: Io, allocator: std.mem.Allocator, meta_path: []const u8) !?CacheMeta {
+    const content = try Io.Dir.cwd().readFileAlloc(io, meta_path, allocator, .limited(64 * 1024));
+    defer allocator.free(content);
+
+    var path: ?[]const u8 = null;
+    var duration: f32 = 0;
+    var fingerprints: i64 = 0;
+    var lines = std.mem.tokenizeAny(u8, content, "\r\n");
+    while (lines.next()) |line| {
+        const eq = std.mem.indexOfScalar(u8, line, '=') orelse continue;
+        const value = std.mem.trim(u8, line[eq + 1 ..], " \t");
+        const key = line[0..eq];
+        if (std.mem.eql(u8, key, "path")) {
+            path = value;
+        } else if (std.mem.eql(u8, key, "duration")) {
+            duration = std.fmt.parseFloat(f32, value) catch return error.MalformedCacheFile;
+        } else if (std.mem.eql(u8, key, "fingerprints")) {
+            fingerprints = std.fmt.parseInt(i64, value, 10) catch return error.MalformedCacheFile;
+        }
+    }
+    const p = path orelse return null;
+    if (p.len == 0) return null;
+    return .{ .identifier = try allocator.dupe(u8, p), .duration = duration, .fingerprints = fingerprints };
+}
+
 pub const CachedFile = struct {
     cache_path: []const u8,
-    audio_path: []const u8,
+    meta: CacheMeta,
 };
 
 /// Store cache files written by `olaf cache` (`olaf store_cached`), in one
-/// database session.
+/// database session, with the same content `olaf store` would write: the
+/// fingerprints from the `.tdb` and the exact duration and count from the
+/// `.meta`. (The core's cache writer is not used: it stores the `.tdb` header
+/// line as a fingerprint and approximates the duration.)
 pub fn storeCachedFiles(allocator: std.mem.Allocator, entries: []const CachedFile, config: *const Config) !void {
     var session = try Session.init(allocator, config);
     defer session.deinit();
+    const io = olaf_cli_util.defaultIo();
 
     const db = c.olaf_db_new(session.config.db_folder.ptr, false);
     defer c.olaf_db_destroy(db);
 
+    var keys: std.ArrayList(u64) = .empty;
+    defer keys.deinit(allocator);
+    var values: std.ArrayList(u64) = .empty;
+    defer values.deinit(allocator);
     for (entries) |entry| {
-        const c_cache_file = try allocator.dupeZ(u8, entry.cache_path);
-        defer allocator.free(c_cache_file);
-        const c_audio_path = try allocator.dupeZ(u8, entry.audio_path);
-        defer allocator.free(c_audio_path);
-
-        const cache_writer = c.olaf_fp_db_writer_cache_new(db, session.config.ptr, c_cache_file.ptr);
-        c.olaf_fp_db_writer_cache_set_audio_file_info(cache_writer, c_audio_path.ptr, core.nameToId(entry.audio_path));
-        c.olaf_fp_db_writer_cache_store(cache_writer);
-        c.olaf_fp_db_writer_cache_destroy(cache_writer);
+        keys.clearRetainingCapacity();
+        values.clearRetainingCapacity();
+        try parseCachedFingerprints(allocator, io, entry.cache_path, core.nameToId(entry.meta.identifier), &keys, &values);
+        writeFingerprints(db, keys.items, values.items, entry.meta.identifier, entry.meta.duration, entry.meta.fingerprints);
     }
 }
 

@@ -1576,6 +1576,38 @@ test "functional: config typos and wrong types are reported" {
     try testing.expect(std.mem.indexOf(u8, r.stderr, "'verbose' must be a boolean") != null);
 }
 
+test "functional: cache + store_cached stores what store stores" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var direct = try Fixture.init(allocator, io, "store_direct");
+    defer direct.deinit();
+    try direct.ok(&.{ "store", direct.ref });
+
+    var cached = try Fixture.init(allocator, io, "store_via_cache");
+    defer cached.deinit();
+    try cached.ok(&.{ "cache", cached.ref });
+    try cached.ok(&.{"store_cached"});
+
+    // Duration and fingerprint count used to differ: the core cache writer
+    // approximated the duration and stored the .tdb header as a fingerprint.
+    const stats_direct = try direct.run(&.{"stats"}, 0);
+    defer stats_direct.deinit();
+    const stats_cached = try cached.run(&.{"stats"}, 0);
+    defer stats_cached.deinit();
+    try testing.expectEqualStrings(stats_direct.stdout, stats_cached.stdout);
+
+    const q_direct = try direct.run(&.{ "query", direct.ref }, 0);
+    defer q_direct.deinit();
+    const q_cached = try cached.run(&.{ "query", cached.ref }, 0);
+    defer q_cached.deinit();
+    const top_direct = (try firstResultLine(allocator, q_direct.stdout)) orelse return error.NoResultLine;
+    const top_cached = (try firstResultLine(allocator, q_cached.stdout)) orelse return error.NoResultLine;
+    try testing.expectEqual(top_direct.match_count, top_cached.match_count);
+    try testing.expectEqualStrings(top_direct.ref_id, top_cached.ref_id);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

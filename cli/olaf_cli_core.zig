@@ -13,7 +13,6 @@ pub const c = @cImport({
 
     @cInclude("olaf_config.h");
     @cInclude("olaf_db.h");
-    @cInclude("olaf_fp_db_writer_cache.h");
     @cInclude("olaf_runner.h");
     @cInclude("olaf_stream_processor.h");
 });
