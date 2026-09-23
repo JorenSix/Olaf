@@ -24,11 +24,11 @@ pub fn nameToId(identifier: []const u8) u32 {
     return c.olaf_db_identifier_id(identifier.ptr, identifier.len);
 }
 
-/// True when the LMDB data file exists in `config.db_folder` (which always
-/// ends in '/', see olaf_cli_config). Opening a read-only env on a missing
-/// database would make the C core exit().
-pub fn dbExists(allocator: std.mem.Allocator, config: *const olaf_cli_config.Config) !bool {
-    const db_file_path = try std.fmt.allocPrint(allocator, "{s}data.mdb", .{config.db_folder});
+/// True when the LMDB data file exists in `db_folder` (which always ends in
+/// '/', see olaf_cli_config). Opening a read-only env on a missing database
+/// would make the C core exit().
+pub fn dbExists(allocator: std.mem.Allocator, db_folder: []const u8) !bool {
+    const db_file_path = try std.fmt.allocPrint(allocator, "{s}data.mdb", .{db_folder});
     defer allocator.free(db_file_path);
     Io.Dir.cwd().access(olaf_cli_util.defaultIo(), db_file_path, .{}) catch return false;
     return true;

@@ -159,9 +159,11 @@ pub const Session = struct {
         };
     }
 
-    /// Open (creating when missing) and close the database, so the read-only
-    /// env of a query never meets a missing data file (which exit()s in C).
-    fn ensureDb(self: *Session) void {
+    /// Create the database when there is none yet, so the read-only env of a
+    /// query never meets a missing data file (which exit()s in C). An
+    /// existing database is left alone: queries need only read access.
+    fn ensureDb(self: *Session) !void {
+        if (try core.dbExists(self.allocator, self.config.db_folder)) return;
         c.olaf_db_destroy(c.olaf_db_new(self.config.db_folder.ptr, false));
     }
 };
@@ -298,7 +300,7 @@ pub fn query(
 ) !void {
     var session = try Session.init(allocator, config);
     defer session.deinit();
-    session.ensureDb();
+    try session.ensureDb();
 
     switch (format) {
         .csv => {
@@ -329,7 +331,7 @@ pub fn queryStdin(allocator: std.mem.Allocator, query_path: []const u8, config: 
     var session = try Session.init(allocator, config);
     defer session.deinit();
     session.config.applyLiveStreamDefaults();
-    session.ensureDb();
+    try session.ensureDb();
 
     var sink = Sink{ .target = .{ .print = .{ .index = 0, .total = 1, .path = query_path, .offset = 0 } } };
     _ = try session.run(.query, null, "stdin", .{ .sink = &sink, .header = output.query_csv_header });
@@ -340,7 +342,7 @@ pub fn queryStdin(allocator: std.mem.Allocator, query_path: []const u8, config: 
 pub fn queryCollect(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifier: []const u8, config: *const Config, exclude_identifier: u32) ![]Match {
     var session = try Session.init(allocator, config);
     defer session.deinit();
-    session.ensureDb();
+    try session.ensureDb();
 
     var list: std.ArrayList(Match) = .empty;
     errdefer {
@@ -424,7 +426,7 @@ pub const ReadDb = struct {
     db: *c.Olaf_DB,
 
     pub fn open(allocator: std.mem.Allocator, config: *const Config) !?ReadDb {
-        if (!try core.dbExists(allocator, config)) return null;
+        if (!try core.dbExists(allocator, config.db_folder)) return null;
         var session = try Session.init(allocator, config);
         errdefer session.deinit();
         const db = c.olaf_db_new(session.config.db_folder.ptr, true) orelse return error.DatabaseOpenFailed;
