@@ -28,7 +28,7 @@ fn isOlafFile(target: Target, name: []const u8) bool {
         .db => std.mem.eql(u8, name, "data.mdb") or std.mem.eql(u8, name, "lock.mdb"),
         .cache => std.mem.endsWith(u8, name, ".tdb") or
             std.mem.endsWith(u8, name, ".meta") or
-            std.mem.endsWith(u8, name, ".tdb.tmp"),
+            std.mem.endsWith(u8, name, ".part"), // left by an interrupted cache
     };
 }
 

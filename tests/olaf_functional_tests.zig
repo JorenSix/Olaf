@@ -1711,6 +1711,36 @@ test "functional: an unwritable database is reported before any work starts" {
     }
 }
 
+test "functional: cache recovers from an interrupted run, -f re-caches" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "cache_resume");
+    defer env.deinit();
+
+    // What an interrupted run used to leave: a .tdb without its .meta. It
+    // was then skipped as "already present" forever.
+    try touchFile(io, allocator, env.cache_dir, "12345.tdb");
+    {
+        const r = try env.run(&.{ "cache", "--with-ids", env.ref, "12345" }, 0);
+        defer r.deinit();
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "SKIPPED") == null);
+    }
+    try testing.expect(try fileExists(io, allocator, env.cache_dir, "12345.meta"));
+    try testing.expectEqual(@as(usize, 0), try countFilesWithSuffix(io, env.cache_dir, ".part"));
+    {
+        const r = try env.run(&.{ "cache", "--with-ids", env.ref, "12345" }, 0);
+        defer r.deinit();
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "SKIPPED") != null);
+    }
+    {
+        const r = try env.run(&.{ "cache", "-f", "--with-ids", env.ref, "12345" }, 0);
+        defer r.deinit();
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "SKIPPED") == null);
+    }
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);
