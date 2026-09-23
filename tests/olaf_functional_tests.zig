@@ -1856,6 +1856,24 @@ test "functional: a query whose only match is itself still reports a row" {
     try testing.expect(row.empty_match);
 }
 
+test "functional: long identifiers are stored and reported" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "long_id");
+    defer env.deinit();
+
+    // A --with-ids identifier longer than the old 4 KiB record buffer: the
+    // store succeeded but its summary failed, so the run reported a failure.
+    const long_id = try allocator.alloc(u8, 5000);
+    defer allocator.free(long_id);
+    @memset(long_id, 'x');
+    const r = try env.run(&.{ "store", "--format", "csv", "--with-ids", env.ref, long_id }, 0);
+    defer r.deinit();
+    try testing.expect(std.mem.indexOf(u8, r.stderr, long_id) != null);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

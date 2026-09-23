@@ -115,6 +115,13 @@ fn cStdout() *c.FILE {
 
 extern "c" fn __acrt_iob_func(index: c_uint) *c.FILE;
 
+/// Records are built in memory and written with one call (so parallel
+/// workers never interleave inside a record). Most fit on the stack; long
+/// paths or identifiers spill to the heap instead of being dropped.
+fn recordAllocator() std.heap.StackFallbackAllocator(4096) {
+    return std.heap.stackFallback(4096, std.heap.page_allocator);
+}
+
 // ---------------------------------------------------------------------------
 // Store records (stderr)
 // ---------------------------------------------------------------------------
@@ -134,9 +141,10 @@ pub fn writeStoreSummary(format: StoreFormat, s: StoreSummary) !void {
     const fp_per_second: f64 = if (s.audio_seconds > 0.0) @as(f64, @floatFromInt(s.fingerprints)) / s.audio_seconds else 0.0;
     const realtime_factor: f64 = if (s.cpu_seconds > 0.0) s.audio_seconds / s.cpu_seconds else 0.0;
 
-    var buf: [4096]u8 = undefined;
-    var fbs = Io.Writer.fixed(&buf);
-    const w = &fbs;
+    var sfa = recordAllocator();
+    var record: Io.Writer.Allocating = .init(sfa.get());
+    defer record.deinit();
+    const w = &record.writer;
 
     switch (format) {
         .human => {
@@ -168,15 +176,16 @@ pub fn writeStoreSummary(format: StoreFormat, s: StoreSummary) !void {
     }
     // One write per record: POSIX keeps writes <= PIPE_BUF atomic, so
     // threaded workers don't interleave bytes mid-record.
-    try emitStderr(fbs.buffered());
+    try emitStderr(record.written());
 }
 
 /// "Skipped, already indexed" record. CSV rows keep the store_csv_header
 /// column count with empty numeric fields.
 pub fn writeStoreSkip(format: StoreFormat, audio_identifier: []const u8, internal_id: u32) !void {
-    var buf: [4096]u8 = undefined;
-    var fbs = Io.Writer.fixed(&buf);
-    const w = &fbs;
+    var sfa = recordAllocator();
+    var record: Io.Writer.Allocating = .init(sfa.get());
+    defer record.deinit();
+    const w = &record.writer;
     switch (format) {
         .human => try w.print("Skipped (already indexed, use -f to re-store): {s}\n", .{audio_identifier}),
         .csv => {
@@ -190,7 +199,7 @@ pub fn writeStoreSkip(format: StoreFormat, audio_identifier: []const u8, interna
             try w.print(",\"internal_id\":{d}}}\n", .{internal_id});
         },
     }
-    try emitStderr(fbs.buffered());
+    try emitStderr(record.written());
 }
 
 // ---------------------------------------------------------------------------
@@ -220,10 +229,11 @@ pub const QueryInfo = struct {
 /// One CSV result row:
 /// "1 ,2 ,query, 0.000, 12 ,1.936 ,19.304, ref, 3517681762, 70.864, 88.232"
 pub fn writeMatchRow(q: QueryInfo, m: Match) void {
-    var buf: [4096]u8 = undefined;
-    var fbs = Io.Writer.fixed(&buf);
-    formatMatchRow(&fbs, q, m) catch return; // a >4k path: the row is dropped, as before truncation
-    emitStdout(fbs.buffered());
+    var sfa = recordAllocator();
+    var record: Io.Writer.Allocating = .init(sfa.get());
+    defer record.deinit();
+    formatMatchRow(&record.writer, q, m) catch return; // only when out of memory
+    emitStdout(record.written());
 }
 
 fn formatMatchRow(w: *Io.Writer, q: QueryInfo, m: Match) !void {
