@@ -1,9 +1,5 @@
 const std = @import("std");
 
-const c = @cImport({
-    @cInclude("stdio.h");
-});
-
 const olaf_cli_config = @import("../olaf_cli_config.zig");
 const olaf_cli_util = @import("../olaf_cli_util.zig");
 const olaf_cli_util_audio = @import("../olaf_cli_util_audio.zig");
@@ -50,7 +46,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     );
 
     if (error_count > 0) {
-        return error.CachingFailed;
+        return error.ProcessingFailed;
     }
 }
 
@@ -113,18 +109,14 @@ fn cacheAudioFile(
 
     try olaf_cli_util_audio.convertToRaw(allocator, io, audio_file.path, raw_audio_path, config.target_sample_rate);
 
-    // Create temporary file for capturing olaf_print output
-    const temp_output_path = try std.fmt.allocPrint(allocator, "{s}.tmp", .{cache_file_path});
-    defer allocator.free(temp_output_path);
-    defer Io.Dir.cwd().deleteFile(io, temp_output_path) catch {};
+    // A partial .tdb would make every later run skip this file ("cache file
+    // already present"), so remove both outputs if extraction fails.
+    olaf_cli_bridge.olaf_print_to_file(allocator, raw_audio_path, audio_file.identifier, config, cache_file_path, meta_file_path) catch |err| {
+        Io.Dir.cwd().deleteFile(io, cache_file_path) catch {};
+        Io.Dir.cwd().deleteFile(io, meta_file_path) catch {};
+        return err;
+    };
 
-    const temp_file = try Io.Dir.cwd().createFile(io, temp_output_path, .{});
-    defer temp_file.close(io);
-
-    // Call olaf_print (this will write to the file)
-    try olaf_cli_bridge.olaf_print_to_file(allocator, raw_audio_path, audio_file.identifier, config, cache_file_path, meta_file_path);
-
-    // Get absolute path for audio f
     print("{d}/{d}, {s}, {s}\n", .{ index + 1, total, audio_file.path, cache_file_path });
 }
 

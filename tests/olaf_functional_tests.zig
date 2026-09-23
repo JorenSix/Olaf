@@ -979,6 +979,56 @@ test "functional: query --fragmented honours fragment_duration_in_seconds" {
     }
 }
 
+/// Count files in `dir` whose name ends with `suffix`.
+fn countFilesWithSuffix(io: Io, dir_path: []const u8, suffix: []const u8) !usize {
+    var dir = try Io.Dir.cwd().openDir(io, dir_path, .{ .iterate = true });
+    defer dir.close(io);
+    var n: usize = 0;
+    var it = dir.iterate();
+    while (try it.next(io)) |entry| {
+        if (entry.kind == .file and std.mem.endsWith(u8, entry.name, suffix)) n += 1;
+    }
+    return n;
+}
+
+/// Write a file with an audio extension but non-audio content, so ffmpeg fails.
+fn writeBadAudioFile(env: *TestEnv) ![]u8 {
+    const path = try std.fmt.allocPrint(env.allocator, "{s}/bad.mp3", .{env.home});
+    errdefer env.allocator.free(path);
+    const f = try Io.Dir.cwd().createFile(env.io, path, .{});
+    defer f.close(env.io);
+    try f.writeStreamingAll(env.io, "this is not audio");
+    return path;
+}
+
+test "functional: cache leaves no partial files when a file fails" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try setupTestEnv(io, allocator, "cache");
+    defer env.deinit();
+
+    const bad = try writeBadAudioFile(&env);
+    defer allocator.free(bad);
+
+    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "cache", bad }, 1);
+    try testing.expectEqual(@as(usize, 0), try countFilesWithSuffix(io, env.cache_dir, ".tdb"));
+    try testing.expectEqual(@as(usize, 0), try countFilesWithSuffix(io, env.cache_dir, ".meta"));
+
+    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
+    const result = try runOlaf(allocator, olaf_bin, &env, &.{ "cache", ref_buf[0..ref_n] }, error.OlafCacheFailed);
+    allocator.free(result.stdout);
+    allocator.free(result.stderr);
+    try testing.expectEqual(@as(usize, 1), try countFilesWithSuffix(io, env.cache_dir, ".tdb"));
+    try testing.expectEqual(@as(usize, 1), try countFilesWithSuffix(io, env.cache_dir, ".meta"));
+    try testing.expectEqual(@as(usize, 0), try countFilesWithSuffix(io, env.cache_dir, ".tmp"));
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

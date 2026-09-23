@@ -619,20 +619,23 @@ pub fn olaf_print_to_file(
     const c_audio_identifier = try allocator.dupeZ(u8, audio_identifier);
     defer allocator.free(c_audio_identifier);
 
-    std.debug.print("Opening FILE* for output file path: {s}\n", .{fp_cache_file});
+    debug("Opening cache files {s} and {s}", .{ fp_cache_file, fp_meta_file });
 
+    // Duplicate both paths before opening anything, so no allocation can fail
+    // while a FILE* is open.
     const c_cache_file = try allocator.dupeZ(u8, fp_cache_file);
     defer allocator.free(c_cache_file);
-
-    const c_cache_fp = olaf.fopen(c_cache_file, "w");
-    if (c_cache_fp == null) return error.FdopenFailed;
-
     const c_meta_file = try allocator.dupeZ(u8, fp_meta_file);
     defer allocator.free(c_meta_file);
 
-    const c_meta_fp = olaf.fopen(c_meta_file, "w");
-    if (c_meta_fp == null) return error.FdopenFailed;
+    const c_cache_fp = olaf.fopen(c_cache_file, "w") orelse return error.CacheFileOpenFailed;
+    const c_meta_fp = olaf.fopen(c_meta_file, "w") orelse {
+        _ = olaf.fclose(c_cache_fp);
+        return error.CacheFileOpenFailed;
+    };
 
+    // olaf_print_to_file takes ownership of both FILE*s and closes them, also
+    // when it fails.
     try check(olaf.olaf_print_to_file(c_config, c_raw_audio_path, c_audio_identifier, c_cache_fp, c_meta_fp));
 }
 
@@ -774,4 +777,15 @@ test "bridge calls report a raw audio file that cannot be opened" {
     try std.testing.expectError(error.AudioOpenFailed, olaf_query(allocator, 0, 1, "missing", 0, missing, "missing", &config, 0, .csv));
     try std.testing.expectError(error.AudioOpenFailed, olaf_query(allocator, 0, 1, "missing", 0, missing, "missing", &config, 0, .json));
     try std.testing.expectError(error.AudioOpenFailed, olaf_delete(allocator, missing, "missing", &config));
+
+    // print_to_file opens (and must close) both cache files before failing.
+    const tdb = try std.fmt.allocPrint(allocator, "{s}1.tdb", .{db_folder});
+    defer allocator.free(tdb);
+    const meta = try std.fmt.allocPrint(allocator, "{s}1.meta", .{db_folder});
+    defer allocator.free(meta);
+    try std.testing.expectError(error.AudioOpenFailed, olaf_print_to_file(allocator, missing, "missing", &config, tdb, meta));
+
+    // Unopenable cache path: fails cleanly without touching the C side.
+    try std.testing.expectError(error.CacheFileOpenFailed, olaf_print_to_file(allocator, missing, "missing", &config, "/nonexistent/dir/1.tdb", meta));
+    try std.testing.expectError(error.CacheFileOpenFailed, olaf_print_to_file(allocator, missing, "missing", &config, tdb, "/nonexistent/dir/1.meta"));
 }
