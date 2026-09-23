@@ -34,19 +34,50 @@ pub fn csvField(w: *Io.Writer, s: []const u8) !void {
     try w.writeByte('"');
 }
 
+/// A JSON string. Paths are bytes, not necessarily UTF-8 (e.g. Latin-1
+/// file names on Linux): valid UTF-8 sequences are copied, any other byte is
+/// written as \u00XX (read as Latin-1), so the output is always valid JSON.
 pub fn jsonString(w: *Io.Writer, s: []const u8) !void {
     try w.writeByte('"');
-    for (s) |ch| switch (ch) {
-        '"' => try w.writeAll("\\\""),
-        '\\' => try w.writeAll("\\\\"),
-        '\n' => try w.writeAll("\\n"),
-        '\r' => try w.writeAll("\\r"),
-        '\t' => try w.writeAll("\\t"),
-        0x08 => try w.writeAll("\\b"),
-        0x0C => try w.writeAll("\\f"),
-        else => if (ch < 0x20) try w.print("\\u{x:0>4}", .{ch}) else try w.writeByte(ch),
-    };
+    var i: usize = 0;
+    while (i < s.len) {
+        const ch = s[i];
+        if (ch >= 0x80) {
+            const n = std.unicode.utf8ByteSequenceLength(ch) catch 0;
+            if (n > 0 and i + n <= s.len and std.unicode.utf8ValidateSlice(s[i .. i + n])) {
+                try w.writeAll(s[i .. i + n]);
+                i += n;
+            } else {
+                try w.print("\\u{x:0>4}", .{ch});
+                i += 1;
+            }
+            continue;
+        }
+        switch (ch) {
+            '"' => try w.writeAll("\\\""),
+            '\\' => try w.writeAll("\\\\"),
+            '\n' => try w.writeAll("\\n"),
+            '\r' => try w.writeAll("\\r"),
+            '\t' => try w.writeAll("\\t"),
+            0x08 => try w.writeAll("\\b"),
+            0x0C => try w.writeAll("\\f"),
+            else => if (ch < 0x20) try w.print("\\u{x:0>4}", .{ch}) else try w.writeByte(ch),
+        }
+        i += 1;
+    }
     try w.writeByte('"');
+}
+
+test "jsonString always produces valid JSON" {
+    var buf: [256]u8 = undefined;
+    var w = Io.Writer.fixed(&buf);
+    // Latin-1 "é" (invalid UTF-8), UTF-8 "é", a quote and a control char.
+    try jsonString(&w, "caf\xe9 / caf\xc3\xa9 \"q\" \x01");
+    const out = w.buffered();
+    try std.testing.expectEqualStrings("\"caf\\u00e9 / caf\xc3\xa9 \\\"q\\\" \\u0001\"", out);
+    const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, out, .{});
+    defer parsed.deinit();
+    try std.testing.expectEqualStrings("caf\xc3\xa9 / caf\xc3\xa9 \"q\" \x01", parsed.value.string);
 }
 
 /// Format a float with libc printf semantics ("%.3f"). Query output has
