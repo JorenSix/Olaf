@@ -101,6 +101,7 @@ pub fn main(init: std.process.Init) !u8 {
         error.ProcessingFailed => return 1,
         // The offending setting was already logged by the config loader.
         error.InvalidConfigValue => return 1,
+        error.NoHomeDirectory => return 1,
         else => return err,
     };
     return 0;
@@ -112,7 +113,9 @@ fn run(init: std.process.Init) !void {
 
     // Resolve $HOME once (the process environment is no longer globally
     // accessible in 0.16); threaded into config/path expansion.
-    const home: ?[]const u8 = init.minimal.environ.getAlloc(allocator, "HOME") catch null;
+    // HOME on POSIX, USERPROFILE on Windows (where HOME is usually unset).
+    const home: ?[]const u8 = init.minimal.environ.getAlloc(allocator, "HOME") catch
+        init.minimal.environ.getAlloc(allocator, "USERPROFILE") catch null;
     defer if (home) |h| allocator.free(h);
 
     // Temp raw audio (about 3.8 MB per minute of audio, per worker) goes

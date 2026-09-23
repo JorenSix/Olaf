@@ -1641,6 +1641,24 @@ test "functional: --fragmented reports an unreadable duration clearly" {
     try testing.expect(std.mem.indexOf(u8, r.stderr, "DurationUnavailable") != null);
 }
 
+test "functional: no home directory is an error, not a ./~ folder" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    var env = try Fixture.init(allocator, io, "no_home");
+    defer env.deinit();
+    _ = env.env_map.swapRemove("HOME");
+    _ = env.env_map.swapRemove("USERPROFILE");
+
+    // Run from the fixture's home so a stray "~" folder would land there.
+    const script = try std.fmt.allocPrint(allocator, "cd '{s}' && '{s}' stats", .{ env.home, env.bin });
+    defer allocator.free(script);
+    const r = try env.shell(script, 1);
+    defer r.deinit();
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "neither HOME nor USERPROFILE is set") != null);
+    try testing.expect(!try fileExists(io, allocator, env.home, "~"));
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

@@ -55,13 +55,28 @@ pub fn getFileModificationDate(io: Io, path: []const u8) !struct { year: i64, mo
 /// unchanged. In 0.16 the process environment is not globally accessible, so
 /// the resolved HOME is captured once in `main` and threaded in here.
 pub fn expandPath(allocator: std.mem.Allocator, home: ?[]const u8, path: []const u8) ![]u8 {
-    if (std.mem.startsWith(u8, path, "~/")) {
-        if (home) |h| {
-            return std.fmt.allocPrint(allocator, "{s}{s}", .{ h, path[1..] });
-        }
-        return allocator.dupe(u8, path);
-    }
-    return allocator.dupe(u8, path);
+    const tilde = std.mem.eql(u8, path, "~") or std.mem.startsWith(u8, path, "~/") or std.mem.startsWith(u8, path, "~\\");
+    if (!tilde) return allocator.dupe(u8, path);
+    // Without a home directory "~" would stay literal and create a "./~"
+    // folder next to wherever olaf happens to run.
+    const h = home orelse {
+        l_err("cannot expand '{s}': neither HOME nor USERPROFILE is set", .{path});
+        return error.NoHomeDirectory;
+    };
+    return std.fmt.allocPrint(allocator, "{s}{s}", .{ h, path[1..] });
+}
+
+test "expandPath" {
+    const a = std.testing.allocator;
+    const p = try expandPath(a, "/home/me", "~/.olaf/db/");
+    defer a.free(p);
+    try std.testing.expectEqualStrings("/home/me/.olaf/db/", p);
+    const bare = try expandPath(a, "/home/me", "~");
+    defer a.free(bare);
+    try std.testing.expectEqualStrings("/home/me", bare);
+    const plain = try expandPath(a, null, "/data/db/");
+    defer a.free(plain);
+    try std.testing.expectEqualStrings("/data/db/", plain);
 }
 
 /// Returns `path` with a trailing '/' appended when it has none. Takes
