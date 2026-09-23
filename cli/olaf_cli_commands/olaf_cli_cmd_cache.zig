@@ -2,7 +2,6 @@ const std = @import("std");
 
 const olaf_cli_config = @import("../olaf_cli_config.zig");
 const olaf_cli_util = @import("../olaf_cli_util.zig");
-const olaf_cli_util_audio = @import("../olaf_cli_util_audio.zig");
 const olaf_cli_core = @import("../olaf_cli_core.zig");
 const olaf_cli_session = @import("../olaf_cli_session.zig");
 const olaf_cli_threading = @import("../olaf_cli_threading.zig");
@@ -44,6 +43,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         args.threads,
         .{ .io = args.io, .config = args.config.? },
         cacheWorker,
+        olaf_cli_threading.audioFileLabel,
     );
 
     if (error_count > 0) {
@@ -89,16 +89,12 @@ fn cacheAudioFile(
     const meta_file_path = try std.fmt.allocPrint(allocator, "{s}/{d}.meta", .{ cache_folder_expanded, audio_id });
     defer allocator.free(meta_file_path);
 
-    // Convert to raw audio
-    const raw_audio_path = try olaf_cli_threading.createTempRawPath(io, allocator);
-    defer allocator.free(raw_audio_path);
-    defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch |err| debug("Could not delete temp file {s}: {}", .{ raw_audio_path, err });
-
-    try olaf_cli_util_audio.convertToRaw(allocator, io, audio_file.path, raw_audio_path, config.target_sample_rate);
+    const raw = try olaf_cli_threading.TempRaw.create(io, allocator, audio_file.path, config, null);
+    defer raw.deinit();
 
     // A partial .tdb would make every later run skip this file ("cache file
     // already present"), so remove both outputs if extraction fails.
-    olaf_cli_session.cacheToFiles(allocator, raw_audio_path, audio_file.identifier, config, cache_file_path, meta_file_path) catch |err| {
+    olaf_cli_session.cacheToFiles(allocator, raw.path, audio_file.identifier, config, cache_file_path, meta_file_path) catch |err| {
         Io.Dir.cwd().deleteFile(io, cache_file_path) catch {};
         Io.Dir.cwd().deleteFile(io, meta_file_path) catch {};
         return err;

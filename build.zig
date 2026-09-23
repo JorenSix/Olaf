@@ -83,6 +83,7 @@ pub fn build(b: *std.Build) void {
             // equivalence) live in the cli module because tests/ files cannot
             // import across the module root.
             "cli/olaf_cli_session.zig",
+            "cli/olaf_cli_threading.zig",
         };
 
         for (test_files) |test_file| {

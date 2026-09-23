@@ -1,3 +1,7 @@
+//! Running work over many audio files: one bounded-parallel executor
+//! (`forEachParallel`), the per-file audio jobs built on it (store / query /
+//! delete, plain or fragmented), the to_raw/to_wav transcode jobs, and the
+//! shared temp-raw-audio and fragment helpers.
 const std = @import("std");
 const Io = std.Io;
 
@@ -8,169 +12,94 @@ const olaf_cli_core = @import("olaf_cli_core.zig");
 const olaf_cli_output = @import("olaf_cli_output.zig");
 const olaf_cli_session = @import("olaf_cli_session.zig");
 
+const Config = olaf_cli_config.Config;
+const AudioFileWithId = olaf_cli_util.AudioFileWithId;
+
 const debug = std.log.scoped(.olaf_cli_threading).debug;
 
-// Process-local monotonic counter so that two workers spawned in the same
-// millisecond cannot land on the same temp path. The thread id in the
-// filename is for human-readable debugging; uniqueness comes from the
-// counter. We use std.Thread.getCurrentId rather than a pid because it is
-// portable across POSIX and Windows targets (std.c.pid_t is undefined on
-// non-POSIX targets).
+// ---------------------------------------------------------------------------
+// Temp raw audio and fragments
+// ---------------------------------------------------------------------------
+
+// Process-local counter so two workers never land on the same temp path; the
+// thread id in the name is only for debugging.
 var temp_path_counter: std.atomic.Value(u64) = std.atomic.Value(u64).init(0);
 
-// Shared action enum type
-pub const ProcessAction = enum { Query, Store, Delete };
-
-// Helper function to create a temporary raw audio file path.
-// Uses thread id + an atomic counter so concurrent callers never collide.
-pub fn createTempRawPath(io: Io, allocator: std.mem.Allocator) ![]u8 {
-    // The process environment is no longer globally accessible in 0.16, so we
-    // no longer honor $TMPDIR here; the system temp dir is used unconditionally.
-    const olaf_cache_dir = try std.fmt.allocPrint(allocator, "{s}olaf_raw_audio_cache", .{"/tmp/"});
-    defer allocator.free(olaf_cache_dir);
-
-    Io.Dir.cwd().createDirPath(io, olaf_cache_dir) catch |e| {
+fn createTempRawPath(io: Io, allocator: std.mem.Allocator) ![]u8 {
+    // The process environment is not globally accessible in 0.16, so $TMPDIR
+    // is not honoured; the system temp dir is used unconditionally.
+    const dir = "/tmp/olaf_raw_audio_cache";
+    Io.Dir.cwd().createDirPath(io, dir) catch |e| {
         if (e != error.PathAlreadyExists) return e;
     };
-
     const seq = temp_path_counter.fetchAdd(1, .monotonic);
-    return try std.fmt.allocPrint(allocator, "{s}/olaf_audio_{d}_{d}.raw", .{ olaf_cache_dir, std.Thread.getCurrentId(), seq });
+    return std.fmt.allocPrint(allocator, "{s}/olaf_audio_{d}_{d}.raw", .{ dir, std.Thread.getCurrentId(), seq });
 }
 
-// Helper function to process an audio file and convert it to raw format
-pub fn processAudioFile(
+/// Raw f32le mono audio decoded (by ffmpeg) into a unique temp file, deleted
+/// again by `deinit`. `start`/`duration` select a fragment (seconds).
+pub const TempRaw = struct {
+    path: []u8,
     io: Io,
     allocator: std.mem.Allocator,
-    audio_file_with_id: olaf_cli_util.AudioFileWithId,
-    config: *const olaf_cli_config.Config,
-    index: usize,
-    total: usize,
-    action: ProcessAction,
-    exclude_identifier: u32,
-    output_format: olaf_cli_output.OutputFormat,
-    store_format: olaf_cli_output.StoreFormat,
-) !void {
-    debug("Processing audio file {d}/{d}: {s}", .{ index + 1, total, audio_file_with_id.path });
 
-    const raw_audio_path = try createTempRawPath(io, allocator);
-    defer allocator.free(raw_audio_path);
-    defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch |err| debug("Could not delete temp file {s}: {}", .{ raw_audio_path, err });
-
-    try olaf_cli_util_audio.convertToRaw(allocator, io, audio_file_with_id.path, raw_audio_path, config.target_sample_rate);
-
-    switch (action) {
-        .Query => try olaf_cli_session.query(allocator, .{ .index = index, .total = total, .path = audio_file_with_id.path, .offset = 0 }, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier, output_format),
-        .Store => {
-            const r = try olaf_cli_session.store(allocator, raw_audio_path, audio_file_with_id.identifier, config);
-            try olaf_cli_output.writeStoreSummary(store_format, .{
-                .index = index,
-                .total = total,
-                .audio_identifier = audio_file_with_id.identifier,
-                .internal_id = r.internal_id,
-                .fingerprints = r.stats.fingerprints,
-                .audio_seconds = r.stats.audio_seconds,
-                .cpu_seconds = r.stats.cpu_seconds,
-            });
-        },
-        .Delete => try olaf_cli_session.delete(allocator, raw_audio_path, audio_file_with_id.identifier, config),
+    pub fn create(io: Io, allocator: std.mem.Allocator, input: []const u8, config: *const Config, fragment: ?Fragment) !TempRaw {
+        const path = try createTempRawPath(io, allocator);
+        errdefer allocator.free(path);
+        errdefer Io.Dir.cwd().deleteFile(io, path) catch {};
+        try olaf_cli_util_audio.convertAudioWithOptions(allocator, io, input, path, .{
+            .sample_rate = config.target_sample_rate,
+            .start = if (fragment) |f| f.start else null,
+            .duration = if (fragment) |f| f.length else null,
+        });
+        return .{ .path = path, .io = io, .allocator = allocator };
     }
+
+    pub fn deinit(self: TempRaw) void {
+        Io.Dir.cwd().deleteFile(self.io, self.path) catch |err| debug("Could not delete temp file {s}: {}", .{ self.path, err });
+        self.allocator.free(self.path);
+    }
+};
+
+pub const Fragment = struct { start: f32, length: f32 };
+
+/// Consecutive fragments of `step` seconds covering `total` seconds; the last
+/// one is shorter when `total` is not a multiple of `step`.
+pub const FragmentIterator = struct {
+    total: f32,
+    step: f32,
+    next_start: f32 = 0,
+
+    pub fn next(self: *FragmentIterator) ?Fragment {
+        if (self.next_start >= self.total) return null;
+        const f = Fragment{ .start = self.next_start, .length = @min(self.step, self.total - self.next_start) };
+        self.next_start += f.length;
+        return f;
+    }
+};
+
+/// Fragments of `step_seconds` over `total` seconds. A step of 0 would never
+/// advance: that is a config error.
+pub fn fragments(total: f32, step_seconds: u32) !FragmentIterator {
+    if (step_seconds == 0) {
+        std.log.err("config: 'fragment_duration_in_seconds' must be > 0", .{});
+        return error.InvalidConfigValue;
+    }
+    return .{ .total = total, .step = @floatFromInt(step_seconds) };
 }
 
-/// Execute audio processing in parallel using structured concurrency.
-/// When `allow_identity_match` is false and the action is `.Query`, the
-/// C-side print callback suppresses any result whose match_identifier
-/// equals the query's own audio identifier hash (used by dedup).
-pub fn executeParallel(
-    io: Io,
-    allocator: std.mem.Allocator,
-    audio_files: []const olaf_cli_util.AudioFileWithId,
-    config: *const olaf_cli_config.Config,
-    action: ProcessAction,
-    num_threads: u32,
-    allow_identity_match: bool,
-    output_format: olaf_cli_output.OutputFormat,
-    store_format: olaf_cli_output.StoreFormat,
-) !void {
-    const filter_identity = (action == .Query) and !allow_identity_match;
-    const actual_threads = @min(num_threads, audio_files.len);
-
-    if (actual_threads <= 1) {
-        // Single-threaded execution. Same policy as the parallel path: a
-        // failing file is logged and counted, the rest are still processed.
-        debug("Processing {d} audio files (single-threaded, filter_identity={})", .{ audio_files.len, filter_identity });
-        var failures: usize = 0;
-        for (audio_files, 0..) |audio_file, i| {
-            const exclude = if (filter_identity)
-                olaf_cli_core.nameToId(audio_file.identifier)
-            else
-                @as(u32, 0);
-            processAudioFile(io, allocator, audio_file, config, i, audio_files.len, action, exclude, output_format, store_format) catch |err| {
-                failures += 1;
-                std.log.err("Failed to process {s}: {}", .{ audio_file.path, err });
-            };
-        }
-        if (failures > 0) return error.ProcessingFailed;
-        return;
-    }
-
-    // Multi-threaded execution bounded to `actual_threads` concurrent workers.
-    debug("Processing {d} audio files with {d} threads", .{ audio_files.len, actual_threads });
-
-    var sem: Io.Semaphore = .{ .permits = actual_threads };
-    var error_mutex: Io.Mutex = .init;
-    var error_count: usize = 0;
-
-    const Runner = struct {
-        fn run(
-            r_io: Io,
-            alloc: std.mem.Allocator,
-            audio_file: olaf_cli_util.AudioFileWithId,
-            cfg: *const olaf_cli_config.Config,
-            index: usize,
-            total: usize,
-            act: ProcessAction,
-            exclude: u32,
-            out_fmt: olaf_cli_output.OutputFormat,
-            store_fmt: olaf_cli_output.StoreFormat,
-            s: *Io.Semaphore,
-            m: *Io.Mutex,
-            count: *usize,
-        ) void {
-            s.waitUncancelable(r_io);
-            defer s.post(r_io);
-            processAudioFile(r_io, alloc, audio_file, cfg, index, total, act, exclude, out_fmt, store_fmt) catch |err| {
-                m.lockUncancelable(r_io);
-                defer m.unlock(r_io);
-                count.* += 1;
-                std.log.err("Failed to process {s}: {}", .{ audio_file.path, err });
-            };
-        }
-    };
-
-    var group: Io.Group = .init;
-    for (audio_files, 0..) |audio_file, i| {
-        const exclude = if (filter_identity)
-            olaf_cli_core.nameToId(audio_file.identifier)
-        else
-            @as(u32, 0);
-        group.async(io, Runner.run, .{ io, allocator, audio_file, config, i, audio_files.len, action, exclude, output_format, store_format, &sem, &error_mutex, &error_count });
-    }
-    group.await(io) catch |err| std.log.err("Waiting for worker group failed: {}", .{err});
-
-    if (error_count > 0) {
-        return error.ProcessingFailed;
-    }
-}
+// ---------------------------------------------------------------------------
+// The executor
+// ---------------------------------------------------------------------------
 
 /// Run `worker(ctx, item, index, total, allocator)` over every item, serially
 /// when `num_threads <= 1`, otherwise concurrently (bounded to `num_threads`).
-/// Either way worker errors are caught, logged, and counted, every item is
-/// attempted, and the count is returned (0 = all succeeded). Callers map a
-/// non-zero count to their own error and optional summary line.
+/// Either way every item is attempted, and a failure is logged as
+/// "Failed to process <label(item)>: <error>" and counted. Returns the number
+/// of failures (0 = all succeeded).
 ///
-/// The worker owns its own output synchronization. Serial execution is
-/// single-threaded so no locking is needed; the same worker body is safe there
-/// because an uncontended mutex lock is a no-op.
+/// The worker owns its own output synchronization (an uncontended mutex lock
+/// is a no-op when serial).
 pub fn forEachParallel(
     comptime Item: type,
     comptime Ctx: type,
@@ -180,6 +109,7 @@ pub fn forEachParallel(
     num_threads: u32,
     ctx: Ctx,
     comptime worker: fn (Ctx, Item, usize, usize, std.mem.Allocator) anyerror!void,
+    comptime label: fn (Item) []const u8,
 ) !usize {
     const actual_threads = @min(num_threads, items.len);
 
@@ -188,7 +118,7 @@ pub fn forEachParallel(
         for (items, 0..) |item, i| {
             worker(ctx, item, i, items.len, allocator) catch |err| {
                 failures += 1;
-                std.log.err("Worker failed on item {d}/{d}: {}", .{ i + 1, items.len, err });
+                std.log.err("Failed to process {s}: {}", .{ label(item), err });
             };
         }
         return failures;
@@ -199,24 +129,14 @@ pub fn forEachParallel(
     var error_count: usize = 0;
 
     const Runner = struct {
-        fn run(
-            r_io: Io,
-            c: Ctx,
-            item: Item,
-            index: usize,
-            total: usize,
-            alloc: std.mem.Allocator,
-            s: *Io.Semaphore,
-            m: *Io.Mutex,
-            count: *usize,
-        ) void {
+        fn run(r_io: Io, c: Ctx, item: Item, index: usize, total: usize, alloc: std.mem.Allocator, s: *Io.Semaphore, m: *Io.Mutex, count: *usize) void {
             s.waitUncancelable(r_io);
             defer s.post(r_io);
             worker(c, item, index, total, alloc) catch |err| {
                 m.lockUncancelable(r_io);
                 defer m.unlock(r_io);
                 count.* += 1;
-                std.log.err("Worker failed on item {d}/{d}: {}", .{ index + 1, total, err });
+                std.log.err("Failed to process {s}: {}", .{ label(item), err });
             };
         }
     };
@@ -229,6 +149,121 @@ pub fn forEachParallel(
     return error_count;
 }
 
+pub fn audioFileLabel(f: AudioFileWithId) []const u8 {
+    return f.path;
+}
+
+// ---------------------------------------------------------------------------
+// Audio jobs: store / query / delete one file (a query optionally fragmented)
+// ---------------------------------------------------------------------------
+
+pub const ProcessAction = enum { Query, Store, Delete };
+
+const AudioJob = struct {
+    io: Io,
+    config: *const Config,
+    action: ProcessAction,
+    output_format: olaf_cli_output.OutputFormat,
+    store_format: olaf_cli_output.StoreFormat,
+    /// Drop matches against the query's own identifier (dedup).
+    filter_identity: bool,
+    /// Query in fragments of this many seconds instead of the whole file.
+    fragment_seconds: ?u32 = null,
+};
+
+fn audioWorker(job: AudioJob, file: AudioFileWithId, index: usize, total: usize, allocator: std.mem.Allocator) !void {
+    debug("Processing audio file {d}/{d}: {s}", .{ index + 1, total, file.path });
+    const exclude: u32 = if (job.filter_identity) olaf_cli_core.nameToId(file.identifier) else 0;
+
+    if (job.fragment_seconds) |step| {
+        var it = try fragments(try olaf_cli_util_audio.getAudioDuration(allocator, job.io, file.path), step);
+        while (it.next()) |fragment| {
+            const raw = try TempRaw.create(job.io, allocator, file.path, job.config, fragment);
+            defer raw.deinit();
+            try olaf_cli_session.query(allocator, .{ .index = index, .total = total, .path = file.path, .offset = fragment.start }, raw.path, file.identifier, job.config, exclude, job.output_format);
+        }
+        return;
+    }
+
+    const raw = try TempRaw.create(job.io, allocator, file.path, job.config, null);
+    defer raw.deinit();
+    switch (job.action) {
+        .Query => try olaf_cli_session.query(allocator, .{ .index = index, .total = total, .path = file.path, .offset = 0 }, raw.path, file.identifier, job.config, exclude, job.output_format),
+        .Store => {
+            const r = try olaf_cli_session.store(allocator, raw.path, file.identifier, job.config);
+            try olaf_cli_output.writeStoreSummary(job.store_format, .{
+                .index = index,
+                .total = total,
+                .audio_identifier = file.identifier,
+                .internal_id = r.internal_id,
+                .fingerprints = r.stats.fingerprints,
+                .audio_seconds = r.stats.audio_seconds,
+                .cpu_seconds = r.stats.cpu_seconds,
+            });
+        },
+        .Delete => try olaf_cli_session.delete(allocator, raw.path, file.identifier, job.config),
+    }
+}
+
+fn runAudioJob(io: Io, allocator: std.mem.Allocator, files: []const AudioFileWithId, num_threads: u32, job: AudioJob) !void {
+    const failures = try forEachParallel(AudioFileWithId, AudioJob, io, allocator, files, num_threads, job, audioWorker, audioFileLabel);
+    if (failures > 0) return error.ProcessingFailed;
+}
+
+/// Store, query or delete every file. When `allow_identity_match` is false
+/// and the action is `.Query`, matches against a file's own identifier are
+/// dropped (used by dedup).
+pub fn executeParallel(
+    io: Io,
+    allocator: std.mem.Allocator,
+    audio_files: []const AudioFileWithId,
+    config: *const Config,
+    action: ProcessAction,
+    num_threads: u32,
+    allow_identity_match: bool,
+    output_format: olaf_cli_output.OutputFormat,
+    store_format: olaf_cli_output.StoreFormat,
+) !void {
+    try runAudioJob(io, allocator, audio_files, num_threads, .{
+        .io = io,
+        .config = config,
+        .action = action,
+        .output_format = output_format,
+        .store_format = store_format,
+        .filter_identity = action == .Query and !allow_identity_match,
+    });
+}
+
+/// Query every file in consecutive fragments of `fragment_duration` seconds;
+/// each result reports its fragment start as query_offset. Files run in
+/// parallel, the fragments of one file in order.
+pub fn executeFragmentedQuery(
+    io: Io,
+    allocator: std.mem.Allocator,
+    audio_files: []const AudioFileWithId,
+    config: *const Config,
+    num_threads: u32,
+    fragment_duration: u32,
+    allow_identity_match: bool,
+    output_format: olaf_cli_output.OutputFormat,
+) !void {
+    // Validate once up front rather than failing every file.
+    _ = try fragments(0, fragment_duration);
+    try runAudioJob(io, allocator, audio_files, num_threads, .{
+        .io = io,
+        .config = config,
+        .action = .Query,
+        .output_format = output_format,
+        .store_format = .human,
+        .filter_identity = !allow_identity_match,
+        .fragment_seconds = fragment_duration,
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Transcode jobs (to_raw / to_wav)
+// ---------------------------------------------------------------------------
+
 /// One `to_raw` / `to_wav` conversion. `input_abs` is only used to detect an
 /// output that would overwrite its own input; `col1`/`col2` form the progress
 /// line `index/total,col1,col2`.
@@ -238,6 +273,10 @@ pub const TranscodeJob = struct {
     output: []const u8,
     col1: []const u8,
     col2: []const u8,
+
+    fn label(job: TranscodeJob) []const u8 {
+        return job.input;
+    }
 };
 
 pub const ConvertFn = *const fn (std.mem.Allocator, Io, []const u8, []const u8, u32) anyerror!void;
@@ -286,7 +325,7 @@ pub fn runTranscodeJobs(
 
     var output_mutex: Io.Mutex = .init;
     const ctx = TranscodeCtx{ .io = io, .convert = convert, .sample_rate = sample_rate, .output_mutex = &output_mutex };
-    failures += try forEachParallel(TranscodeJob, TranscodeCtx, io, allocator, runnable.items, num_threads, ctx, transcodeWorker);
+    failures += try forEachParallel(TranscodeJob, TranscodeCtx, io, allocator, runnable.items, num_threads, ctx, transcodeWorker, TranscodeJob.label);
     return failures;
 }
 
@@ -312,114 +351,10 @@ fn transcodeWorker(ctx: TranscodeCtx, job: TranscodeJob, index: usize, total: us
     olaf_cli_util.print("{d}/{d},{s},{s}\n", .{ index + 1, total, job.col1, job.col2 });
 }
 
-/// Query one fragment `[fragment_start, fragment_start + fragment_duration)`
-/// of an audio file. The fragment start is reported as query_offset; match
-/// times in the output are relative to it.
-fn queryAudioFragment(
-    io: Io,
-    allocator: std.mem.Allocator,
-    audio_file_with_id: olaf_cli_util.AudioFileWithId,
-    config: *const olaf_cli_config.Config,
-    index: usize,
-    total: usize,
-    fragment_start: f32,
-    fragment_duration: f32,
-    exclude_identifier: u32,
-    output_format: olaf_cli_output.OutputFormat,
-) !void {
-    debug("Querying fragment at {d}s for {d}s from {s}", .{ fragment_start, fragment_duration, audio_file_with_id.path });
-
-    const raw_audio_path = try createTempRawPath(io, allocator);
-    defer allocator.free(raw_audio_path);
-    defer Io.Dir.cwd().deleteFile(io, raw_audio_path) catch |err| debug("Could not delete temp file {s}: {}", .{ raw_audio_path, err });
-
-    const options = olaf_cli_util_audio.AudioOptions{
-        .sample_rate = config.target_sample_rate,
-        .output_channels = 1,
-        .output_format = "f32le",
-        .output_codec = "pcm_f32le",
-        .start = fragment_start,
-        .duration = fragment_duration,
-    };
-    try olaf_cli_util_audio.convertAudioWithOptions(allocator, io, audio_file_with_id.path, raw_audio_path, options);
-
-    try olaf_cli_session.query(allocator, .{ .index = index, .total = total, .path = audio_file_with_id.path, .offset = fragment_start }, raw_audio_path, audio_file_with_id.identifier, config, exclude_identifier, output_format);
-}
-
-/// Query each audio file in consecutive fragments of `fragment_duration`
-/// seconds. Currently single-threaded: `num_threads` is accepted for API
-/// symmetry but fragments are processed serially (parallelizing is a
-/// deliberate follow-up).
-pub fn executeFragmentedQuery(
-    io: Io,
-    allocator: std.mem.Allocator,
-    audio_files: []const olaf_cli_util.AudioFileWithId,
-    config: *const olaf_cli_config.Config,
-    num_threads: u32,
-    fragment_duration: u32,
-    allow_identity_match: bool,
-    output_format: olaf_cli_output.OutputFormat,
-) !void {
-    // A 0s fragment would never advance fragment_start: loop forever.
-    if (fragment_duration == 0) {
-        std.log.err("config: 'fragment_duration_in_seconds' must be > 0", .{});
-        return error.InvalidConfigValue;
-    }
-
-    const filter_identity = !allow_identity_match;
-    debug("Querying {d} audio files in fragments of {d}s with {d} threads (filter_identity={})", .{
-        audio_files.len, fragment_duration, num_threads, filter_identity,
-    });
-
-    var failures: usize = 0;
-    for (audio_files, 0..) |audio_file, file_index| {
-        queryFragmentsOfFile(io, allocator, audio_file, config, file_index, audio_files.len, fragment_duration, filter_identity, output_format) catch |err| {
-            failures += 1;
-            std.log.err("Failed to process {s}: {}", .{ audio_file.path, err });
-        };
-    }
-    if (failures > 0) return error.ProcessingFailed;
-}
-
-fn queryFragmentsOfFile(
-    io: Io,
-    allocator: std.mem.Allocator,
-    audio_file: olaf_cli_util.AudioFileWithId,
-    config: *const olaf_cli_config.Config,
-    file_index: usize,
-    total_files: usize,
-    fragment_duration: u32,
-    filter_identity: bool,
-    output_format: olaf_cli_output.OutputFormat,
-) !void {
-    // Get the total duration of the audio file
-    const total_duration = try olaf_cli_util_audio.getAudioDuration(allocator, io, audio_file.path);
-
-    // Reference fingerprints are stored under the file identifier, so the
-    // self-id is the hash of audio_file.identifier.
-    const exclude = if (filter_identity)
-        olaf_cli_core.nameToId(audio_file.identifier)
-    else
-        @as(u32, 0);
-
-    var fragment_start: f32 = 0.0;
-    while (fragment_start < total_duration) {
-        const remaining = total_duration - fragment_start;
-        const current_duration = @min(@as(f32, @floatFromInt(fragment_duration)), remaining);
-
-        try queryAudioFragment(
-            io,
-            allocator,
-            audio_file,
-            config,
-            file_index,
-            total_files,
-            fragment_start,
-            current_duration,
-            exclude,
-            output_format,
-        );
-
-        fragment_start += current_duration;
-    }
+test "fragments cover the duration, the last one shorter" {
+    var it = try fragments(65, 30);
+    try std.testing.expectEqual(Fragment{ .start = 0, .length = 30 }, it.next().?);
+    try std.testing.expectEqual(Fragment{ .start = 30, .length = 30 }, it.next().?);
+    try std.testing.expectEqual(Fragment{ .start = 60, .length = 5 }, it.next().?);
+    try std.testing.expectEqual(@as(?Fragment, null), it.next());
 }

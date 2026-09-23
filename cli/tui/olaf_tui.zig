@@ -129,13 +129,13 @@ const Model = struct {
     }
 
     fn runStore(self: *Model, path: []const u8) void {
-        const raw = self.toRaw(path) catch |e| {
+        const raw = olaf_cli_threading.TempRaw.create(self.io, self.allocator, path, self.config, null) catch |e| {
             self.appendLog("  transcode failed: {s}", .{@errorName(e)});
             return;
         };
-        defer self.cleanupRaw(raw);
+        defer raw.deinit();
 
-        const result = olaf_cli_session.store(self.allocator, raw, path, self.config) catch |e| {
+        const result = olaf_cli_session.store(self.allocator, raw.path, path, self.config) catch |e| {
             self.appendLog("  store failed: {s}", .{@errorName(e)});
             return;
         };
@@ -146,13 +146,13 @@ const Model = struct {
     }
 
     fn runQuery(self: *Model, path: []const u8) void {
-        const raw = self.toRaw(path) catch |e| {
+        const raw = olaf_cli_threading.TempRaw.create(self.io, self.allocator, path, self.config, null) catch |e| {
             self.appendLog("  transcode failed: {s}", .{@errorName(e)});
             return;
         };
-        defer self.cleanupRaw(raw);
+        defer raw.deinit();
 
-        const matches = olaf_cli_session.queryCollect(self.allocator, raw, path, self.config, 0) catch |e| {
+        const matches = olaf_cli_session.queryCollect(self.allocator, raw.path, path, self.config, 0) catch |e| {
             self.appendLog("  query failed: {s}", .{@errorName(e)});
             return;
         };
@@ -170,40 +170,27 @@ const Model = struct {
             self.appendLog("  duration probe failed: {s}", .{@errorName(e)});
             return;
         };
-        if (self.config.fragment_duration_in_seconds == 0) {
+        var it = olaf_cli_threading.fragments(total, self.config.fragment_duration_in_seconds) catch {
             self.appendLog("  config: fragment_duration_in_seconds must be > 0", .{});
             return;
-        }
-        const frag_len: f32 = @floatFromInt(self.config.fragment_duration_in_seconds);
-        var frag_start: f32 = 0;
-        while (frag_start < total) : (frag_start += frag_len) {
-            const this_len = @min(frag_len, total - frag_start);
-            const frag_end = frag_start + this_len;
+        };
+        while (it.next()) |fragment| {
+            const window = FragWindow{ .start = fragment.start, .end = fragment.start + fragment.length };
 
-            const raw = olaf_cli_threading.createTempRawPath(self.io, self.allocator) catch |e| {
-                self.appendLog("  frag {d:.0}-{d:.0}s: temp failed: {s}", .{ frag_start, frag_end, @errorName(e) });
+            const raw = olaf_cli_threading.TempRaw.create(self.io, self.allocator, path, self.config, fragment) catch |e| {
+                self.appendLog("  frag {d:.0}-{d:.0}s: transcode failed: {s}", .{ window.start, window.end, @errorName(e) });
                 continue;
             };
-            defer self.cleanupRaw(raw);
+            defer raw.deinit();
 
-            olaf_cli_util_audio.convertAudioWithOptions(self.allocator, self.io, path, raw, .{
-                .sample_rate = self.config.target_sample_rate,
-                .start = frag_start,
-                .duration = this_len,
-            }) catch |e| {
-                self.appendLog("  frag {d:.0}-{d:.0}s: transcode failed: {s}", .{ frag_start, frag_end, @errorName(e) });
-                continue;
-            };
-
-            const matches = olaf_cli_session.queryCollect(self.allocator, raw, path, self.config, 0) catch |e| {
-                self.appendLog("  frag {d:.0}-{d:.0}s: query failed: {s}", .{ frag_start, frag_end, @errorName(e) });
+            const matches = olaf_cli_session.queryCollect(self.allocator, raw.path, path, self.config, 0) catch |e| {
+                self.appendLog("  frag {d:.0}-{d:.0}s: query failed: {s}", .{ window.start, window.end, @errorName(e) });
                 continue;
             };
             defer olaf_cli_session.freeMatches(self.allocator, matches);
 
-            const window = FragWindow{ .start = frag_start, .end = frag_end };
             if (matches.len == 0) {
-                self.appendLog("  frag {d:.0}-{d:.0}s: no match", .{ frag_start, frag_end });
+                self.appendLog("  frag {d:.0}-{d:.0}s: no match", .{ window.start, window.end });
             } else {
                 self.logBestMatch(matches, window);
             }
@@ -269,18 +256,6 @@ const Model = struct {
         }
         self.appendLog("  {s}", .{buf[0 .. width + 2]});
         self.appendLog("  0s -> {d:.0}s", .{total});
-    }
-
-    fn toRaw(self: *Model, path: []const u8) ![]u8 {
-        const raw = try olaf_cli_threading.createTempRawPath(self.io, self.allocator);
-        errdefer self.allocator.free(raw);
-        try olaf_cli_util_audio.convertToRaw(self.allocator, self.io, path, raw, self.config.target_sample_rate);
-        return raw;
-    }
-
-    fn cleanupRaw(self: *Model, raw: []u8) void {
-        std.Io.Dir.cwd().deleteFile(self.io, raw) catch {};
-        self.allocator.free(raw);
     }
 
     fn refreshStats(self: *Model) void {
