@@ -72,8 +72,46 @@ pub fn build(b: *std.Build) void {
         }
     }
 
+    // Focused C regressions also run without audio tools or a dataset.
+    const safety_step = b.step("test-db-safety", "Test fingerprint buffering and LMDB ownership");
+    const writer_test = b.addExecutable(.{
+        .name = "olaf_writer_safety",
+        .root_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true }),
+    });
+    writer_test.root_module.addIncludePath(b.path("src"));
+    writer_test.root_module.addCSourceFiles(.{
+        .files = &.{ "tests/olaf_fp_db_writer_tests.c", "src/olaf_fp_db_writer.c" },
+        .flags = &.{ "-std=gnu11", "-UNDEBUG" },
+    });
+    const run_writer = b.addRunArtifact(writer_test);
+    safety_step.dependOn(&run_writer.step);
+
+    const db_helper = b.addExecutable(.{
+        .name = "olaf_db_concurrency",
+        .root_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true }),
+    });
+    db_helper.root_module.addIncludePath(b.path("src"));
+    db_helper.root_module.addCSourceFiles(.{
+        .files = &.{ "tests/olaf_db_concurrency_tests.c", "src/olaf_db.c", "src/mdb.c", "src/midl.c" },
+        .flags = &.{ "-std=gnu11", "-DOLAF_DB_TESTING", "-UNDEBUG" },
+    });
+    if (target.result.os.tag != .windows) db_helper.root_module.linkSystemLibrary("pthread", .{});
+    const db_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .root_source_file = b.path("tests/olaf_db_safety_tests.zig"),
+        }),
+    });
+    const db_options = b.addOptions();
+    db_options.addOptionPath("helper", db_helper.getEmittedBin());
+    db_tests.root_module.addOptions("db_test_options", db_options);
+    const run_db = b.addRunArtifact(db_tests);
+    safety_step.dependOn(&run_db.step);
+
     // Test step
     const test_step = b.step("test", "Run Olaf tests");
+    test_step.dependOn(safety_step);
 
     if (!build_core) {
         const test_files = [_][]const u8{

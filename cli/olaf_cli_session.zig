@@ -197,12 +197,11 @@ pub const StoreResult = struct {
 /// expensive part in parallel:
 ///
 /// 1. Extract without a database. A STORE-mode runner opens the LMDB env up
-///    front, and a write env holds the process-global writer lock
-///    (src/olaf_db.c) until the runner is destroyed, which serialized every
-///    worker's FFT and hashing. A CACHE-mode runner never opens the DB; it
-///    writes the fingerprints to a temporary .tdb file instead.
+///    front, holding LMDB's writer transaction until the runner is destroyed,
+///    which would serialize every worker's FFT and hashing. A CACHE-mode
+///    runner never opens the DB; it writes to a temporary .tdb file instead.
 /// 2. Parse the .tdb into LMDB keys/values, still unlocked.
-/// 3. Open the DB (taking the writer lock), store keys, values and meta-data,
+/// 3. Begin a write transaction in the shared DB environment, store the data,
 ///    commit.
 ///
 /// The stored keys, values and meta-data are exactly what the STORE-mode
@@ -240,8 +239,8 @@ pub fn store(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifie
     defer values.deinit(allocator);
     try parseCachedFingerprints(allocator, io, tdb_path, internal_id, &keys, &values);
 
-    // Phase 3: write. olaf_db_new takes the writer lock, olaf_db_destroy
-    // commits and releases it.
+    // Phase 3: writers serialize per database, including LMDB cross-process locking.
+    // olaf_db_destroy commits before releasing the environment reference.
     const db = c.olaf_db_new(session.config.db_folder.ptr, false);
     defer c.olaf_db_destroy(db);
     writeFingerprints(db, keys.items, values.items, identifier, @floatCast(run_stats.audio_seconds), @intCast(run_stats.fingerprints));

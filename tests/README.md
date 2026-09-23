@@ -51,3 +51,34 @@ Other helpers: `env.expectExit(args, code)`, `env.shell(script, code)`, `env.wri
 ## Continuous integration
 
 `.github/workflows/make.yml` builds with `make` (default, `mem` and core), runs the legacy C tests (`make test`) and `zig build test` on Ubuntu; `.github/workflows/release.yml` cross-compiles the release targets (Linux, macOS, Windows).
+
+### Database ownership and writer safety
+
+`zig build test-db-safety` runs synthetic regressions without ffmpeg or a dataset.
+They also run as part of `zig build test`. The C writer test checks exact output
+for empty, full, oversized, and split batches in store and delete modes. The DB
+helper exercises shared environments, 32 simultaneous readers, concurrent and
+mixed readers/writers, path aliases, last-close races, independent databases,
+and snapshots held across a separate process's writes/deletes. Helpers have a
+30-second watchdog; subprocess handshakes and barriers establish overlap.
+
+Instrument the production C backend and bundled LMDB with Clang:
+
+```sh
+python3 tests/run_db_sanitizers.py
+python3 tests/run_db_sanitizers.py --sanitizer thread
+```
+
+The first command enables ASan and UBSan; the second enables TSan. No sanitizer
+suppressions are used. Both commands require Python 3, Clang, pthreads, and a
+host that permits LMDB's mappings and locks. Temporary databases are isolated
+and removed after testing. `CC` can select a different Clang executable.
+
+The LMDB backend retains one environment per directory identity. Handles own
+transactions and borrow the environment's DBIs. The last handle (including
+pending openers) releases the environment. Each database has a writer mutex;
+snapshot registration/release and writer operations share a short mutex because
+the bundled LMDB reads reusable writer flags before its own lock and scans or
+releases reader slots without locking. Existing read transactions remain usable
+while writers operate, and no registry/snapshot mutex is held while waiting for
+an external writer. Normal LMDB locks provide interprocess synchronization.

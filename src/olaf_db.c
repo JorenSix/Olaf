@@ -25,29 +25,56 @@
 #include "lmdb.h"
 #include "olaf_db.h"
 
-//Process-global writer mutex.
-//
-//The threaded `store`/`delete` paths open a separate `MDB_env` per worker
-//thread. LMDB allows at most one writer transaction across a database file
-//at a time; with multiple env handles racing into `mdb_txn_begin` for a
-//read-write transaction, the second one fails with EINVAL on macOS. The
-//cleanest minimal fix is to serialize the writer transaction lifetime in
-//user space: a worker holds this mutex from `mdb_txn_begin` until its
-//commit in `olaf_db_destroy`. Readers (MDB_RDONLY) skip the mutex.
-static pthread_mutex_t olaf_db_writer_lock = PTHREAD_MUTEX_INITIALIZER;
+//The registry owns one environment per directory identity. Handles retain an
+//entry before waiting for initialization or a transaction, so neither can race
+//the last close. The registry lock is never held while beginning a transaction.
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+#include <errno.h>
+
+struct Olaf_DB_Identity{
+#ifdef _WIN32
+	DWORD volume;
+	DWORD index_high;
+	DWORD index_low;
+#else
+	dev_t device;
+	ino_t inode;
+#endif
+};
+
+struct Olaf_DB_Environment{
+	struct Olaf_DB_Identity identity;
+	char *path;
+	MDB_env *env;
+	MDB_dbi dbi_fps;
+	MDB_dbi dbi_resource_map;
+	size_t references;
+	pthread_mutex_t initialized;
+	pthread_mutex_t writer; /**< Serializes this environment's write handle lifetime */
+	pthread_mutex_t snapshots; /**< Coordinates snapshot registration with writer operations */
+	int status;
+	struct Olaf_DB_Environment *next;
+};
+
+static pthread_mutex_t olaf_db_registry_lock = PTHREAD_MUTEX_INITIALIZER;
+//LMDB requires transactions opening DBIs to finish before another such
+//transaction starts. This mutex is not used by ordinary reader/writer handles.
+static pthread_mutex_t olaf_db_dbi_lock = PTHREAD_MUTEX_INITIALIZER;
+static struct Olaf_DB_Environment *olaf_db_environments = NULL;
 
 struct Olaf_DB{
-	//the file name to serialize and deserialize the data
-	MDB_env *env; /**< The LMDB environment handle. */
-	MDB_txn *txn; /**< The current LMDB transaction. */
-
-	MDB_dbi dbi_fps; /**< Database handle for fingerprint storage. */
-	MDB_dbi dbi_resource_map; /**< Database handle for resource metadata. */
-
-	bool warning_given; /**< Whether a collision warning has been printed. */
-	bool holds_writer_lock; /**< True when this Olaf_DB owns olaf_db_writer_lock. */
-
-	const char * mdb_folder; /**< Path to the LMDB database folder. */
+	struct Olaf_DB_Environment *shared; /**< Retained environment */
+	MDB_txn *txn; /**< Owned transaction, used serially by this handle */
+	MDB_dbi dbi_fps; /**< Borrowed from shared */
+	MDB_dbi dbi_resource_map; /**< Borrowed from shared */
+	bool readonly;
+	bool warning_given;
+	const char *mdb_folder; /**< Borrowed from shared, never from the caller */
 };
 
 void e_ctx(int status_code, const char *operation, const char *db_folder) {
@@ -62,66 +89,231 @@ void e_ctx(int status_code, const char *operation, const char *db_folder) {
 }
 
 void e(int status_code){
-	if (status_code != MDB_SUCCESS) {
-		fprintf(stderr, "Database Error: %s\n", mdb_strerror(status_code));
-		exit(-42);
-	}
+	e_ctx(status_code,"database operation",NULL);
 }
 
-Olaf_DB * olaf_db_new(const char * mdb_folder,bool readonly){
-
-	Olaf_DB *olaf_db = (Olaf_DB *) malloc(sizeof(Olaf_DB));
-
-	olaf_db->warning_given = false;
-	olaf_db->holds_writer_lock = false;
-
-	//configure the max db size in bytes to be 1TB
-	//Fails silently when 1TB is reached
-	//see here:
-	//mdb_env_set_mapsize function in http://www.lmdb.tech/doc/group__mdb.html
-	//
-	size_t max_db_size_in_bytes = (size_t)(1024*1024) * (size_t)(1024*1024);
-
-	//Serialize writers: take the global writer mutex BEFORE creating the env
-	//so the writer holds it for the full env-open + txn-begin + writes + commit
-	//+ env-close lifetime. This makes mdb_txn_begin safe across worker threads
-	//that each open their own MDB_env on the same DB folder.
-	if(!readonly){
-		pthread_mutex_lock(&olaf_db_writer_lock);
-		olaf_db->holds_writer_lock = true;
-	}
-
-	e_ctx(mdb_env_create(&olaf_db->env), "mdb_env_create", mdb_folder);
-	e_ctx(mdb_env_set_maxreaders(olaf_db->env, 10), "mdb_env_set_maxreaders", mdb_folder);
-	e_ctx(mdb_env_set_mapsize(olaf_db->env,max_db_size_in_bytes), "mdb_env_set_mapsize", mdb_folder);
-	e_ctx(mdb_env_set_maxdbs(olaf_db->env,2), "mdb_env_set_maxdbs", mdb_folder);
-	e_ctx(mdb_env_open(olaf_db->env, mdb_folder, readonly ? (MDB_RDONLY | MDB_NOLOCK) : 0, 0664), "mdb_env_open", mdb_folder);
-	e_ctx(mdb_txn_begin(olaf_db->env, NULL, readonly ? MDB_RDONLY : 0 , &olaf_db->txn), "mdb_txn_begin", mdb_folder);
-
-	unsigned int fingerprint_flags = MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_INTEGERDUP;
-	unsigned int resource_flags = MDB_INTEGERKEY;
-
-	//set as create if not readonly
-	if(!readonly){
-		fingerprint_flags |= MDB_CREATE;
-		resource_flags |= MDB_CREATE;
-	}
-
-	olaf_db->mdb_folder = mdb_folder;
-
-	//open the database with flags sets
-	e_ctx(mdb_dbi_open(olaf_db->txn, "olaf_fingerprints",fingerprint_flags , &olaf_db->dbi_fps), "mdb_dbi_open(olaf_fingerprints)", mdb_folder);
-	e_ctx(mdb_dbi_open(olaf_db->txn, "olaf_resource_map",resource_flags , &olaf_db->dbi_resource_map), "mdb_dbi_open(olaf_resource_map)", mdb_folder);
-
-	
-
-	return olaf_db;
+static bool olaf_db_same_identity(struct Olaf_DB_Identity a,struct Olaf_DB_Identity b){
+#ifdef _WIN32
+	return a.volume == b.volume && a.index_high == b.index_high && a.index_low == b.index_low;
+#else
+	return a.device == b.device && a.inode == b.inode;
+#endif
 }
+
+//Inspect the directory, not data.mdb: closing an extra descriptor for an LMDB
+//file can release process-associated locks. Own the absolute path as well.
+static int olaf_db_directory(const char *folder,struct Olaf_DB_Identity *identity,char **path){
+#ifdef _WIN32
+	HANDLE dir = CreateFileA(folder,0,FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+		NULL,OPEN_EXISTING,FILE_FLAG_BACKUP_SEMANTICS,NULL);
+	if(dir == INVALID_HANDLE_VALUE) return (int) GetLastError();
+	BY_HANDLE_FILE_INFORMATION info;
+	int status = 0;
+	if(!GetFileInformationByHandle(dir,&info)) status = (int) GetLastError();
+	if(!status && !(info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) status = ERROR_DIRECTORY;
+	DWORD length = 0;
+	if(!status){
+		length = GetFinalPathNameByHandleA(dir,NULL,0,FILE_NAME_NORMALIZED);
+		if(!length) status = (int) GetLastError();
+	}
+	if(!status){
+		*path = malloc((size_t) length + 1);
+		if(!*path) status = ENOMEM;
+		else {
+			DWORD actual = GetFinalPathNameByHandleA(dir,*path,length + 1,FILE_NAME_NORMALIZED);
+			if(!actual || actual > length){
+				status = actual ? ERROR_INSUFFICIENT_BUFFER : (int) GetLastError();
+				free(*path);
+				*path = NULL;
+			}
+		}
+	}
+	CloseHandle(dir);
+	if(!status){
+		identity->volume = info.dwVolumeSerialNumber;
+		identity->index_high = info.nFileIndexHigh;
+		identity->index_low = info.nFileIndexLow;
+	}
+	return status;
+#else
+	*path = realpath(folder,NULL);
+	if(!*path) return errno;
+	struct stat info;
+	int status = 0;
+	if(stat(*path,&info) != 0) status = errno;
+	else if(!S_ISDIR(info.st_mode)) status = ENOTDIR;
+	if(status){
+		free(*path);
+		*path = NULL;
+		return status;
+	}
+	identity->device = info.st_dev;
+	identity->inode = info.st_ino;
+	return 0;
+#endif
+}
+
+static int olaf_db_environment_init(struct Olaf_DB_Environment *shared,bool readonly){
+	//A readonly request must not create a missing database. The shared env is
+	//write-capable, but each reader uses a strictly readonly transaction. The
+	//bundled LMDB already needs write access to data.mdb even with MDB_RDONLY.
+	if(readonly){
+		size_t size = strlen(shared->path) + sizeof("/data.mdb");
+		char *file = malloc(size);
+		if(!file) return ENOMEM;
+		#ifdef _WIN32
+		snprintf(file,size,"%s\\data.mdb",shared->path);
+		DWORD attributes = GetFileAttributesA(file);
+		int status = attributes == INVALID_FILE_ATTRIBUTES ? (int) GetLastError() : 0;
+#else
+		snprintf(file,size,"%s/data.mdb",shared->path);
+		struct stat info;
+		int status = stat(file,&info) == 0 ? 0 : errno;
+#endif
+		free(file);
+		if(status) return status;
+	}
+
+	int status = mdb_env_create(&shared->env);
+	if(status) return status;
+	if((status = mdb_env_set_maxreaders(shared->env,1024))) return status;
+	size_t mapsize = (size_t)(1024*1024) * (size_t)(1024*1024);
+	if((status = mdb_env_set_mapsize(shared->env,mapsize))) return status;
+	if((status = mdb_env_set_maxdbs(shared->env,2))) return status;
+	if((status = mdb_env_open(shared->env,shared->path,MDB_NOTLS,0664))) return status;
+
+	pthread_mutex_lock(&olaf_db_dbi_lock);
+	MDB_txn *txn = NULL;
+	status = mdb_txn_begin(shared->env,NULL,readonly ? MDB_RDONLY : 0,&txn);
+	unsigned int create = readonly ? 0 : MDB_CREATE;
+	if(!status) status = mdb_dbi_open(txn,"olaf_fingerprints",
+		MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_INTEGERDUP | create,&shared->dbi_fps);
+	if(!status) status = mdb_dbi_open(txn,"olaf_resource_map",MDB_INTEGERKEY | create,&shared->dbi_resource_map);
+	//Commit even the initial read transaction: this publishes DBI handles.
+	if(!status) status = mdb_txn_commit(txn);
+	else if(txn) mdb_txn_abort(txn);
+	pthread_mutex_unlock(&olaf_db_dbi_lock);
+	return status;
+}
+
+static void olaf_db_environment_release(struct Olaf_DB_Environment *shared){
+	pthread_mutex_lock(&olaf_db_registry_lock);
+	if(--shared->references == 0){
+		struct Olaf_DB_Environment **entry = &olaf_db_environments;
+		while(*entry != shared) entry = &(*entry)->next;
+		*entry = shared->next;
+		//Keep acquisition excluded until the old mapping and descriptors close.
+		if(shared->env) mdb_env_close(shared->env);
+		pthread_mutex_destroy(&shared->snapshots);
+		pthread_mutex_destroy(&shared->writer);
+		pthread_mutex_destroy(&shared->initialized);
+		free(shared->path);
+		free(shared);
+	}
+	pthread_mutex_unlock(&olaf_db_registry_lock);
+}
+
+Olaf_DB * olaf_db_new(const char *mdb_folder,bool readonly){
+	struct Olaf_DB_Identity identity;
+	char *path = NULL;
+	e_ctx(olaf_db_directory(mdb_folder,&identity,&path),"database directory",mdb_folder);
+	Olaf_DB *db = calloc(1,sizeof(Olaf_DB));
+	if(!db){
+		free(path);
+		e_ctx(ENOMEM,"database handle",mdb_folder);
+		return NULL;
+	}
+
+	pthread_mutex_lock(&olaf_db_registry_lock);
+	struct Olaf_DB_Environment *shared = olaf_db_environments;
+	while(shared && !olaf_db_same_identity(shared->identity,identity)) shared = shared->next;
+	bool initialize = shared == NULL;
+	if(initialize){
+		shared = calloc(1,sizeof(*shared));
+		int status = shared ? pthread_mutex_init(&shared->initialized,NULL) : ENOMEM;
+		if(!status){
+			status = pthread_mutex_init(&shared->writer,NULL);
+			if(status) pthread_mutex_destroy(&shared->initialized);
+			else {
+				status = pthread_mutex_init(&shared->snapshots,NULL);
+				if(status){
+					pthread_mutex_destroy(&shared->writer);
+					pthread_mutex_destroy(&shared->initialized);
+				}
+			}
+		}
+		if(status){
+			free(shared);
+			pthread_mutex_unlock(&olaf_db_registry_lock);
+			free(path);
+			free(db);
+			e_ctx(status,"environment allocation",mdb_folder);
+			return NULL;
+		}
+		shared->identity = identity;
+		shared->path = path;
+		path = NULL;
+		pthread_mutex_lock(&shared->initialized);
+		shared->next = olaf_db_environments;
+		olaf_db_environments = shared;
+	}
+	shared->references++;
+	pthread_mutex_unlock(&olaf_db_registry_lock);
+	free(path);
+
+	if(initialize){
+		shared->status = olaf_db_environment_init(shared,readonly);
+		pthread_mutex_unlock(&shared->initialized);
+	}else{
+		pthread_mutex_lock(&shared->initialized);
+		pthread_mutex_unlock(&shared->initialized);
+	}
+	int status = shared->status;
+	if(!status){
+		//This LMDB version reads its reusable writer's flags before acquiring
+		//its writer lock. Serialize local writers before entering mdb_txn_begin.
+		//LMDB scans reader slots without locking during writes. Coordinate
+		//snapshot begin/end with writer operations, never reader lifetimes.
+		//Do not hold the snapshot lock while waiting for an external writer.
+		pthread_mutex_t *lock = readonly ? &shared->snapshots : &shared->writer;
+		pthread_mutex_lock(lock);
+		status = mdb_txn_begin(shared->env,NULL,readonly ? MDB_RDONLY : 0,&db->txn);
+		if(readonly || status) pthread_mutex_unlock(lock);
+	}
+	if(status){
+		olaf_db_environment_release(shared);
+		free(db);
+		e_ctx(status,"environment/transaction open",mdb_folder);
+		return NULL;
+	}
+	db->shared = shared;
+	db->readonly = readonly;
+	db->mdb_folder = shared->path;
+	db->dbi_fps = shared->dbi_fps;
+	db->dbi_resource_map = shared->dbi_resource_map;
+	return db;
+}
+
+#ifdef OLAF_DB_TESTING
+//Test-build-only inspection; deliberately absent from the public header.
+const void *olaf_db_test_environment(Olaf_DB *db){
+	return db->shared->env;
+}
+
+size_t olaf_db_test_environment_count(void){
+	size_t count = 0;
+	pthread_mutex_lock(&olaf_db_registry_lock);
+	for(struct Olaf_DB_Environment *s = olaf_db_environments; s; s = s->next) count++;
+	pthread_mutex_unlock(&olaf_db_registry_lock);
+	return count;
+}
+#endif
 
 //olaf_db_string_hash and olaf_db_identifier_id are implemented in
 //olaf_db_id.c, shared with the other database implementations
 
 void olaf_db_store_internal(Olaf_DB * olaf_db,uint64_t * keys,uint64_t * values, size_t size,unsigned int flags){
+	pthread_mutex_lock(&olaf_db->shared->snapshots);
 	MDB_val mdb_key, mdb_value;
 
 	//store
@@ -137,6 +329,7 @@ void olaf_db_store_internal(Olaf_DB * olaf_db,uint64_t * keys,uint64_t * values,
 
 		mdb_put(olaf_db->txn, olaf_db->dbi_fps, &mdb_key, &mdb_value, flags);
 	}
+	pthread_mutex_unlock(&olaf_db->shared->snapshots);
 }
 
 //store the meta data 
@@ -156,7 +349,10 @@ void olaf_db_store_meta_data(Olaf_DB * olaf_db, uint32_t * key, Olaf_Resource_Me
 
 	//printf("Storing: %s %f %ld \n" ,value->path, value->duration, value->fingerprints);
 
-	e(mdb_put(olaf_db->txn, olaf_db->dbi_resource_map, &mdb_key, &mdb_value,0));
+	pthread_mutex_lock(&olaf_db->shared->snapshots);
+	int status = mdb_put(olaf_db->txn, olaf_db->dbi_resource_map, &mdb_key, &mdb_value,0);
+	pthread_mutex_unlock(&olaf_db->shared->snapshots);
+	e(status);
 }
 
 void olaf_db_delete_meta_data(Olaf_DB * olaf_db, uint32_t * key){
@@ -170,7 +366,10 @@ void olaf_db_delete_meta_data(Olaf_DB * olaf_db, uint32_t * key){
 	mdb_value.mv_size = sizeof(Olaf_Resource_Meta_data);
 	mdb_value.mv_data = &r;
 
-	e(mdb_del(olaf_db->txn, olaf_db->dbi_resource_map, &mdb_key, &mdb_value));
+	pthread_mutex_lock(&olaf_db->shared->snapshots);
+	int status = mdb_del(olaf_db->txn, olaf_db->dbi_resource_map, &mdb_key, &mdb_value);
+	pthread_mutex_unlock(&olaf_db->shared->snapshots);
+	e(status);
 }
 
 //return meta data
@@ -293,6 +492,7 @@ void olaf_db_store(Olaf_DB * olaf_db,uint64_t * keys,uint64_t * values, size_t s
 }
 
 void olaf_db_delete(Olaf_DB * olaf_db,uint64_t * keys,uint64_t * values, size_t size){
+	pthread_mutex_lock(&olaf_db->shared->snapshots);
 	MDB_val mdb_key, mdb_value;
 
 	//store
@@ -310,6 +510,7 @@ void olaf_db_delete(Olaf_DB * olaf_db,uint64_t * keys,uint64_t * values, size_t 
 
 		mdb_del(olaf_db->txn, olaf_db->dbi_fps, &mdb_key, &mdb_value);
 	}
+	pthread_mutex_unlock(&olaf_db->shared->snapshots);
 }
 bool olaf_db_find_single(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key){
 	uint64_t results[1];
@@ -380,33 +581,23 @@ size_t olaf_db_find(Olaf_DB * olaf_db,uint64_t start_key,uint64_t stop_key, uint
 }
 
 size_t olaf_db_size(Olaf_DB * olaf_db){
-	//This assumes the default filename for MDB
-	const char* mdb_filename = "data.mdb";
-
-	size_t folder_len = strlen(olaf_db->mdb_folder);
-	bool needs_sep = folder_len > 0
-		&& olaf_db->mdb_folder[folder_len - 1] != '/'
-		&& olaf_db->mdb_folder[folder_len - 1] != '\\';
-
-	size_t total_len = folder_len + (needs_sep ? 1 : 0) + strlen(mdb_filename) + 1;
-	char *mdb_full_path_name = malloc(total_len);
-	if(!mdb_full_path_name) return 0;
-
-	snprintf(mdb_full_path_name, total_len, "%s%s%s",
-		olaf_db->mdb_folder,
-		needs_sep ? "/" : "",
-		mdb_filename);
-
-	FILE * db_file = fopen(mdb_full_path_name,"rb");
-	free(mdb_full_path_name);
-
-	if(!db_file) return 0;
-
-	fseek (db_file , 0 , SEEK_END);
-	size_t fp_db_size_in_bytes = ftell(db_file);
-	fclose(db_file);
-
-	return fp_db_size_in_bytes;
+	size_t size = strlen(olaf_db->mdb_folder) + sizeof("/data.mdb");
+	char *path = malloc(size);
+	if(!path) return 0;
+	//Inspect the file without opening/closing an additional DB descriptor.
+	size_t bytes = 0;
+#ifdef _WIN32
+	snprintf(path,size,"%s\\data.mdb",olaf_db->mdb_folder);
+	WIN32_FILE_ATTRIBUTE_DATA info;
+	if(GetFileAttributesExA(path,GetFileExInfoStandard,&info))
+		bytes = (size_t) (((uint64_t) info.nFileSizeHigh << 32) | info.nFileSizeLow);
+#else
+	snprintf(path,size,"%s/data.mdb",olaf_db->mdb_folder);
+	struct stat info;
+	if(stat(path,&info) == 0 && info.st_size >= 0) bytes = (size_t) info.st_size;
+#endif
+	free(path);
+	return bytes;
 }
 
 void olaf_db_stats_verbose(Olaf_DB * olaf_db){
@@ -477,20 +668,22 @@ void olaf_db_stats(Olaf_DB * olaf_db,bool verbose){
 	}
 }
 
-//free memory resources
+//End the transaction before releasing its environment reference.
 void olaf_db_destroy(Olaf_DB * olaf_db){
-
-	//mdb_dbi_close(olaf_db->env, olaf_db->dbi_fps);
-	//mdb_dbi_close(olaf_db->env, olaf_db->dbi_resource_map);
-
-	mdb_txn_commit(olaf_db->txn);
-	mdb_env_close(olaf_db->env);
-
-	//Release the writer mutex AFTER the env is fully closed so the next
-	//worker sees the lock file in a clean state.
-	if(olaf_db->holds_writer_lock){
-		pthread_mutex_unlock(&olaf_db_writer_lock);
+	int status = 0;
+	if(olaf_db->readonly){
+		pthread_mutex_lock(&olaf_db->shared->snapshots);
+		mdb_txn_abort(olaf_db->txn);
+		pthread_mutex_unlock(&olaf_db->shared->snapshots);
+	}else{
+		pthread_mutex_lock(&olaf_db->shared->snapshots);
+		status = mdb_txn_commit(olaf_db->txn);
+		pthread_mutex_unlock(&olaf_db->shared->snapshots);
+		pthread_mutex_unlock(&olaf_db->shared->writer);
 	}
-
+	//Commit consumes the transaction even on failure; never abort it again.
+	if(status) fprintf(stderr,"Database commit failed for '%s'\n",olaf_db->mdb_folder);
+	olaf_db_environment_release(olaf_db->shared);
 	free(olaf_db);
+	e_ctx(status,"mdb_txn_commit",NULL);
 }
