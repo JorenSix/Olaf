@@ -117,12 +117,20 @@ jobs:
           TAG_NAME=${GITHUB_REF#refs/tags/}
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
 
+          # The section "## [x.y.z]" of CHANGELOG.md, up to the next version.
+          CHANGES=$(awk -v v="${TAG_NAME#v}" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }' CHANGELOG.md 2>/dev/null)
+
           echo "# Release $TAG_NAME" > release_notes.md
           echo "" >> release_notes.md
 
-          if [ -n "$PREV_TAG" ]; then
+          if [ -n "$(echo "$CHANGES" | tr -d '[:space:]')" ]; then
+            echo "$CHANGES" >> release_notes.md
+          elif [ -n "$PREV_TAG" ]; then
             echo "## What's Changed" >> release_notes.md
-            git log --oneline --no-merges $PREV_TAG..HEAD | head -10 | while read line; do
+            git log --oneline --no-merges $PREV_TAG..HEAD | while read line; do
               echo "- $line" >> release_notes.md
             done
           else
