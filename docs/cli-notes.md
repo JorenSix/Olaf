@@ -4,7 +4,7 @@ This Zig wrapper is the main command line interface for Olaf.
 
 To Build
 ````
-# for olaf_c core
+# for the olaf_core C executable
 zig build -Dcore=true
 
 #for olaf cli, default
@@ -16,8 +16,8 @@ zig build
 zig build -Doptimize=ReleaseSmall
 zig build run -- config
 
-#to install the cli 
-zig build install-system
+#to install the cli (Makefile)
+make install
 
 ````
 

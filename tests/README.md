@@ -1,65 +1,34 @@
 # Olaf Tests
 
-This directory contains test suites for Olaf in both C and Zig.
+## Test files
 
-## Test Files
+- `olaf_unit_tests.zig`: unit tests of C core components (config, deque, reader).
+- `olaf_functional_tests.zig`: functional tests that run the real `olaf` binary in an isolated HOME, one test per command or behaviour, plus the output snapshot.
+- `dataset_download.zig`: downloads (and caches) the test dataset into `dataset/` on first use.
+- `golden/output_snapshot.txt`: the exact CLI output locked by the snapshot test.
+- `olaf_tests.c`, `16k_samples.raw`: legacy C unit tests (deque, max filter, reader) and their test audio.
+- CLI unit tests live next to the code: `cli/olaf_cli_session.zig`, `cli/olaf_cli_threading.zig` and the modules they import (config/schema consistency, store equivalence, output escaping, ...).
 
-- **olaf_tests.c**: Legacy C unit tests (deque, max filter, reader)
-- **olaf_tests.zig**: Modern Zig test suite with unit, functional, and integration tests
-- **16k_samples.raw**: Test audio data (16kHz, 1 second of audio)
-- **olaf_test_db/**: Temporary database for tests
-
-## Running Tests
-
-### Zig Tests (Recommended)
+## Running tests
 
 ```bash
-# Run all Zig tests
-zig build test
-
-# Run tests in release mode
-zig build test -Doptimize=ReleaseFast
+zig build test --summary all        # all Zig tests (builds and installs olaf first)
+make test && ./bin/olaf_tests       # legacy C unit tests (make test only builds them)
 ```
 
-### C Unit Tests
+The functional tests need `ffmpeg` and `ffprobe` on the path and skip themselves when they, or the `olaf` binary, are missing. The dataset is downloaded automatically.
+
+## The output snapshot
+
+`functional: output snapshot` stores, queries and prints stats in every output format and compares the result with `golden/output_snapshot.txt`, with machine-dependent values (paths, timings) masked. Fingerprints depend on the audio decoder, so the golden file records the environment it was generated in (arch, OS, ffmpeg version) and the test is skipped elsewhere, e.g. in CI. Regenerate it deliberately, and review the diff, with:
 
 ```bash
-# Build and run C tests
-make test
-./bin/olaf_tests
+OLAF_UPDATE_GOLDEN=1 zig build test
 ```
 
-### Functional Tests (Zig)
+## Writing functional tests
 
-The CLI functional tests live in `tests/olaf_functional_tests.zig` and run as
-part of `zig build test`. They build and install `olaf`, download a small test
-dataset automatically, and exercise store/stats/delete/query/dedup and JSON
-output. Only the Zig compiler and `ffmpeg` are required.
-
-```bash
-zig build test
-```
-
-## Writing New Tests
-
-### Adding Zig Unit Tests
-
-Add new tests to `olaf_tests.zig`:
-
-```zig
-test "my_component: describe what you're testing" {
-    // Setup
-    const config = c.olaf_config_default();
-    defer c.olaf_config_destroy(config);
-
-    // Test
-    try testing.expectEqual(@as(c_int, 16000), config.*.audioSampleRate);
-}
-```
-
-### Adding Functional Tests
-
-Functional tests in `olaf_functional_tests.zig` run the real `olaf` binary in an isolated HOME through a `Fixture`:
+A `Fixture` sets up an isolated HOME with its own database and cache and runs the CLI in it:
 
 ```zig
 test "functional: store and query workflow" {
@@ -70,81 +39,15 @@ test "functional: store and query workflow" {
     var env = try Fixture.init(allocator, io, "workflow"); // skips without olaf/ffmpeg
     defer env.deinit();
 
-    try env.ok(&.{ "store", env.ref });            // expects exit status 0
-    const r = try env.run(&.{ "query", env.ref }, 0);
+    try env.ok(&.{ "store", env.ref });               // expects exit status 0
+    const r = try env.run(&.{ "query", env.ref }, 0); // expected exit status
     defer r.deinit();
     try testing.expect(std.mem.indexOf(u8, r.stdout, "11266") != null);
 }
 ```
 
-`tests/golden/output_snapshot.txt` locks the exact CLI output. It records the environment (arch, OS, ffmpeg version) it was generated in and is skipped elsewhere; regenerate it with `OLAF_UPDATE_GOLDEN=1 zig build test` before refactoring output code.
-```
+Other helpers: `env.expectExit(args, code)`, `env.shell(script, code)`, `env.writeConfig(json)`, `env.songCount()`, `env.storeAllRefs()`, and file helpers such as `touchFile`, `copyFileTo`, `fileExists`. Every run checks its exit status, so a panic always fails the test with the captured output. A new test should fail without the fix it guards.
 
-### Test Patterns
+## Continuous integration
 
-**Unit Tests**: Test individual components in isolation
-- Config creation/destruction
-- Data structure operations (deque, hash table)
-- Algorithm components (max filter, FFT)
-
-**Functional Tests**: Test CLI commands end-to-end
-- Store → Query workflow
-- Delete operations
-- Cache operations
-
-**Integration Tests**: Test the full pipeline
-- Audio → Reader → Stream Processor → EP Extractor → FP Extractor → Matcher
-- Database storage and retrieval
-- Cross-platform compatibility
-
-**Benchmark Tests**: Performance testing
-- Fingerprint extraction speed
-- Query response time
-- Database scalability
-
-## Test Data
-
-### Creating Test Audio
-
-```bash
-# Generate test audio with ffmpeg
-ffmpeg -f lavfi -i "sine=frequency=440:duration=1" -ar 16000 -ac 1 -f f32le test.raw
-```
-
-### Using Existing Audio
-
-The test suite can use any audio file if ffmpeg is available for decoding.
-
-## Continuous Integration
-
-Tests are automatically run in CI via GitHub Actions:
-- `make test` builds and runs C tests
-- `zig build test` runs Zig unit and functional tests
-
-## Test Coverage
-
-To expand test coverage, consider adding tests for:
-- [ ] EP extraction with various filter configurations
-- [ ] FP matching with different search ranges
-- [ ] Database collision handling
-- [ ] Multi-threaded store/query operations
-- [ ] Error handling and edge cases
-- [ ] Memory leak detection (with valgrind)
-- [ ] Cross-platform compatibility (Windows, Linux, macOS)
-
-## Troubleshooting
-
-**Test skipped: ffmpeg not available**
-- Install ffmpeg: `brew install ffmpeg` (macOS) or `apt-get install ffmpeg` (Linux)
-
-**Test skipped: test file not found**
-- Ensure `16k_samples.raw` exists in tests directory
-- Regenerate with: `make test`
-
-**C tests fail to link**
-- Clean and rebuild: `make clean && make test`
-- Ensure all source files are compiled
-
-**Zig tests fail to compile**
-- Check Zig version: `zig version` (requires 0.15.2)
-- Update imports in `olaf_tests.zig` if CLI structure changed
+`.github/workflows/make.yml` builds with `make` (default, `mem` and core) and runs `zig build test` on Ubuntu; `.github/workflows/release.yml` cross-compiles the release targets (Linux, macOS, Windows). The legacy C tests are not run in CI.

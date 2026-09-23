@@ -23,7 +23,7 @@ make install            # Install to /usr/local/bin
 make mem                # Build memory-only version (for embedded/testing)
 make web                # Build WebAssembly version (requires emcc)
 make lib                # Build shared library (libolaf.so) for Python wrapper
-make test               # Build and run unit tests
+make test               # Build the C unit tests (run with ./bin/olaf_tests)
 make clean              # Clean build artifacts
 ```
 
@@ -33,7 +33,6 @@ zig build                            # Build CLI version with LMDB
 zig build -Dcore=true                # Build core C library only
 zig build -Doptimize=ReleaseSmall   # Optimized build
 zig build run -- [args]              # Build and run with arguments
-zig build install-system             # Install to system location
 zig build -Dtarget=x86_64-windows-gnu  # Cross-compile for Windows
 zig build -Dtarget=wasm32-wasi-musl    # Build for WebAssembly
 ```
@@ -100,7 +99,7 @@ Located in `python-wrapper/`, provides high-level Python API using CFFI:
 **Setup**:
 ```bash
 make lib                                     # Build libolaf.so
-pip install -r python-wrapper/requirements.txt
+pip install ./python-wrapper                  # or: uv sync --project python-wrapper
 python python-wrapper/setup.py              # Build CFFI wrapper
 export LD_LIBRARY_PATH=$(pwd)/bin           # Set library path
 ```
@@ -126,7 +125,6 @@ Accepts filenames or numpy arrays (mono audio @ 16kHz sample rate).
 
 **Runtime config** (Zig CLI): Operational settings in `olaf_config.json` (annotated example: `cli/olaf_config.example.json`, schema: `cli/olaf_config.schema.json`)
 - Database/cache paths (default: `~/.olaf/db/`, `~/.olaf/cache/`)
-- Thread counts for parallel processing
 - Audio file extensions allowlist
 - Query fragmentation settings
 - File checked in order: `~/.olaf/olaf_config.json`, then `olaf_config.json` next to the executable; unknown keys are warned about, wrongly typed values are an error
@@ -139,11 +137,11 @@ Accepts filenames or numpy arrays (mono audio @ 16kHz sample rate).
 zig build test              # Run all Zig unit tests
 ```
 
-The Zig test suite (`tests/olaf_tests.zig`) includes:
-- **Unit tests**: Testing C core components (config, deque, reader)
-- **Functional tests**: CLI command testing (skeletons provided)
-- **Integration tests**: End-to-end pipeline testing (skeletons provided)
-- **Benchmark tests**: Performance testing (skeletons provided)
+The Zig test suite (`build.zig` test step) runs:
+- `tests/olaf_unit_tests.zig`: C core components (config, deque, reader)
+- `tests/olaf_functional_tests.zig`: the real `olaf` binary in an isolated HOME, one test per command/behaviour, via a `Fixture` helper; plus the output snapshot `tests/golden/output_snapshot.txt` (skipped outside the environment it was generated in; regenerate with `OLAF_UPDATE_GOLDEN=1 zig build test`)
+- `cli/olaf_cli_session.zig`, `cli/olaf_cli_threading.zig` (and the modules they import): unit tests of the CLI layer, e.g. config/schema consistency and store equivalence
+- `tests/dataset_download.zig`: downloads the test dataset
 
 Tests automatically skip when dependencies (ffmpeg, test files) are unavailable.
 
