@@ -1,3 +1,4 @@
+import os
 #make sure it can find olaf_cffi module
 import sys
 sys.path.insert(0, '.')
@@ -42,10 +43,13 @@ class Olaf:
 	# Initializing
 	def __init__(self,command,path):
 		#Initialize the OLAF objects
-		self.path = path
+		# Same identifier as the olaf CLI: the canonical absolute path of an
+		# existing file (symlinks resolved), and the CLI's id function (a
+		# numeric identifier is used as is, anything else is hashed).
+		self.path = os.path.realpath(path) if os.path.exists(path) else path
 		self.command = command
 		path_bytes = str.encode(self.path)
-		self.audio_identifier = lib.olaf_db_string_hash(ffi.new("char []", path_bytes), len(path_bytes));
+		self.audio_identifier = lib.olaf_db_identifier_id(ffi.new("char []", path_bytes), len(path_bytes));
 		self.config = lib.olaf_config_default()
 		self.fft = lib.olaf_fft_new(self.config)
 		self.ep_extractor = lib.olaf_ep_extractor_new(self.config)
