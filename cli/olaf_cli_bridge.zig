@@ -459,20 +459,66 @@ pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_cli_config.C
     _ = olaf.olaf_stats(c_config);
 }
 
+/// True when the LMDB data file exists in `config.db_folder` (which always
+/// ends in '/', see olaf_cli_config). Opening a read-only env on a missing
+/// database would make the C core exit().
+fn dbExists(allocator: std.mem.Allocator, config: *const olaf_cli_config.Config) !bool {
+    const db_file_path = try std.fmt.allocPrint(allocator, "{s}data.mdb", .{config.db_folder});
+    defer allocator.free(db_file_path);
+    Io.Dir.cwd().access(olaf_cli_util.defaultIo(), db_file_path, .{}) catch return false;
+    return true;
+}
+
+/// For each identifier, whether it is already indexed (has metadata in the
+/// database). Quiet, unlike `olaf_has`. Opens the database once, read-only.
+/// Caller owns the returned slice.
+pub fn olaf_stored_flags(allocator: std.mem.Allocator, config: *const olaf_cli_config.Config, identifiers: []const []const u8) ![]bool {
+    const flags = try allocator.alloc(bool, identifiers.len);
+    errdefer allocator.free(flags);
+    @memset(flags, false);
+    if (identifiers.len == 0 or !try dbExists(allocator, config)) return flags;
+
+    var cc = try CConfig.init(allocator, config);
+    defer cc.deinit();
+    const db = olaf.olaf_db_new(cc.db_folder, true);
+    defer olaf.olaf_db_destroy(db);
+
+    for (identifiers, flags) |identifier, *flag| {
+        var key: u32 = olaf.olaf_db_identifier_id(identifier.ptr, identifier.len);
+        flag.* = olaf.olaf_db_has_meta_data(db, &key);
+    }
+    return flags;
+}
+
+/// Emit one "skipped, already indexed" record on stderr in the store format.
+/// CSV rows keep the store_csv_header column count with empty numeric fields.
+pub fn writeStoreSkip(format: StoreFormat, audio_identifier: []const u8, internal_id: u32) !void {
+    var buf: [4096]u8 = undefined;
+    var fbs = Io.Writer.fixed(&buf);
+    const w = &fbs;
+    switch (format) {
+        .human => try w.print("Skipped (already indexed, use -f to re-store): {s}\n", .{audio_identifier}),
+        .csv => {
+            try w.writeAll("skip,,,");
+            try writeCsvField(w, audio_identifier);
+            try w.print(",{d},,,,,\n", .{internal_id});
+        },
+        .json => {
+            try w.writeAll("{\"action\":\"skip\",\"audio_identifier\":");
+            try writeJsonString(w, audio_identifier);
+            try w.print(",\"internal_id\":{d}}}\n", .{internal_id});
+        },
+    }
+    try File.stderr().writeStreamingAll(olaf_cli_util.defaultIo(), fbs.buffered());
+}
+
 /// Return aggregated database statistics as a struct (no stdout output).
 /// When the database file does not exist yet, returns a zeroed `Stats`.
 pub fn olaf_stats_struct(allocator: std.mem.Allocator, config: *const olaf_cli_config.Config) !Stats {
     var cc = try CConfig.init(allocator, config);
     defer cc.deinit();
 
-    const db_file_path = try std.fmt.allocPrint(allocator, "{s}data.mdb", .{config.db_folder});
-    defer allocator.free(db_file_path);
-
-    const io = olaf_cli_util.defaultIo();
-    const file_exists = blk: {
-        Io.Dir.cwd().access(io, db_file_path, .{}) catch break :blk false;
-        break :blk true;
-    };
+    const file_exists = try dbExists(allocator, config);
     if (!file_exists) return .{ .song_count = 0, .total_duration = 0, .total_fingerprints = 0 };
 
     var c_stats: olaf.Olaf_DB_Stats = undefined;
@@ -498,14 +544,7 @@ pub fn olaf_lookup_meta(allocator: std.mem.Allocator, config: *const olaf_cli_co
     var cc = try CConfig.init(allocator, config);
     defer cc.deinit();
 
-    const db_file_path = try std.fmt.allocPrint(allocator, "{s}data.mdb", .{config.db_folder});
-    defer allocator.free(db_file_path);
-
-    const io = olaf_cli_util.defaultIo();
-    const file_exists = blk: {
-        Io.Dir.cwd().access(io, db_file_path, .{}) catch break :blk false;
-        break :blk true;
-    };
+    const file_exists = try dbExists(allocator, config);
     if (!file_exists) return null;
 
     const db = olaf.olaf_db_new(cc.db_folder, true);

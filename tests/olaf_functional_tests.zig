@@ -1078,6 +1078,50 @@ test "functional: db_folder without trailing slash still reports stats" {
     try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
 }
 
+test "functional: store skips already indexed files unless forced" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
+    const ref_abs = ref_buf[0..ref_n];
+
+    var env = try setupTestEnv(io, allocator, "skipdup");
+    defer env.deinit();
+
+    const first = try runOlaf(allocator, olaf_bin, &env, &.{ "store", ref_abs }, error.OlafStoreFailed);
+    allocator.free(first.stdout);
+    allocator.free(first.stderr);
+
+    {
+        const again = try runOlaf(allocator, olaf_bin, &env, &.{ "store", "--format", "csv", ref_abs }, error.OlafStoreFailed);
+        defer allocator.free(again.stdout);
+        defer allocator.free(again.stderr);
+        try testing.expect(std.mem.indexOf(u8, again.stderr, "skip,,,") != null);
+        try testing.expect(std.mem.indexOf(u8, again.stderr, "store,") == null);
+    }
+    {
+        const forced = try runOlaf(allocator, olaf_bin, &env, &.{ "store", "-f", "--format", "csv", ref_abs }, error.OlafStoreFailed);
+        defer allocator.free(forced.stdout);
+        defer allocator.free(forced.stderr);
+        try testing.expect(std.mem.indexOf(u8, forced.stderr, "store,1,1,") != null);
+    }
+    try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+
+    // skip_duplicates: false restores the old always-store behaviour.
+    try writeTestConfig(&env,
+        \\{"db_folder": "~/.olaf/db/", "cache_folder": "~/.olaf/cache/", "skip_duplicates": false}
+    );
+    const unskipped = try runOlaf(allocator, olaf_bin, &env, &.{ "store", "--format", "csv", ref_abs }, error.OlafStoreFailed);
+    defer allocator.free(unskipped.stdout);
+    defer allocator.free(unskipped.stderr);
+    try testing.expect(std.mem.indexOf(u8, unskipped.stderr, "store,1,1,") != null);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

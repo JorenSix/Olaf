@@ -20,7 +20,7 @@
     },
     "skip_duplicates": {
       "type": "boolean",
-      "description": "Whether to skip duplicate audio files.",
+      "description": "Skip audio files that are already indexed when storing (store, dedup, store_cached). Use `olaf store -f` to re-store anyway.",
       "default": true
     },
     "fragment_duration_in_seconds": {

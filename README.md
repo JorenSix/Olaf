@@ -185,9 +185,13 @@ olaf stats
 The store command extracts fingerprints from an audio file and stores them in a reference database. The incoming audio is decoded and resampled using `ffmpeg`. `ffmpeg` needs to be installed on your system and available on the path.
 
 ```bash
-olaf store [--threads n] [--format <human|csv|json>] audio_item...
+olaf store [-f] [--threads n] [--format <human|csv|json>] audio_item...
 olaf store --with-ids audio_item identifier [audio_item identifier ...]
 ```
+
+Audio items that are already in the index are skipped, so re-running `olaf store` on a folder only indexes new files. This is governed by `skip_duplicates` in the configuration (default `true`).
+
+**-f, --force** stores audio items again even when they are already indexed.
 
 **--threads n** uses multiple threads to extract fingerprints in parallel.
 

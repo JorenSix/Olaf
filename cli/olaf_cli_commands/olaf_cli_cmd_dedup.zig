@@ -2,6 +2,7 @@ const std = @import("std");
 const olaf_cli_threading = @import("../olaf_cli_threading.zig");
 const olaf_cli_util = @import("../olaf_cli_util.zig");
 const types = @import("../olaf_cli_types.zig");
+const cmd_store = @import("olaf_cli_cmd_store.zig");
 
 const debug = std.log.scoped(.olaf_cli_dedup).debug;
 
@@ -25,17 +26,9 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     });
 
     if (!args.skip_store) {
-        try olaf_cli_threading.executeParallel(
-            args.io,
-            allocator,
-            args.audio_files.items,
-            args.config.?,
-            .Store,
-            args.threads,
-            true,
-            .csv,
-            args.store_format,
-        );
+        // Already indexed files are skipped (skip_duplicates), so re-running
+        // dedup on a folder only fingerprints what is new.
+        try cmd_store.storeFiles(allocator, args);
     }
 
     // dedup means "find duplicates" — self-matches are always filtered.
