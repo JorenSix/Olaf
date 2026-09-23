@@ -22,6 +22,7 @@
 #include "pffft.h"
 
 #include "olaf_config.h"
+#include "olaf_config_internal.h"
 #include "olaf_window.h"
 #include "olaf_fft.h"
 
@@ -35,7 +36,9 @@ struct Olaf_FFT{
 
 
 Olaf_FFT * olaf_fft_new(Olaf_Config * config){
-	Olaf_FFT *olaf_fft = (Olaf_FFT *) malloc(sizeof(Olaf_FFT));
+	if(!olaf_config_check(olaf_config_fft_error(config))) return NULL;
+	Olaf_FFT *olaf_fft = (Olaf_FFT *) calloc(1, sizeof(Olaf_FFT));
+	if(olaf_fft == NULL){ errno = ENOMEM; return NULL; }
 
 	//store the config
 	olaf_fft->config = config;
@@ -53,14 +56,21 @@ Olaf_FFT * olaf_fft_new(Olaf_Config * config){
 	olaf_fft->fft_in = (float *) pffft_aligned_malloc(bytesPerAudioBlock);//fft input
 	olaf_fft->fft_out= (float *) pffft_aligned_malloc(bytesPerAudioBlock);//fft output
 
+	if(!olaf_fft->fftSetup || !olaf_fft->fft_in || !olaf_fft->fft_out){
+		olaf_fft_destroy(olaf_fft);
+		errno = ENOMEM;
+		return NULL;
+	}
+
 	return olaf_fft;
 }
 
 void olaf_fft_destroy(Olaf_FFT * olaf_fft){
+	if(olaf_fft == NULL) return;
 	//cleanup fft structures
 	pffft_aligned_free(olaf_fft->fft_in);
 	pffft_aligned_free(olaf_fft->fft_out);	
-	pffft_destroy_setup(olaf_fft->fftSetup);
+	if(olaf_fft->fftSetup) pffft_destroy_setup(olaf_fft->fftSetup);
 
 	free(olaf_fft);
 }

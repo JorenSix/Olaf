@@ -1,11 +1,14 @@
 #include "olaf_config.h"
+#include "olaf_config_internal.h"
 #include "olaf_runner.h"
 
 #include "pffft.h"
 #include "assert.h"
 
 Olaf_Runner * olaf_runner_new(int mode, Olaf_Config * config, FILE * fp_cache_file, FILE * fp_meta_file){
-	Olaf_Runner *runner = (Olaf_Runner *) malloc(sizeof(Olaf_Runner));
+	if(!olaf_config_check(olaf_config_error(config))) return NULL;
+	Olaf_Runner *runner = (Olaf_Runner *) calloc(1, sizeof(Olaf_Runner));
+	if(runner == NULL){ errno = ENOMEM; return NULL; }
 
 	runner->mode = mode;
 	runner->config =  config;
@@ -24,6 +27,12 @@ Olaf_Runner * olaf_runner_new(int mode, Olaf_Config * config, FILE * fp_cache_fi
 	runner->fft_in = (float *) pffft_aligned_malloc(bytesPerAudioBlock);//fft input
 	runner->fft_out= (float *) pffft_aligned_malloc(bytesPerAudioBlock);//fft output
 
+	if(!runner->fftSetup || !runner->fft_in || !runner->fft_out){
+		olaf_runner_destroy(runner);
+		errno = ENOMEM;
+		return NULL;
+	}
+
 	//no db needed in print mode!
 	if(mode == OLAF_RUNNER_MODE_PRINT || mode == OLAF_RUNNER_MODE_CACHE){
 		runner->db = NULL;
@@ -41,13 +50,14 @@ Olaf_Runner * olaf_runner_new(int mode, Olaf_Config * config, FILE * fp_cache_fi
 	return runner;
 }
 
-void olaf_runner_destroy(Olaf_Runner * runner){	
+void olaf_runner_destroy(Olaf_Runner * runner){
+	if(runner == NULL) return;
 
 	//cleanup fft structures
 	pffft_aligned_free(runner->fft_in);
 	pffft_aligned_free(runner->fft_out);
 	
-	pffft_destroy_setup(runner->fftSetup);
+	if(runner->fftSetup) pffft_destroy_setup(runner->fftSetup);
 
 	if(runner->db!= NULL){
 		//When the database becomes large (GBs), the following

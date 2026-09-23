@@ -22,6 +22,7 @@
 
 #include "olaf_fp_extractor.h"
 #include "olaf_config.h"
+#include "olaf_config_internal.h"
 
 
 struct Olaf_FP_Extractor{
@@ -34,7 +35,9 @@ struct Olaf_FP_Extractor{
 
 Olaf_FP_Extractor * olaf_fp_extractor_new(Olaf_Config * config){
 
+	if(!olaf_config_check(olaf_config_fp_error(config))) return NULL;
 	Olaf_FP_Extractor *fp_extractor = (Olaf_FP_Extractor *) malloc(sizeof(Olaf_FP_Extractor));
+	if(fp_extractor == NULL){ errno = ENOMEM; return NULL; }
 
 	fp_extractor->warning_given = false;
 	
@@ -42,6 +45,11 @@ Olaf_FP_Extractor * olaf_fp_extractor_new(Olaf_Config * config){
 
 	fp_extractor->fingerprints.fingerprints = (struct fingerprint *) calloc(config->maxFingerprints , sizeof(struct fingerprint));
 
+	if(fp_extractor->fingerprints.fingerprints == NULL){
+		free(fp_extractor);
+		errno = ENOMEM;
+		return NULL;
+	}
 	fp_extractor->fingerprints.fingerprintIndex = 0;
 	fp_extractor->total_fp_extracted=0;
 
@@ -49,6 +57,7 @@ Olaf_FP_Extractor * olaf_fp_extractor_new(Olaf_Config * config){
 }
 
 void olaf_fp_extractor_destroy(Olaf_FP_Extractor * fp_extractor){
+	if(fp_extractor == NULL) return;
 	free(fp_extractor->fingerprints.fingerprints);
 	free(fp_extractor);
 }

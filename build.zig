@@ -109,9 +109,25 @@ pub fn build(b: *std.Build) void {
     const run_db = b.addRunArtifact(db_tests);
     safety_step.dependOn(&run_db.step);
 
+    const config_step = b.step("test-config-safety", "Test configuration bounds and constructor allocation failures");
+    const config_test = b.addExecutable(.{
+        .name = "olaf_config_safety",
+        .root_module = b.createModule(.{ .target = target, .optimize = optimize, .link_libc = true }),
+    });
+    config_test.root_module.addIncludePath(b.path("src"));
+    config_test.root_module.addCSourceFile(.{ .file = b.path("tests/olaf_config_tests.c"), .flags = &.{ "-std=gnu11", "-DNDEBUG" } });
+    const config_flags = &.{ "-std=gnu11", "-DNDEBUG", "-include", b.pathFromRoot("tests/olaf_config_alloc.h") };
+    addCoreSources(config_test, b, config_flags, false, false);
+    config_test.root_module.addCSourceFile(.{ .file = b.path("src/olaf_fft.c"), .flags = config_flags });
+    b.step("check-config-safety", "Compile configuration regressions for the selected target").dependOn(&config_test.step);
+    const run_config = b.addRunArtifact(config_test);
+    run_config.addFileArg(b.path("tests/golden/output_snapshot.txt"));
+    config_step.dependOn(&run_config.step);
+
     // Test step
     const test_step = b.step("test", "Run Olaf tests");
     test_step.dependOn(safety_step);
+    test_step.dependOn(config_step);
 
     if (!build_core) {
         const test_files = [_][]const u8{

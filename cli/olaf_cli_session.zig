@@ -140,12 +140,12 @@ pub const Session = struct {
         const c_id = try self.allocator.dupeZ(u8, identifier);
         defer self.allocator.free(c_id);
 
-        const runner = c.olaf_runner_new(@intFromEnum(mode), self.config.ptr, if (files) |f| f.fingerprints else null, if (files) |f| f.meta else null);
+        const runner = c.olaf_runner_new(@intFromEnum(mode), self.config.ptr, if (files) |f| f.fingerprints else null, if (files) |f| f.meta else null) orelse return core.constructorError(error.CoreInitializationFailed);
         defer c.olaf_runner_destroy(runner);
 
         // (The file writer that would close the cache files is only created
         // while processing, so the errdefer above closes them here too.)
-        const processor = c.olaf_stream_processor_new(runner, if (c_raw) |p| p.ptr else null, c_id.ptr) orelse return error.AudioOpenFailed;
+        const processor = c.olaf_stream_processor_new(runner, if (c_raw) |p| p.ptr else null, c_id.ptr) orelse return core.constructorError(error.AudioOpenFailed);
         defer c.olaf_stream_processor_destroy(processor);
 
         if (opts.sink != null) c.olaf_stream_processor_set_result_callback(processor, resultCallback);

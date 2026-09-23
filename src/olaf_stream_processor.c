@@ -9,6 +9,8 @@
 #include "olaf_runner.h"
 #include "olaf_window.h"
 #include "olaf_config.h"
+#include "olaf_config_internal.h"
+#include "olaf_fp_matcher_internal.h"
 #include "olaf_reader.h"
 #include "olaf_ep_extractor.h"
 #include "olaf_fp_extractor.h"
@@ -22,13 +24,12 @@ struct Olaf_Stream_Processor{
 	Olaf_Config *config; /**< Reference to the Olaf configuration */
 	Olaf_Reader *reader; /**< Audio reader for the input stream */
 	Olaf_EP_Extractor *ep_extractor; /**< Event point extractor instance */
+	Olaf_FP_Matcher *fp_matcher;
 	Olaf_FP_Extractor *fp_extractor; /**< Fingerprint extractor instance */
 
 	uint32_t audio_identifier; /**< Hash identifier for the audio file */
 	const char* orig_path; /**< Original file path of the audio source */
 
-	const char* result_header; /**< Optional header string for match results */
-	Olaf_FP_Matcher_Result_Callback result_callback; /**< Callback invoked for each match result */
 
 	//Input audio samples
 	float *audio_data; /**< Buffer holding input audio samples */
@@ -43,23 +44,15 @@ struct Olaf_Stream_Processor{
 
 Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner * runner,const char* raw_path,const char* orig_path){
 
-	//Open the audio reader first; if it fails (e.g. missing/unreadable file)
-	//bail out before allocating anything else so a single bad input cannot
-	//take down the entire process from a worker thread.
-	Olaf_Reader * reader = olaf_reader_new(runner->config, raw_path);
-	if(reader == NULL){
-		return NULL;
-	}
-
-	Olaf_Stream_Processor * processor = (Olaf_Stream_Processor *) malloc(sizeof(Olaf_Stream_Processor));
+	if(!olaf_config_check(runner ? olaf_config_error(runner->config) : "runner must not be NULL")) return NULL;
+	Olaf_Stream_Processor * processor = (Olaf_Stream_Processor *) calloc(1, sizeof(Olaf_Stream_Processor));
+	if(processor == NULL){ errno = ENOMEM; return NULL; }
 
 	processor->orig_path = orig_path;
 	processor->audio_identifier = 0;
 	if(orig_path!=NULL)
 		processor->audio_identifier = olaf_db_identifier_id(orig_path,strlen(orig_path));
 
-	processor->result_callback = olaf_fp_matcher_callback_print_result;
-	processor->result_header = NULL;
 	processor->last_audio_duration = 0.0;
 	processor->last_cpu_time_used = 0.0;
 	processor->last_total_fingerprints = 0;
@@ -68,14 +61,32 @@ Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner * runner,const cha
 	processor->runner = runner;
 	processor->config = runner->config;
 	processor->ep_extractor = olaf_ep_extractor_new(processor->config);
+	if(!processor->ep_extractor) goto failed;
 	processor->fp_extractor = olaf_fp_extractor_new(processor->config);
-	processor->reader = reader;
+	if(!processor->fp_extractor) goto failed;
 	processor->audio_data = (float *) calloc(processor->config->audioBlockSize , sizeof(float)); //Input audio samples
 
+	if(!processor->audio_data){ errno = ENOMEM; goto failed; }
+	if(runner->mode == OLAF_RUNNER_MODE_QUERY){
+		processor->fp_matcher = olaf_fp_matcher_new(processor->config, runner->db, olaf_fp_matcher_callback_print_result);
+		if(!processor->fp_matcher) goto failed;
+	}
+	processor->reader = olaf_reader_new(runner->config, raw_path);
+	if(!processor->reader) goto failed;
 	return processor;
+
+failed: {
+	int error = errno;
+	olaf_stream_processor_destroy(processor);
+	errno = error;
+	return NULL;
+}
+
 }
 
 void olaf_stream_processor_destroy(Olaf_Stream_Processor * processor){
+	if(processor == NULL) return;
+	olaf_fp_matcher_destroy(processor->fp_matcher);
 	olaf_reader_destroy(processor->reader);
 	olaf_fp_extractor_destroy(processor->fp_extractor);
 	olaf_ep_extractor_destroy(processor->ep_extractor);
@@ -85,11 +96,11 @@ void olaf_stream_processor_destroy(Olaf_Stream_Processor * processor){
 }
 
 void olaf_stream_processor_set_result_callback(Olaf_Stream_Processor * processor,Olaf_FP_Matcher_Result_Callback callback){
-	processor->result_callback = callback;
+	if(processor->fp_matcher) olaf_fp_matcher_set_callback_internal(processor->fp_matcher, callback);
 }
 
 void olaf_stream_processor_set_result_header(Olaf_Stream_Processor * processor,const char * result_header){
-	processor->result_header = result_header;
+	if(processor->fp_matcher) olaf_fp_matcher_set_header(processor->fp_matcher, result_header);
 }
 
 void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
@@ -97,17 +108,11 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 	int audioBlockIndex = 0;
 
 	Olaf_FP_DB_Writer *fp_db_writer = NULL;
-	Olaf_FP_Matcher *fp_matcher = NULL;
+	Olaf_FP_Matcher *fp_matcher = processor->fp_matcher;
 	Olaf_FP_File_Writer *fp_file_writer = NULL;
 
 
-	if(processor->runner->mode == OLAF_RUNNER_MODE_QUERY ){
-		fp_matcher = olaf_fp_matcher_new(processor->config,processor->runner->db,processor->result_callback);
-
-		if(processor->result_header != NULL){
-			olaf_fp_matcher_set_header(fp_matcher, processor->result_header);
-		}
-	} else if(processor->runner->mode == OLAF_RUNNER_MODE_STORE || processor->runner->mode == OLAF_RUNNER_MODE_DELETE){
+	if(processor->runner->mode == OLAF_RUNNER_MODE_STORE || processor->runner->mode == OLAF_RUNNER_MODE_DELETE){
 		fp_db_writer = olaf_fp_db_writer_new(processor->runner->db,processor->audio_identifier);
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_PRINT ){
 		fp_file_writer = olaf_fp_file_writer_new(stdout);
@@ -198,7 +203,7 @@ void olaf_stream_processor_process(Olaf_Stream_Processor * processor){
 		}
 		olaf_fp_matcher_print_header(fp_matcher);
 		olaf_fp_matcher_print_results(fp_matcher);
-		olaf_fp_matcher_destroy(fp_matcher);
+
 	}else if(processor->runner->mode == OLAF_RUNNER_MODE_STORE){
 		//use the fp's to store in the db
 		if(fingerprints != NULL){

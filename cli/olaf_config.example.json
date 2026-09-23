@@ -6,5 +6,9 @@
   "skip_duplicates": true,
   "fragment_duration_in_seconds": 30,
   "target_sample_rate": 16000,
+  "audio_block_size": 1024,
+  "audio_step_size": 128,
+  "bytes_per_audio_sample": 4,
+  "number_of_eps_per_fp": 3,
   "allowed_audio_file_extensions": [".m4a", ".wav", ".mp4", ".wv", ".ape", ".ogg", ".mp3", ".raw", ".flac", ".wma"]
 }

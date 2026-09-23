@@ -106,32 +106,42 @@ void olaf_fp_matcher_callback_esp32(int matchCount, float queryStart, float quer
   //digitalWrite(LED_BUILTIN,HIGH)
 }
 
-//Setup the olaf structs
-void setup_olaf(){
+//Setup the olaf structs. A failed setup must never enter the audio loop.
+bool olaf_ready = false;
+bool setup_olaf(){
   config = olaf_config_esp_32();
+  if(config == NULL) goto failed;
 
+  ep_extractor = olaf_ep_extractor_new(config);
+  if(ep_extractor == NULL) goto failed;
+  fp_extractor = olaf_fp_extractor_new(config);
+  if(fp_extractor == NULL) goto failed;
   fftSetup = pffft_new_setup(config->audioBlockSize,PFFFT_REAL);
-  fft_in = (float*) pffft_aligned_malloc(config->audioBlockSize*4);//fft input
-  fft_out= (float*) pffft_aligned_malloc(config->audioBlockSize*4);//fft output
-
-  audio_block = (float *) calloc(sizeof(float),config->audioBlockSize);
+  fft_in = (float*) pffft_aligned_malloc(config->audioBlockSize*4);
+  fft_out = (float*) pffft_aligned_malloc(config->audioBlockSize*4);
+  audio_block = (float *) calloc(config->audioBlockSize,sizeof(float));
+  if(fftSetup == NULL || fft_in == NULL || fft_out == NULL || audio_block == NULL) goto failed;
   db = olaf_db_new(NULL,true);
-  
-  if(db==NULL) Serial.println("db NULL: not enough memory?");
-    ep_extractor = olaf_ep_extractor_new(config);
-  if(ep_extractor==NULL) Serial.println("ep_extractor NULL: not enough memory?");
-    fp_extractor = olaf_fp_extractor_new(config);
-  if(fp_extractor==NULL) Serial.println("fp_extractor NULL: not enough memory?");
-    fp_matcher = olaf_fp_matcher_new(config,db,olaf_fp_matcher_callback_esp32);
-  if(fp_matcher==NULL) Serial.println("fp_matcher NULL: not enough memory?");
+  if(db == NULL) goto failed;
+  fp_matcher = olaf_fp_matcher_new(config,db,olaf_fp_matcher_callback_esp32);
+  if(fp_matcher == NULL) goto failed;
 
   window = olaf_fft_window(config->audioBlockSize);
+  audio_sample_index = config->audioBlockSize - config->audioStepSize;
+  return true;
 
-  size_t step_size = config->audioStepSize;
-  size_t block_size = config->audioBlockSize;
-  size_t overlap_size = block_size - step_size;
-  //initialize the first sample to be read at overlap_size =
-  audio_sample_index = overlap_size;
+failed:
+  Serial.println("OLAF initialization failed; audio processing disabled");
+  olaf_fp_matcher_destroy(fp_matcher);
+  if(db) olaf_db_destroy(db);
+  olaf_fp_extractor_destroy(fp_extractor);
+  olaf_ep_extractor_destroy(ep_extractor);
+  free(audio_block);
+  pffft_aligned_free(fft_in);
+  pffft_aligned_free(fft_out);
+  if(fftSetup) pffft_destroy_setup(fftSetup);
+  olaf_config_destroy(config);
+  return false;
 }
 
 void i2s_install() {
@@ -175,7 +185,8 @@ void setup() {
   Serial.println("[OLAF] Free memory before init: " + String(esp_get_free_heap_size()) + " bytes");
    //print everything to stdout (serial);
   stderr = stdout;
-  setup_olaf();
+  olaf_ready = setup_olaf();
+  if(!olaf_ready){ i2s_stop(I2S_PORT); return; }
   Serial.println("[OLAF] Free after init: " + String(esp_get_free_heap_size()) + " bytes");
 
   for(size_t i = 0 ; i < 10 ; i++){
@@ -221,6 +232,7 @@ void process_audio_block(){
 
 
 void loop(){
+  if(!olaf_ready){ delay(1000); return; }
   
   size_t step_size = config->audioStepSize;
   size_t block_size = config->audioBlockSize;

@@ -207,11 +207,18 @@ fn loadField(comptime T: type, a: std.mem.Allocator, obj: ?std.json.ObjectMap, c
             return list;
         },
         bool => return if (val) |v| v.bool else cur,
-        f32 => return if (val) |v| switch (v) {
-            .float => @floatCast(v.float),
-            .integer => @floatFromInt(v.integer),
-            else => unreachable, // checked by hasSettingType
-        } else cur,
+        f32 => {
+            const value: f64 = if (val) |v| switch (v) {
+                .float => v.float,
+                .integer => @floatFromInt(v.integer),
+                else => unreachable,
+            } else cur;
+            if (!std.math.isFinite(value) or value < 0 or value > std.math.floatMax(f32)) {
+                std.log.err("config: '{s}' = {d} must be finite, nonnegative and fit f32", .{ name, value });
+                return error.InvalidConfigValue;
+            }
+            return @floatCast(value);
+        },
         else => {
             const v = if (obj) |o| try getInt(o, name, T, cur) else cur;
             if (val != null and !inBounds(name, v)) {
@@ -230,11 +237,31 @@ fn loadField(comptime T: type, a: std.mem.Allocator, obj: ?std.json.ObjectMap, c
 const setting_bounds = .{
     .{ "fragment_duration_in_seconds", 1, null },
     .{ "target_sample_rate", 4000, 48000 },
+    .{ "audio_block_size", 1024, 1024 },
+    .{ "audio_step_size", 1, 1024 },
+    .{ "bytes_per_audio_sample", 4, 4 },
+    .{ "max_event_points", 1, null },
+    .{ "event_point_threshold", 0, null },
+    .{ "filter_size_frequency", 1, null },
+    .{ "filter_size_time", 2, null },
+    .{ "max_event_point_usages", 1, null },
+    .{ "min_frequency_bin", 0, 511 },
+    .{ "number_of_eps_per_fp", 2, 3 },
+    .{ "min_time_distance", 1, null },
+    .{ "max_time_distance", 1, null },
+    .{ "min_freq_distance", 0, null },
+    .{ "max_freq_distance", 0, null },
+    .{ "max_fingerprints", 1, null },
+    .{ "max_results", 1, null },
+    .{ "search_range", 0, null },
+    .{ "min_match_count", 1, null },
+    .{ "max_db_collisions", 1, null },
 };
 
 const Bounds = struct { min: ?i64, max: ?i64 };
 
 fn boundsOf(comptime name: []const u8) Bounds {
+    @setEvalBranchQuota(10000);
     inline for (setting_bounds) |b| {
         if (comptime std.mem.eql(u8, b[0], name)) return .{ .min = b[1], .max = b[2] };
     }
@@ -310,6 +337,7 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, io: Io, home: ?[]co
             }
         }
     }
+    try validate(&config);
     config.db_folder = try olaf_cli_util.ensureTrailingSlash(a, try olaf_cli_util.expandPath(a, config.home, config.db_folder));
     config.cache_folder = try olaf_cli_util.expandPath(a, config.home, config.cache_folder);
 
@@ -392,7 +420,7 @@ test "readJsonConfigOrDefault loads every setting" {
                 []const []const u8 => try w.writeAll("[\".x1\",\".x2\"]"),
                 bool => try w.print("{}", .{!d}),
                 f32 => try w.print("{d}", .{d + 0.5}),
-                else => try w.print("{d}", .{d + 1}),
+                else => try w.print("{d}", .{alternateInt(field.name, d)}),
             }
         }
     }
@@ -429,7 +457,7 @@ test "readJsonConfigOrDefault loads every setting" {
                 },
                 bool => try std.testing.expectEqual(!d, got),
                 f32 => try std.testing.expectEqual(d + 0.5, got),
-                else => try std.testing.expectEqual(d + 1, got),
+                else => try std.testing.expectEqual(alternateInt(field.name, d), got),
             }
         }
     }
@@ -532,4 +560,74 @@ test "olaf_config.schema.json matches the Config struct" {
         }
     }
     try std.testing.expectEqual(settings, props.count());
+}
+
+fn alternateInt(comptime name: []const u8, default: u32) u32 {
+    if (comptime std.mem.eql(u8, name, "audio_block_size") or std.mem.eql(u8, name, "bytes_per_audio_sample")) return default;
+    if (comptime std.mem.eql(u8, name, "number_of_eps_per_fp")) return 2;
+    return default + 1;
+}
+
+pub const ValidationIssue = struct { field: []const u8, requirement: []const u8 };
+
+/// Pure checks also cover Config literals, before any C narrowing casts.
+pub fn validationIssue(config: *const Config) ?ValidationIssue {
+    inline for (std.meta.fields(Config)) |field| {
+        if (comptime isSetting(field.name)) {
+            const value = @field(config, field.name);
+            if (field.type == u32) {
+                if (!inBounds(field.name, value)) return .{ .field = field.name, .requirement = "must satisfy its documented bounds and fit C int" };
+            } else if (field.type == f32) {
+                if (!std.math.isFinite(value) or value < 0) return .{ .field = field.name, .requirement = "must be finite and nonnegative" };
+            }
+        }
+    }
+    if (config.event_point_threshold >= config.max_event_points) return .{ .field = "event_point_threshold", .requirement = "must be below max_event_points" };
+    if (config.min_time_distance > config.max_time_distance) return .{ .field = "min_time_distance", .requirement = "must not exceed max_time_distance" };
+    if (config.min_freq_distance > config.max_freq_distance) return .{ .field = "min_freq_distance", .requirement = "must not exceed max_freq_distance" };
+    if (@as(u64, config.max_event_point_usages) + config.max_fingerprints > std.math.maxInt(c_int)) return .{ .field = "max_event_point_usages", .requirement = "plus max_fingerprints must fit C int" };
+    // Sizes mirror the portable C eventpoint/fingerprint structs (4/9 scalars).
+    inline for (.{ .{ "max_event_points", 4 * @sizeOf(c_int) }, .{ "max_fingerprints", 9 * @sizeOf(c_int) }, .{ "max_results", @sizeOf(?*anyopaque) }, .{ "max_db_collisions", @sizeOf(u64) }, .{ "filter_size_time", @max(@sizeOf(?*anyopaque), @sizeOf(f32)) } }) |pair| {
+        if (@as(u64, @field(config, pair[0])) > std.math.maxInt(usize) / pair[1]) return .{ .field = pair[0], .requirement = "allocation size must fit size_t" };
+    }
+    inline for (.{ "keep_matches_for", "print_result_every" }) |name| {
+        const blocks = @as(f64, @field(config, name)) * @as(f64, @floatFromInt(config.target_sample_rate)) / @as(f64, @floatFromInt(config.audio_step_size));
+        if (blocks > std.math.maxInt(c_int)) return .{ .field = name, .requirement = "duration in audio blocks must fit C int" };
+    }
+    return null;
+}
+
+pub fn validate(config: *const Config) !void {
+    if (validationIssue(config)) |issue| {
+        inline for (std.meta.fields(Config)) |field| {
+            if (comptime field.type == u32 or field.type == f32) {
+                if (std.mem.eql(u8, issue.field, field.name) and !builtin.is_test)
+                    std.log.err("config: '{s}' = {d}: {s}", .{ issue.field, @field(config, field.name), issue.requirement });
+            }
+        }
+        return error.InvalidConfigValue;
+    }
+}
+
+test "config validation rejects unsafe literals before C casts" {
+    try validate(&Config{});
+    inline for (.{ .{ "audio_block_size", 2048 }, .{ "audio_step_size", 0 }, .{ "bytes_per_audio_sample", 8 }, .{ "max_results", 0 }, .{ "number_of_eps_per_fp", 4 }, .{ "filter_size_time", 1 }, .{ "event_point_threshold", 60 }, .{ "min_frequency_bin", 512 }, .{ "min_time_distance", 34 }, .{ "min_freq_distance", 129 }, .{ "max_fingerprints", std.math.maxInt(u32) } }) |pair| {
+        var config = Config{};
+        @field(config, pair[0]) = pair[1];
+        try std.testing.expectError(error.InvalidConfigValue, validate(&config));
+    }
+    inline for (.{ "min_event_point_magnitude", "min_match_time_diff", "keep_matches_for", "print_result_every" }) |name| {
+        for ([_]f32{ -1, std.math.nan(f32), std.math.inf(f32) }) |value| {
+            var config = Config{};
+            @field(config, name) = value;
+            try std.testing.expectError(error.InvalidConfigValue, validate(&config));
+        }
+    }
+    var config = Config{};
+    config.keep_matches_for = std.math.floatMax(f32);
+    try std.testing.expectError(error.InvalidConfigValue, validate(&config));
+    for ([_]u32{ 2, 3, 4, 13, 24 }) |size| {
+        config = .{ .filter_size_time = size };
+        try validate(&config);
+    }
 }

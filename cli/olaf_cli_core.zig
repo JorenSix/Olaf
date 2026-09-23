@@ -12,6 +12,7 @@ pub const c = @cImport({
     @cInclude("stdlib.h");
 
     @cInclude("olaf_config.h");
+    if (@import("builtin").is_test) @cInclude("olaf_config_internal.h");
     @cInclude("olaf_db.h");
     @cInclude("olaf_runner.h");
     @cInclude("olaf_stream_processor.h");
@@ -41,6 +42,7 @@ pub const CoreConfig = struct {
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator, config: *const olaf_cli_config.Config) !CoreConfig {
+        try olaf_cli_config.validate(config);
         const ptr: *c.Olaf_Config = c.olaf_config_default() orelse return error.OutOfMemory;
         errdefer c.olaf_config_destroy(ptr);
         copyConfig(config, ptr);
@@ -159,4 +161,34 @@ test "applyLiveStreamDefaults fills only zeroed live settings" {
     cfg.applyLiveStreamDefaults();
     try std.testing.expectEqual(@as(f32, 1), cfg.ptr.printResultEvery);
     try std.testing.expectEqual(@as(f32, 5), cfg.ptr.keepMatchesFor);
+}
+
+/// Read immediately after a failed C constructor, before deferred cleanup.
+pub fn constructorError(fallback: anyerror) anyerror {
+    return switch (@as(std.c.E, @enumFromInt(std.c._errno().*))) {
+        .INVAL => error.InvalidConfigValue,
+        .NOMEM => error.OutOfMemory,
+        else => fallback,
+    };
+}
+
+test "Zig and C configuration safety rules agree" {
+    try std.testing.expectEqual(@as(usize, 4 * @sizeOf(c_int)), @sizeOf(c.struct_eventpoint));
+    try std.testing.expectEqual(@as(usize, 9 * @sizeOf(c_int)), @sizeOf(c.struct_fingerprint));
+    const ptr = c.olaf_config_default() orelse return error.OutOfMemory;
+    defer c.olaf_config_destroy(ptr);
+    inline for (.{ .{ "audio_block_size", 2048 }, .{ "audio_step_size", 0 }, .{ "bytes_per_audio_sample", 8 }, .{ "max_results", 0 }, .{ "number_of_eps_per_fp", 4 }, .{ "filter_size_time", 1 }, .{ "event_point_threshold", 60 }, .{ "min_frequency_bin", 512 }, .{ "min_time_distance", 34 }, .{ "min_freq_distance", 129 }, .{ "max_event_point_usages", std.math.maxInt(c_int) } }) |pair| {
+        var config = olaf_cli_config.Config{};
+        @field(config, pair[0]) = pair[1];
+        copyConfig(&config, ptr);
+        try std.testing.expect(olaf_cli_config.validationIssue(&config) != null);
+        try std.testing.expect(c.olaf_config_error(ptr) != null);
+        try std.testing.expectError(error.InvalidConfigValue, CoreConfig.init(std.testing.allocator, &config));
+    }
+    for ([_]u32{ 2, 3, 4, 13, 24 }) |size| {
+        const config = olaf_cli_config.Config{ .filter_size_time = size };
+        copyConfig(&config, ptr);
+        try std.testing.expect(olaf_cli_config.validationIssue(&config) == null);
+        try std.testing.expect(c.olaf_config_error(ptr) == null);
+    }
 }

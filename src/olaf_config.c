@@ -19,9 +19,11 @@
 #include <string.h>
 
 #include "olaf_config.h"
+#include <errno.h>
 
 Olaf_Config* olaf_config_default(void){
-	Olaf_Config *config = (Olaf_Config *) malloc(sizeof(Olaf_Config));
+	Olaf_Config *config = (Olaf_Config *) calloc(1, sizeof(Olaf_Config));
+	if(config == NULL){ errno = ENOMEM; return NULL; }
 
 	//construct the directory to write db info to: /home/user/.olaf/db/
 	const char * homeDir = getenv("HOME");
@@ -33,10 +35,12 @@ Olaf_Config* olaf_config_default(void){
 		const char* dbDir = "/.olaf/db/";
 		size_t length = strlen(homeDir) +  strlen(dbDir) + 1;
 		char * fullDbFolderName = (char *) malloc(length);
+		if(fullDbFolderName == NULL){ free(config); errno = ENOMEM; return NULL; }
 		snprintf(fullDbFolderName, length, "%s%s", homeDir, dbDir);
 		config->dbFolder = fullDbFolderName;
 	}	
 
+	if(config->dbFolder == NULL){ free(config); errno = ENOMEM; return NULL; }
 	//audio info
 	config->audioBlockSize = 1024;
 	config->audioSampleRate = 16000;
@@ -107,6 +111,7 @@ Olaf_Config* olaf_config_default(void){
 
 Olaf_Config* olaf_config_test(void){
 	Olaf_Config* config =  olaf_config_default();
+	if(config == NULL) return NULL;
 
 	// Free the old dbFolder allocated in olaf_config_default
 	if(config->dbFolder != NULL){
@@ -115,12 +120,14 @@ Olaf_Config* olaf_config_test(void){
 
 	const char* dbDir = "tests/olaf_test_db";
 	config->dbFolder = strdup(dbDir);
+	if(config->dbFolder == NULL){ free(config); errno = ENOMEM; return NULL; }
 
 	return config;
 }
 
 Olaf_Config* olaf_config_esp_32(void){
 	Olaf_Config* config =  olaf_config_default();
+	if(config == NULL) return NULL;
 
 	//debug statements
 	config->verbose = false;
@@ -161,6 +168,7 @@ Olaf_Config* olaf_config_esp_32(void){
 
 Olaf_Config* olaf_config_mem(void){
 	Olaf_Config* config =  olaf_config_esp_32();
+	if(config == NULL) return NULL;
 
 	//Print more results
 	config->maxResults = 10;
@@ -175,6 +183,7 @@ Olaf_Config* olaf_config_mem(void){
 }
 
 void olaf_config_destroy(Olaf_Config * config){
+	if(config == NULL) return;
 	free(config->dbFolder);
 	free(config);
 }
