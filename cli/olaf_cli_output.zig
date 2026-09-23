@@ -7,7 +7,10 @@ const Io = std.Io;
 const c = @import("olaf_cli_core.zig").c;
 const olaf_cli_util = @import("olaf_cli_util.zig");
 
-pub const StoreFormat = enum { human, csv, json };
+/// The --format value. Store records support all three; query output has no
+/// human form (`human` means CSV there).
+pub const Format = enum { human, csv, json };
+pub const StoreFormat = Format;
 pub const OutputFormat = enum { csv, json };
 
 pub const store_csv_header = "action,file_index,file_total,audio_identifier,internal_id,fingerprints,audio_seconds,cpu_seconds,fingerprints_per_second,realtime_factor\n";

@@ -12,10 +12,18 @@ pub const Args = struct {
     allow_identity_match: bool = true,
     skip_store: bool = false,
     force: bool = false,
-    output_format: olaf_cli_output.OutputFormat = .csv,
-    store_format: olaf_cli_output.StoreFormat = .human,
+    /// --format; null = the command's default (store: human, query: csv).
+    format: ?olaf_cli_output.Format = null,
     config: ?*const olaf_cli_config.Config = null,
     io: std.Io = undefined,
+
+    pub fn storeFormat(self: *const Args) olaf_cli_output.StoreFormat {
+        return self.format orelse .human;
+    }
+
+    pub fn queryFormat(self: *const Args) olaf_cli_output.OutputFormat {
+        return if ((self.format orelse .csv) == .json) .json else .csv;
+    }
 
     pub fn deinit(self: *Args, allocator: std.mem.Allocator) void {
         for (self.audio_files.items) |item| {

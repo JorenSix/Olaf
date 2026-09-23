@@ -1,11 +1,10 @@
 const std = @import("std");
-const fs = std.fs;
 const Io = std.Io;
-const process = std.process;
 
 const types = @import("olaf_cli_types.zig");
 const olaf_cli_config = @import("olaf_cli_config.zig");
 const olaf_cli_util = @import("olaf_cli_util.zig");
+const olaf_cli_output = @import("olaf_cli_output.zig");
 
 // Import command modules
 const cmd_query = @import("olaf_cli_commands/olaf_cli_cmd_query.zig");
@@ -40,91 +39,31 @@ const Command = struct {
     func: *const fn (allocator: std.mem.Allocator, args: *types.Args) anyerror!void,
 };
 
+/// A command module exports `CommandInfo` (name, description, help,
+/// needs_audio_files) and `execute`.
+fn command(comptime m: type) Command {
+    return .{
+        .name = m.CommandInfo.name,
+        .description = m.CommandInfo.description,
+        .help = m.CommandInfo.help,
+        .needs_audio_files = m.CommandInfo.needs_audio_files,
+        .func = m.execute,
+    };
+}
+
 const commands = [_]Command{
-    .{
-        .name = cmd_microphone.CommandInfo.name,
-        .description = cmd_microphone.CommandInfo.description,
-        .help = cmd_microphone.CommandInfo.help,
-        .needs_audio_files = cmd_microphone.CommandInfo.needs_audio_files,
-        .func = cmd_microphone.execute,
-    },
-    .{
-        .name = cmd_to_wav.CommandInfo.name,
-        .description = cmd_to_wav.CommandInfo.description,
-        .help = cmd_to_wav.CommandInfo.help,
-        .needs_audio_files = cmd_to_wav.CommandInfo.needs_audio_files,
-        .func = cmd_to_wav.execute,
-    },
-    .{
-        .name = cmd_to_raw.CommandInfo.name,
-        .description = cmd_to_raw.CommandInfo.description,
-        .help = cmd_to_raw.CommandInfo.help,
-        .needs_audio_files = cmd_to_raw.CommandInfo.needs_audio_files,
-        .func = cmd_to_raw.execute,
-    },
-    .{
-        .name = cmd_stats.CommandInfo.name,
-        .description = cmd_stats.CommandInfo.description,
-        .help = cmd_stats.CommandInfo.help,
-        .needs_audio_files = cmd_stats.CommandInfo.needs_audio_files,
-        .func = cmd_stats.execute,
-    },
-    .{
-        .name = cmd_store.CommandInfo.name,
-        .description = cmd_store.CommandInfo.description,
-        .help = cmd_store.CommandInfo.help,
-        .needs_audio_files = cmd_store.CommandInfo.needs_audio_files,
-        .func = cmd_store.execute,
-    },
-    .{
-        .name = cmd_config.CommandInfo.name,
-        .description = cmd_config.CommandInfo.description,
-        .help = cmd_config.CommandInfo.help,
-        .needs_audio_files = cmd_config.CommandInfo.needs_audio_files,
-        .func = cmd_config.execute,
-    },
-    .{
-        .name = cmd_query.CommandInfo.name,
-        .description = cmd_query.CommandInfo.description,
-        .help = cmd_query.CommandInfo.help,
-        .needs_audio_files = cmd_query.CommandInfo.needs_audio_files,
-        .func = cmd_query.execute,
-    },
-    .{
-        .name = cmd_clear.CommandInfo.name,
-        .description = cmd_clear.CommandInfo.description,
-        .help = cmd_clear.CommandInfo.help,
-        .needs_audio_files = cmd_clear.CommandInfo.needs_audio_files,
-        .func = cmd_clear.execute,
-    },
-    .{
-        .name = cmd_delete.CommandInfo.name,
-        .description = cmd_delete.CommandInfo.description,
-        .help = cmd_delete.CommandInfo.help,
-        .needs_audio_files = cmd_delete.CommandInfo.needs_audio_files,
-        .func = cmd_delete.execute,
-    },
-    .{
-        .name = cmd_cache.CommandInfo.name,
-        .description = cmd_cache.CommandInfo.description,
-        .help = cmd_cache.CommandInfo.help,
-        .needs_audio_files = cmd_cache.CommandInfo.needs_audio_files,
-        .func = cmd_cache.execute,
-    },
-    .{
-        .name = cmd_store_cached.CommandInfo.name,
-        .description = cmd_store_cached.CommandInfo.description,
-        .help = cmd_store_cached.CommandInfo.help,
-        .needs_audio_files = cmd_store_cached.CommandInfo.needs_audio_files,
-        .func = cmd_store_cached.execute,
-    },
-    .{
-        .name = cmd_dedup.CommandInfo.name,
-        .description = cmd_dedup.CommandInfo.description,
-        .help = cmd_dedup.CommandInfo.help,
-        .needs_audio_files = cmd_dedup.CommandInfo.needs_audio_files,
-        .func = cmd_dedup.execute,
-    },
+    command(cmd_microphone),
+    command(cmd_to_wav),
+    command(cmd_to_raw),
+    command(cmd_stats),
+    command(cmd_store),
+    command(cmd_config),
+    command(cmd_query),
+    command(cmd_clear),
+    command(cmd_delete),
+    command(cmd_cache),
+    command(cmd_store_cached),
+    command(cmd_dedup),
 };
 
 fn printCommandList() void {
@@ -217,19 +156,36 @@ fn run(init: std.process.Init) !void {
         return;
     }
 
-    var args = types.Args{
-        .audio_files = .empty,
-        .io = io,
-    };
+    var args = try parseArgs(allocator, io, home, &config, args_list[2..]);
+    defer args.deinit(allocator);
 
-    args.config = &config;
+    // Find and execute command
+    for (commands) |cmd| {
+        if (std.mem.eql(u8, cmd.name, command_name)) {
+            if (cmd.needs_audio_files and args.audio_files.items.len == 0) {
+                print("This command needs audio files, none are found.\n", .{});
+                print("olaf {s} {s}\n", .{ cmd.name, cmd.help });
+                return error.Usage;
+            }
 
-    defer {
-        debug("Deinit Args", .{});
-        args.deinit(allocator);
+            try cmd.func(allocator, &args);
+            return;
+        }
     }
 
-    var i: usize = 2;
+    // Command not found
+    print("No such command: '{s}'\n", .{command_name});
+    try printHelp(io);
+    return error.Usage;
+}
+
+/// Parse the arguments after the command name: flags into `Args`, everything
+/// else resolved to audio files (or `--with-ids` file/identifier pairs).
+fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *const olaf_cli_config.Config, args_list: []const [:0]const u8) !types.Args {
+    var args = types.Args{ .audio_files = .empty, .io = io, .config = config };
+    errdefer args.deinit(allocator);
+
+    var i: usize = 0;
     while (i < args_list.len) : (i += 1) {
         const arg = args_list[i];
 
@@ -257,19 +213,10 @@ fn run(init: std.process.Init) !void {
         } else if (std.mem.eql(u8, arg, "--format")) {
             if (i + 1 < args_list.len) {
                 const fmt = args_list[i + 1];
-                if (std.mem.eql(u8, fmt, "json")) {
-                    args.output_format = .json;
-                    args.store_format = .json;
-                } else if (std.mem.eql(u8, fmt, "csv")) {
-                    args.output_format = .csv;
-                    args.store_format = .csv;
-                } else if (std.mem.eql(u8, fmt, "human")) {
-                    // Only meaningful for store; query has no human format.
-                    args.store_format = .human;
-                } else {
+                args.format = std.meta.stringToEnum(olaf_cli_output.Format, fmt) orelse {
                     print("Unknown --format value '{s}', expected 'csv', 'json', or 'human'.\n", .{fmt});
                     return error.Usage;
-                }
+                };
                 i += 1;
             } else {
                 print("Expected an argument for '--format': 'olaf query --format json file.mp3'\n", .{});
@@ -291,23 +238,5 @@ fn run(init: std.process.Init) !void {
             }
         }
     }
-
-    // Find and execute command
-    for (commands) |cmd| {
-        if (std.mem.eql(u8, cmd.name, command_name)) {
-            if (cmd.needs_audio_files and args.audio_files.items.len == 0) {
-                print("This command needs audio files, none are found.\n", .{});
-                print("olaf {s} {s}\n", .{ cmd.name, cmd.help });
-                return error.Usage;
-            }
-
-            try cmd.func(allocator, &args);
-            return;
-        }
-    }
-
-    // Command not found
-    print("No such command: '{s}'\n", .{command_name});
-    try printHelp(io);
-    return error.Usage;
+    return args;
 }

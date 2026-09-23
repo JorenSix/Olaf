@@ -26,7 +26,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         const config = args.config.?;
 
         // Live capture has no natural end to flush JSON, so only CSV is supported.
-        if (args.output_format == .json) {
+        if (args.queryFormat() == .json) {
             print("The microphone command only supports live CSV output; --format json is not available.\n", .{});
             return error.Usage;
         }

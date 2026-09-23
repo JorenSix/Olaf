@@ -26,7 +26,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     // CSV: emit a single header row before any worker starts so consumers
     // can parse it with csv.DictReader. JSON is NDJSON (no header) and
     // human keeps its legacy free-form sentence per file.
-    if (args.store_format == .csv) {
+    if (args.storeFormat() == .csv) {
         try std.Io.File.stderr().writeStreamingAll(args.io, olaf_cli_output.store_csv_header);
     }
 
@@ -54,7 +54,7 @@ pub fn storeFiles(allocator: std.mem.Allocator, args: *types.Args) !void {
         for (all, stored) |f, is_stored| {
             if (is_stored) {
                 const internal_id = olaf_cli_core.nameToId(f.identifier);
-                try olaf_cli_output.writeStoreSkip(args.store_format, f.identifier, internal_id);
+                try olaf_cli_output.writeStoreSkip(args.storeFormat(), f.identifier, internal_id);
             } else {
                 try to_store.append(allocator, f);
             }
@@ -75,6 +75,6 @@ pub fn storeFiles(allocator: std.mem.Allocator, args: *types.Args) !void {
         args.threads,
         true,
         .csv,
-        args.store_format,
+        args.storeFormat(),
     );
 }
