@@ -20,7 +20,10 @@ pub fn defaultIo() Io {
 pub fn print(comptime fmt: []const u8, args: anytype) void {
     const io = defaultIo();
     var stdout_buffer: [4096]u8 = undefined;
-    var stdout_writer = Io.File.stdout().writer(io, &stdout_buffer);
+    // Streaming, not positional: a positional writer starts at offset 0 on
+    // every call, so with stdout redirected to a file each print overwrote
+    // the previous one (and `>>` appends clobbered the file).
+    var stdout_writer = Io.File.stdout().writerStreaming(io, &stdout_buffer);
     const stdout = &stdout_writer.interface;
     _ = stdout.print(fmt, args) catch {};
     _ = stdout.flush() catch {};

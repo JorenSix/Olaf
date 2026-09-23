@@ -440,7 +440,7 @@ pub fn olaf_stats(allocator: std.mem.Allocator, config: *const olaf_cli_config.C
     if (!file_exists) {
         // Print empty stats when database doesn't exist
         var stdout_buffer: [4096]u8 = undefined;
-        var stdout_writer = File.stdout().writer(io, &stdout_buffer);
+        var stdout_writer = File.stdout().writerStreaming(io, &stdout_buffer);
         const stdout = &stdout_writer.interface;
         _ = try stdout.print("Number of songs (#):\t0\n", .{});
         _ = try stdout.flush();

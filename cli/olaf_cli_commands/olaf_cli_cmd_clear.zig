@@ -91,7 +91,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     var delete_cache = args.force;
 
     var stdout_buffer: [4096]u8 = undefined;
-    var stdout_writer = Io.File.stdout().writer(io, &stdout_buffer);
+    var stdout_writer = Io.File.stdout().writerStreaming(io, &stdout_buffer);
     const stdout = &stdout_writer.interface;
 
     if (!args.force) {

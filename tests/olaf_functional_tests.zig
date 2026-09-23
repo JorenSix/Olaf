@@ -1122,6 +1122,39 @@ test "functional: store skips already indexed files unless forced" {
     try testing.expect(std.mem.indexOf(u8, unskipped.stderr, "store,1,1,") != null);
 }
 
+test "functional: output redirected to a file keeps every line" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+
+    var env = try setupTestEnv(io, allocator, "redirect");
+    defer env.deinit();
+
+    const out_path = try std.fmt.allocPrint(allocator, "{s}/help.txt", .{env.home});
+    defer allocator.free(out_path);
+    // `--help` is printed with many separate print() calls; pipes (as used by
+    // runOlaf) hide the bug, a regular file shows it.
+    const cmd = try std.fmt.allocPrint(allocator, "'{s}' --help > '{s}'", .{ olaf_bin, out_path });
+    defer allocator.free(cmd);
+
+    const result = try std.process.run(allocator, io, .{
+        .argv = &.{ "/bin/sh", "-c", cmd },
+        .environ_map = &env.env_map,
+    });
+    allocator.free(result.stdout);
+    allocator.free(result.stderr);
+    try testing.expect(result.term == .exited and result.term.exited == 0);
+
+    const content = try Io.Dir.cwd().readFileAlloc(io, out_path, allocator, .limited(1024 * 1024));
+    defer allocator.free(content);
+    // First and last lines of the help must both survive.
+    try testing.expect(std.mem.startsWith(u8, content, "Olaf"));
+    try testing.expect(std.mem.indexOf(u8, content, "The following commands are valid") != null);
+    try testing.expect(std.mem.indexOf(u8, content, "olaf dedup") != null);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

@@ -243,7 +243,7 @@ pub const Config = struct {
     pub fn infoPrint(self: *const Config) !void {
         const io = olaf_cli_util.defaultIo();
         var stdout_buffer: [4096]u8 = undefined;
-        var stdout_writer = Io.File.stdout().writer(io, &stdout_buffer);
+        var stdout_writer = Io.File.stdout().writerStreaming(io, &stdout_buffer);
         const stdout = &stdout_writer.interface;
         try self.printConfigToWriter(stdout);
         try stdout.flush();
