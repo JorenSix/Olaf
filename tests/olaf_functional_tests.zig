@@ -1057,7 +1057,7 @@ test "functional: cache then store_cached on a fresh database" {
         const r = try env.run(&.{"store_cached"}, 0);
         defer r.deinit();
         try testing.expect(std.mem.indexOf(u8, r.stdout, "SKIPPED: already indexed") != null);
-        try testing.expect(std.mem.indexOf(u8, r.stdout, "Stored 0 cache file(s), skipped 1") != null);
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "Stored 0 cache file(s), skipped 1 already indexed, 0 failed") != null);
     }
     {
         const r = try env.run(&.{ "store_cached", "-f" }, 0);
@@ -1739,6 +1739,35 @@ test "functional: cache recovers from an interrupted run, -f re-caches" {
         defer r.deinit();
         try testing.expect(std.mem.indexOf(u8, r.stdout, "SKIPPED") == null);
     }
+}
+
+test "functional: store_cached reports a malformed cache file and stores the rest" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "store_cached_bad");
+    defer env.deinit();
+    try env.ok(&.{ "cache", env.ref });
+
+    // A second, corrupt entry: valid .meta, garbage fingerprint lines.
+    const tdb = try std.fmt.allocPrint(allocator, "{s}/1.tdb", .{env.cache_dir});
+    defer allocator.free(tdb);
+    const meta = try std.fmt.allocPrint(allocator, "{s}/1.meta", .{env.cache_dir});
+    defer allocator.free(meta);
+    for ([_][2][]const u8{ .{ tdb, "fp_hash, t1\nnot-a-number, x\n" }, .{ meta, "path=corrupt\nduration=1.0\nfingerprints=1\n" } }) |pair| {
+        const f = try Io.Dir.cwd().createFile(io, pair[0], .{});
+        defer f.close(io);
+        try f.writeStreamingAll(io, pair[1]);
+    }
+
+    // Used to abort without any per-file line or summary.
+    const r = try env.run(&.{"store_cached"}, 1);
+    defer r.deinit();
+    try testing.expect(std.mem.indexOf(u8, r.stdout, "corrupt, FAILED: MalformedCacheFile") != null);
+    try testing.expect(std.mem.indexOf(u8, r.stdout, "stored from cache") != null);
+    try testing.expect(std.mem.indexOf(u8, r.stdout, "Stored 1 cache file(s), skipped 0 already indexed, 1 failed") != null);
+    try testing.expectEqual(@as(u32, 1), try env.songCount());
 }
 
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {

@@ -105,17 +105,33 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         if (!is_stored) try to_store.append(allocator, .{ .cache_path = e.cache_path, .meta = e.meta });
     }
 
+    const results = try allocator.alloc(?anyerror, to_store.items.len);
+    defer allocator.free(results);
     if (to_store.items.len > 0) {
         debug("Storing {d} cache files", .{to_store.items.len});
         try olaf_cli_session.prepareDb(allocator, config, true);
-        try olaf_cli_session.storeCachedFiles(allocator, to_store.items, config);
+        try olaf_cli_session.storeCachedFiles(allocator, to_store.items, config, results);
     }
 
+    // One line per cache file, in order: skipped, stored, or why it failed.
     const total = entries.items.len;
+    var next: usize = 0; // index into to_store / results
+    var failed: usize = 0;
     for (entries.items, stored, 1..) |e, is_stored, index| {
-        const status = if (is_stored) "SKIPPED: already indexed audio file" else "stored from cache";
-        print("{d}/{d}, {s}, {s}\n", .{ index, total, e.meta.identifier, status });
+        if (is_stored) {
+            print("{d}/{d}, {s}, SKIPPED: already indexed audio file\n", .{ index, total, e.meta.identifier });
+            continue;
+        }
+        const result = results[next];
+        next += 1;
+        if (result) |err| {
+            failed += 1;
+            print("{d}/{d}, {s}, FAILED: {s} ({s})\n", .{ index, total, e.meta.identifier, @errorName(err), e.cache_path });
+        } else {
+            print("{d}/{d}, {s}, stored from cache\n", .{ index, total, e.meta.identifier });
+        }
     }
 
-    print("Stored {d} cache file(s), skipped {d} already indexed, {d} warning(s)\n", .{ to_store.items.len, total - to_store.items.len, warnings });
+    print("Stored {d} cache file(s), skipped {d} already indexed, {d} failed, {d} warning(s)\n", .{ to_store.items.len - failed, total - to_store.items.len, failed, warnings });
+    if (failed > 0) return error.ProcessingFailed;
 }

@@ -436,7 +436,12 @@ pub const CachedFile = struct {
 /// fingerprints from the `.tdb` and the exact duration and count from the
 /// `.meta`. (The core's cache writer is not used: it stores the `.tdb` header
 /// line as a fingerprint and approximates the duration.)
-pub fn storeCachedFiles(allocator: std.mem.Allocator, entries: []const CachedFile, config: *const Config) !void {
+///
+/// `results[i]` receives the error for entry i (null = stored). A malformed
+/// cache file is parsed before anything is written, so it is skipped whole
+/// and the other entries are still stored.
+pub fn storeCachedFiles(allocator: std.mem.Allocator, entries: []const CachedFile, config: *const Config, results: []?anyerror) !void {
+    std.debug.assert(results.len == entries.len);
     var session = try Session.init(allocator, config);
     defer session.deinit();
     const io = olaf_cli_util.defaultIo();
@@ -448,11 +453,15 @@ pub fn storeCachedFiles(allocator: std.mem.Allocator, entries: []const CachedFil
     defer keys.deinit(allocator);
     var values: std.ArrayList(u64) = .empty;
     defer values.deinit(allocator);
-    for (entries) |entry| {
+    for (entries, results) |entry, *result| {
         keys.clearRetainingCapacity();
         values.clearRetainingCapacity();
-        try parseCachedFingerprints(allocator, io, entry.cache_path, core.nameToId(entry.meta.identifier), &keys, &values);
+        parseCachedFingerprints(allocator, io, entry.cache_path, core.nameToId(entry.meta.identifier), &keys, &values) catch |err| {
+            result.* = err;
+            continue;
+        };
         writeFingerprints(db, keys.items, values.items, entry.meta.identifier, entry.meta.duration, entry.meta.fingerprints);
+        result.* = null;
     }
 }
 
