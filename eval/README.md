@@ -6,7 +6,7 @@ The tests check **whether Olaf works**. The evaluation verifies **how well** Ola
 
 The benchmark script stores a large amount of audio in an index and keeps the time it takes to store the audio. Each time the size of the index is doubled a number of queries run to check the time it takes to query the index.
 
-With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the [FMA full](https://github.com/mdeff/fma) dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times real-time with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the [query performance](./eval/olaf_benchmark/olaf_benchmark_query.svg) is also checked. Run the benchmark yourself (requires only `olaf` and `ffmpeg`, no third-party Python packages):
+With the script a folder of audio files is stored and it is registered how long it takes to store 64, 128, 256, 512,... files. If run with the [FMA full](https://github.com/mdeff/fma) dataset a total of more than 200 days of audio are stored at a rate of just under 2000 times real-time with a 96 CPU-core system. An interpretation of the graph is that indexing remains linear on larger datasets. At every doubling of the database the [query performance](./olaf_benchmark/olaf_benchmark_query.svg) is also checked. Run the benchmark yourself (requires only `olaf` and `ffmpeg`, no third-party Python packages; it builds its index in a temporary HOME, never in your `~/.olaf`):
 
 ```bash
 python3 eval/olaf_benchmark/olaf_benchmark.py /folder/with/music
@@ -119,8 +119,8 @@ Useful options (see `--help` for the full list):
 --negatives N              also cut N segments from held-out (non-indexed) files,
                            expected NOT to match (measures false positives)
 --seed 42                  RNG seed for reproducible runs
---threads N                threads passed to olaf store/query
---skip-build               reuse the existing zig-out/bin/olaf instead of rebuilding
+--threads N                worker threads for cutting segments and olaf store (queries run one at a time)
+--skip-build               deprecated no-op (the script always runs an incremental ReleaseFast build)
 --keep-workdir             keep the temp sandbox for inspection
 --csv results.csv          write per-segment results
 --distortions LIST         apply SoX distortions to the positive query segments and

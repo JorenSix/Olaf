@@ -29,11 +29,13 @@ only `olaf` and `ffmpeg` on PATH; no third-party Python dependencies.
 """
 
 import math
+import json
 import os
 import random
 import re
 import subprocess
 import sys
+import tempfile
 import time
 
 PROC_THREADS = 92
@@ -94,10 +96,21 @@ def total_duration_seconds():
         return 0.0
 
 
+def use_sandbox_home():
+    """Run olaf against a fresh index in a temporary HOME, never the user's ~/.olaf."""
+    sandbox = tempfile.mkdtemp(prefix="olaf_benchmark_")
+    os.makedirs(os.path.join(sandbox, ".olaf"))
+    with open(os.path.join(sandbox, ".olaf", "olaf_config.json"), "w") as fh:
+        json.dump({"db_folder": "~/.olaf/db/", "cache_folder": "~/.olaf/cache/"}, fh)
+    os.environ["HOME"] = sandbox  # inherited by every olaf subprocess
+    sys.stderr.write(f"Benchmark index in {sandbox}\n")
+
+
 def main():
     if len(sys.argv) < 2:
         sys.stderr.write("Folder 'None' should exist.\n")
         sys.exit(0)
+    use_sandbox_home()
 
     folder = sys.argv[1]
     if not os.path.isdir(folder):
@@ -140,7 +153,7 @@ def main():
                 f"stderr_{progress_filename}", "w"
             ) as err:
                 subprocess.run(
-                    ["olaf", "cache", list_filename, "-n", str(PROC_THREADS)],
+                    ["olaf", "cache", "--threads", str(PROC_THREADS), list_filename],
                     stdout=out,
                     stderr=err,
                 )

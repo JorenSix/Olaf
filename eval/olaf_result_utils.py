@@ -33,6 +33,8 @@ fragments of 30 seconds are used and second 0-30 match with a reference item
 and also 30-60 match with the same reference, the result lines are merged:
 
     cat result_output.csv | python3 eval/olaf_result_utils.py merge
+    # with fragment_duration_in_seconds other than 30, pass it:
+    cat result_output.csv | python3 eval/olaf_result_utils.py merge 45
     # verify with:
     nl result_output.csv
     cat result_output.csv | python3 eval/olaf_result_utils.py merge | nl
@@ -60,7 +62,8 @@ import sys
 
 MIN_DURATION_IN_SECONDS = 5
 MIN_MATCH_SCORE = 13
-# Must match fragment_duration_in_seconds in the olaf config used for `query --fragmented`.
+# Default fragment length for `merge`; pass the fragment_duration_in_seconds
+# of the olaf config used for `query --fragmented` when it differs.
 FRAGMENT_DURATION_IN_SECONDS = 30
 
 
@@ -176,9 +179,12 @@ def cmd_filter(argv):
             print(l)
 
 
-def cmd_merge():
+def cmd_merge(argv):
+    fragment_duration = float(argv[1]) if len(argv) > 1 else FRAGMENT_DURATION_IN_SECONDS
     groups = {}
     for l in valid_lines(sys.stdin.read()):
+        if l.empty_match:  # "no results" rows are not matches to merge
+            continue
         key = "-_-".join([
             os.path.splitext(os.path.basename(l.query))[0],
             os.path.splitext(os.path.basename(l.ref_path))[0],
@@ -203,7 +209,7 @@ def cmd_merge():
         for l in lines:
             if prev_query_offset < 0:
                 seq.append(l)
-            elif (prev_query_offset + FRAGMENT_DURATION_IN_SECONDS) == l.query_offset:
+            elif abs(prev_query_offset + fragment_duration - l.query_offset) < 1e-6:
                 seq.append(l)
             else:
                 seq[0].match_count = sum(sl.match_count for sl in seq)
@@ -238,7 +244,7 @@ def main():
     elif command == "filter":
         cmd_filter(sys.argv[1:])
     elif command == "merge":
-        cmd_merge()
+        cmd_merge(sys.argv[1:])
     elif command == "check":
         cmd_check(sys.argv[1:])
     else:

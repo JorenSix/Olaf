@@ -7,10 +7,10 @@
 # The script needs access to a folder with mp3 or other audio files.
 # For example:
 # 
-# ruby eval/olaf_melory_use.rb /User/Music
+# ruby eval/olaf_memory_use.rb /User/Music
 # 
 # The script assumes that the installed version of olaf uses the same index as 
-# bin/olaf_c which is used for memory consumption.
+# bin/olaf_core (built with `make compile_core`) which is used for memory consumption.
 #
 # To measure memory use the macOS utility /usr/bin/time is used.
 # Similar utilities are available for Linux or other systems.
@@ -69,7 +69,7 @@ REF_TARGET_FOLDER = "dataset/ref"
 ref_files = Dir.glob(File.join(REF_TARGET_FOLDER,"*mp3"))
 if ref_files.length == 0
     STDERR.puts 'Test dataset not found. Downloading...'
-    system("ruby eval/olaf_download_dataset.rb")
+    abort "Dataset missing: run `zig build test` once to download it into dataset/"
 end
 
 QUERY_TARGET_FOLDER = "dataset/queries"
@@ -84,7 +84,7 @@ QUERY_FILES_RAW = Dir.glob(File.join("dataset/raw/queries","*raw")).sort
 raw_query_file = QUERY_FILES_RAW.first
 
 system("make clean > /dev/null")
-system("make > /dev/null")
+system("make compile_core > /dev/null")
 
 directory = ARGV[0]
 
@@ -131,7 +131,7 @@ input_files.each_with_index do |file,index|
 
     #report memory only once every x times
     if(((index+1) % report_memory_use_every_x_files == 0))
-    	cmd = "bin/olaf_c query #{raw_query_file} #{raw_query_file}"
+    	cmd = "bin/olaf_core query #{raw_query_file} #{raw_query_file}"
     	memory_use_in_kb = memory_use(cmd)
     	total_duration = OlafStats.new.total_duration.round
     	puts "#{total_duration},#{memory_use_in_kb}"
