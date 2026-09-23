@@ -29,6 +29,16 @@ const Model = struct {
     pending_path: ?[]const u8,
     spinner_frame: usize,
 
+    // Operations run on a worker thread so the UI keeps drawing; `done` is
+    // set when it finishes and the tick handler then joins it.
+    worker: ?std.Thread = null,
+    done: std.atomic.Value(bool) = .init(true),
+    // Guards log_lines, which the worker appends to while the UI draws.
+    log_mutex: std.Io.Mutex = .init,
+    // Upper-case variants of the allowed extensions (the picker compares
+    // case-sensitively); owned.
+    picker_extensions: []const []const u8 = &.{},
+
     pub const Msg = union(enum) {
         key: zz.KeyEvent,
         tick: struct { timestamp: u64, delta: u64 },
@@ -46,29 +56,28 @@ const Model = struct {
             .tick => {
                 if (self.running) {
                     self.spinner_frame +%= 1;
-                    if (self.pending) |op| {
-                        self.pending = null;
-                        self.runOp(op);
+                    if (self.done.load(.acquire)) {
+                        if (self.worker) |t| t.join();
+                        self.worker = null;
                         self.running = false;
                         self.refreshStats();
+                        return .none;
                     }
-                    return .none;
+                    return zz.Cmd(Msg).tickMs(100); // keep the spinner moving
                 }
             },
             .key => |k| {
                 switch (k.key) {
                     .char => |c| switch (c) {
-                        'Q', 'q' => {
-                            if (c == 'Q') return .quit;
-                            return self.beginOp(.query);
-                        },
+                        // q quits, as in most terminal UIs (query is 'm', for
+                        // match, so Caps Lock can no longer turn one into the
+                        // other).
+                        'q', 'Q' => return .quit,
+                        'm', 'M' => return self.beginOp(.query),
                         's', 'S' => return self.beginOp(.store),
                         'f', 'F' => return self.beginOp(.fragmented_query),
-                        'j' => {
-                            _ = self.picker.handleKey(self.io, k) catch {};
-                            return .none;
-                        },
-                        'k' => {
+                        // Picker keys: move, show hidden files, go home.
+                        'j', 'k', 'h', '~' => {
                             _ = self.picker.handleKey(self.io, k) catch {};
                             return .none;
                         },
@@ -111,7 +120,18 @@ const Model = struct {
             .fragmented_query => "Fragmented query",
         };
         self.appendLog("{s}: {s}", .{ label, std.fs.path.basename(path_copy) });
-        return zz.Cmd(Msg).tickMs(1);
+
+        self.done.store(false, .release);
+        self.worker = std.Thread.spawn(.{}, workerMain, .{ self, op }) catch blk: {
+            workerMain(self, op); // no thread: run it here
+            break :blk null;
+        };
+        return zz.Cmd(Msg).tickMs(100);
+    }
+
+    fn workerMain(self: *Model, op: PendingOp) void {
+        self.runOp(op);
+        self.done.store(true, .release);
     }
 
     fn runOp(self: *Model, op: PendingOp) void {
@@ -128,7 +148,22 @@ const Model = struct {
         }
     }
 
-    fn runStore(self: *Model, path: []const u8) void {
+    fn runStore(self: *Model, picked: []const u8) void {
+        // The same identifier the CLI gives this file (canonical path), and
+        // the same skip_duplicates behaviour.
+        const path = olaf_cli_util.canonicalPath(self.allocator, self.io, picked) catch |e| {
+            self.appendLog("  store failed: {s}", .{@errorName(e)});
+            return;
+        };
+        defer self.allocator.free(path);
+        if (self.config.skip_duplicates) {
+            const stored = olaf_cli_session.storedFlags(self.allocator, self.config, &.{path}) catch null;
+            defer if (stored) |f| self.allocator.free(f);
+            if (stored) |f| if (f[0]) {
+                self.appendLog("  already indexed (olaf store -f re-stores it)", .{});
+                return;
+            };
+        }
         const raw = olaf_cli_threading.TempRaw.create(self.io, self.allocator, path, self.config, null) catch |e| {
             self.appendLog("  transcode failed: {s}", .{@errorName(e)});
             return;
@@ -264,6 +299,8 @@ const Model = struct {
 
     fn appendLog(self: *Model, comptime fmt: []const u8, args: anytype) void {
         const line = std.fmt.allocPrint(self.allocator, fmt, args) catch return;
+        self.log_mutex.lockUncancelable(self.io);
+        defer self.log_mutex.unlock(self.io);
         if (self.log_lines.items.len >= max_log_lines) {
             self.allocator.free(self.log_lines.orderedRemove(0));
         }
@@ -340,6 +377,9 @@ const Model = struct {
 
         // Show the most recent lines that fit in the remaining body height.
         const log_rows: usize = if (body_h > rows_written) body_h - rows_written else 0;
+        const mutex = @constCast(&self.log_mutex);
+        mutex.lockUncancelable(self.io);
+        defer mutex.unlock(self.io);
         const lines = self.log_lines.items;
         const start: usize = if (lines.len > log_rows) lines.len - log_rows else 0;
         const shown = lines[start..];
@@ -360,11 +400,15 @@ const Model = struct {
 
     fn renderStatus(self: *const Model, a: std.mem.Allocator) ![]const u8 {
         _ = self;
-        return std.fmt.allocPrint(a, "\n s store  q query  f fragmented query  ↑↓/jk move  enter open  Q quit", .{});
+        return std.fmt.allocPrint(a, "\n s store  m match (query)  f fragmented  ↑↓/jk move  enter open  h hidden  ~ home  q quit", .{});
     }
 
     pub fn deinit(self: *Model) void {
+        if (self.worker) |t| t.join(); // quit while an operation runs
+        self.worker = null;
         self.picker.deinit();
+        for (self.picker_extensions) |e| self.allocator.free(e);
+        self.allocator.free(self.picker_extensions);
         for (self.log_lines.items) |line| self.allocator.free(line);
         self.log_lines.deinit(self.allocator);
         if (self.pending_path) |p| self.allocator.free(p);
@@ -410,6 +454,14 @@ pub fn run(
     // Build the model state, then hand it to the program before run().
     try prepare(&program.model, allocator, io, config);
 
+    // While the TUI owns the terminal, anything written to stderr (the C
+    // core's warnings, ffmpeg errors, log messages) would draw over the
+    // screen: send it to a log file instead.
+    const redirect = try redirectStderr(allocator, io, config);
+    defer if (redirect) |r| r.restore();
+    if (redirect) |r| program.model.appendLog("messages go to {s}", .{r.path});
+    defer if (redirect) |r| allocator.free(r.path);
+
     try program.run();
 }
 
@@ -420,7 +472,16 @@ fn prepare(
     config: *const olaf_cli_config.Config,
 ) !void {
     var picker = zz.components.FilePicker.init(allocator);
-    picker.allowed_extensions = config.allowed_audio_file_extensions;
+    // The picker compares extensions case-sensitively: offer each allowed
+    // extension in lower and upper case (".mp3", ".MP3"), like the CLI's
+    // case-insensitive match.
+    const exts = config.allowed_audio_file_extensions;
+    const picker_extensions = try allocator.alloc([]const u8, exts.len * 2);
+    for (exts, 0..) |e, i| {
+        picker_extensions[2 * i] = try std.ascii.allocLowerString(allocator, e);
+        picker_extensions[2 * i + 1] = try std.ascii.allocUpperString(allocator, e);
+    }
+    picker.allowed_extensions = picker_extensions;
     if (config.home) |h| picker.setHomePath(h);
     picker.focus();
 
@@ -441,5 +502,38 @@ fn prepare(
         .pending = null,
         .pending_path = null,
         .spinner_frame = 0,
+        .picker_extensions = picker_extensions,
     };
+}
+
+const StderrRedirect = struct {
+    saved_fd: c_int,
+    path: []u8,
+
+    fn restore(self: StderrRedirect) void {
+        if (@import("builtin").os.tag == .windows) return;
+        _ = std.c.dup2(self.saved_fd, std.posix.STDERR_FILENO);
+        _ = std.c.close(self.saved_fd);
+    }
+};
+
+/// Point stderr at `~/.olaf/olaf_tui.log` (POSIX only; null elsewhere or
+/// when there is no home directory).
+fn redirectStderr(allocator: std.mem.Allocator, io: std.Io, config: *const olaf_cli_config.Config) !?StderrRedirect {
+    if (@import("builtin").os.tag == .windows) return null;
+    const home = config.home orelse return null;
+    const path = try std.fs.path.join(allocator, &.{ home, ".olaf", "olaf_tui.log" });
+    errdefer allocator.free(path);
+    const file = std.Io.Dir.cwd().createFile(io, path, .{}) catch {
+        allocator.free(path);
+        return null;
+    };
+    defer file.close(io);
+    const saved = std.c.dup(std.posix.STDERR_FILENO);
+    if (saved < 0) {
+        allocator.free(path);
+        return null;
+    }
+    _ = std.c.dup2(file.handle, std.posix.STDERR_FILENO);
+    return .{ .saved_fd = saved, .path = path };
 }

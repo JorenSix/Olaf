@@ -179,7 +179,7 @@ olaf query dataset/queries/1051039_34s-54s.mp3
 olaf stats
 ```
 
-Running `olaf` without arguments opens an interactive terminal browser: pick an audio file and press `s` to store it, `q` to query it or `f` for a fragmented query; the database statistics are shown next to it.
+Running `olaf` without arguments opens an interactive terminal browser: pick an audio file and press `s` to store it, `m` to match (query) it or `f` for a fragmented query, and `q` to quit; the database statistics are shown next to it. On Linux and macOS, messages from ffmpeg and the core go to `~/.olaf/olaf_tui.log` instead of the screen.
 
 ### Store fingerprints
 
