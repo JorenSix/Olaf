@@ -64,7 +64,7 @@
 	/**
 	 * Initialize a new @ref Olaf_EP_Extractor struct according to the given configuration.
 	 * @param config The configuration currenlty in use.
-	 * @return An initialized @ref Olaf_EP_Extractor struct or undefined if memory could not be allocated.
+	 * @return An initialized @ref Olaf_EP_Extractor struct or NULL (EINVAL for invalid configuration, ENOMEM for allocation failure).
 	 */
 	Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config);
 

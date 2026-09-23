@@ -76,7 +76,8 @@
 	 * @param[in]  fp_cache_file  The output cache file
 	 * @param[in]  fp_meta_file  The output meta data file
 	 *
-	 * @return     A new runner struct state of the runner
+	 * @return     A new runner, or NULL with EINVAL/ENOMEM. Cache files remain
+	 *             caller-owned until a stream processor processes them.
 	 */
 	Olaf_Runner * olaf_runner_new(int mode, Olaf_Config * config, FILE * fp_cache_file, FILE * fp_meta_file);
 

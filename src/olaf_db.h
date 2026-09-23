@@ -65,12 +65,20 @@
 	/** 
 	 * Creates a new database, if the file name exists, read the contents
 	 * @param db_file_folder  The folder used to store database files
-	 * @param readonly The mode to open the database, if no write operations are expected this should be true.
+	 * @param readonly True for a readonly transaction over an existing database.
+	 * LMDB handles for the same directory share an environment, but each owns
+	 * an independent transaction and snapshot. The folder string is copied.
+	 * Use each handle serially; write handles must remain on their creating
+	 * thread. Nested write handles on the same thread/database are unsupported.
+	 * The LMDB backend requires writable storage, including for readers.
 	 */
 	Olaf_DB * olaf_db_new(const char * db_file_folder,bool readonly);
 
 	/**
-	 * Free database related memory resources and close files or other resources.
+	 * End the transaction (commit writes, abort reads) and release resources.
+	 * The shared LMDB environment closes after its last handle is destroyed.
+	 * Database errors, including failed commits, use the existing fatal error
+	 * reporting. A commit failure must not be interpreted as a successful store.
 	 * @param db the database to close.
 	 */
 	void olaf_db_destroy(Olaf_DB * db);

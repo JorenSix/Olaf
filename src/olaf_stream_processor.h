@@ -49,6 +49,8 @@
      *
      * @return     Newly created state information related to the processor.
      */
+    /* Returns NULL on invalid config (EINVAL), allocation failure (ENOMEM),
+     * or an audio open failure (the underlying errno). Borrows runner. */
     Olaf_Stream_Processor * olaf_stream_processor_new(Olaf_Runner * runner,const char* raw_path,const char* orig_path);
 
     /**

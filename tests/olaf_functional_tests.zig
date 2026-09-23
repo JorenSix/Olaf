@@ -2072,3 +2072,40 @@ test "benchmark: fingerprint extraction speed" {
     // This is a skeleton for benchmarking fingerprint extraction
     std.debug.print("\nBenchmark test skeleton - implement timing tests\n", .{});
 }
+
+test "functional: unsafe configuration fails before creating storage or decoding" {
+    var env = try Fixture.init(testing.allocator, testing.io, "unsafe_config");
+    defer env.deinit();
+    const invalid = [_][]const u8{
+        "\"audio_block_size\":2048",
+        "\"audio_step_size\":0",
+        "\"bytes_per_audio_sample\":8",
+        "\"max_event_points\":0",
+        "\"event_point_threshold\":60",
+        "\"filter_size_time\":1",
+        "\"number_of_eps_per_fp\":4",
+        "\"min_time_distance\":34",
+        "\"max_results\":0",
+        "\"max_db_collisions\":0",
+        "\"min_event_point_magnitude\":1e100",
+        "\"keep_matches_for\":1e30",
+        "\"print_result_every\":-1",
+        "\"max_fingerprints\":4294967295",
+    };
+    // No decoder can run, even if input validation accidentally moves earlier.
+    try env.env_map.put("PATH", "");
+    for (invalid) |setting| {
+        const text = try std.fmt.allocPrint(testing.allocator, "{{\"db_folder\":\"~/.olaf/rejected-db\",\"cache_folder\":\"~/.olaf/rejected-cache\",{s}}}", .{setting});
+        defer testing.allocator.free(text);
+        try env.writeConfig(text);
+        const result = try env.run(&.{ "store", "--threads", "4", "missing.mp3" }, 1);
+        defer result.deinit();
+        try testing.expect(std.mem.indexOf(u8, result.stderr, "config:") != null);
+        try testing.expect(std.mem.indexOf(u8, result.stderr, "ffmpeg") == null);
+        for ([_][]const u8{ "rejected-db", "rejected-cache" }) |name| {
+            const path = try std.fmt.allocPrint(testing.allocator, "{s}/{s}", .{ env.olaf_dir, name });
+            defer testing.allocator.free(path);
+            try testing.expectError(error.FileNotFound, Io.Dir.cwd().access(testing.io, path, .{}));
+        }
+    }
+}

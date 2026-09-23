@@ -19,6 +19,7 @@
 //#include <signal.h> //signal not supported by wasm
 
 #include "olaf_config.h"
+#include "olaf_config_internal.h"
 #include "olaf_reader.h"
 
 struct Olaf_Reader{
@@ -39,9 +40,10 @@ struct Olaf_Reader{
 
 Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source){
 
-	//signal(SIGINT, olaf_reader_trap);
+	if(!olaf_config_check(olaf_config_audio_error(config))) return NULL;
 
 	Olaf_Reader *reader = (Olaf_Reader *) malloc(sizeof(Olaf_Reader));
+	if(reader == NULL){ errno = ENOMEM; return NULL; }
 	reader->config = config;
 	reader->total_samples_read = 0;
 	reader->end_of_file_reached = false;
@@ -51,11 +53,13 @@ Olaf_Reader * olaf_reader_new(Olaf_Config * config,const char * source){
 		file = freopen(NULL, "rb", stdin);
 	}else{
 		file = fopen(source,"rb");  // r for read, b for binary
-		if (file==NULL) {
-			fprintf(stderr,"Audio file %s not found or unreadable.\n",source);
-			free(reader);
-			return NULL;
-		}
+	}
+	if(file == NULL){
+		int error = errno;
+		fprintf(stderr,"Audio file %s not found or unreadable.\n",source ? source : "stdin");
+		free(reader);
+		errno = error;
+		return NULL;
 	}
 
 	reader->audio_file = file;
@@ -104,6 +108,7 @@ size_t olaf_reader_total_samples_read(Olaf_Reader * reader){
 }
 
 void olaf_reader_destroy(Olaf_Reader *  reader){
+	if(reader == NULL) return;
 
 	if(!reader->end_of_file_reached){
 		fprintf(stderr, "Warning: not reached end of file\n");

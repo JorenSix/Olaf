@@ -20,6 +20,7 @@
 
 #include "olaf_ep_extractor.h"
 #include "olaf_config.h"
+#include "olaf_config_internal.h"
 #include "olaf_max_filter.h"
 
 //state information
@@ -28,6 +29,8 @@ struct Olaf_EP_Extractor{
 
 	float** mags; /**< The magnitudes calculated from the FFT */
 
+	int allocated_rows;
+	float * time_slice;
 	float** maxes; /**< The vertical max-filtered magnitudes */
 
 	int filterIndex; /**< Current index into the max filter */
@@ -41,7 +44,9 @@ struct Olaf_EP_Extractor{
 
 Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){
 
-	Olaf_EP_Extractor *ep_extractor = (Olaf_EP_Extractor *) malloc(sizeof(Olaf_EP_Extractor));
+	if(!olaf_config_check(olaf_config_ep_error(config))) return NULL;
+	Olaf_EP_Extractor *ep_extractor = (Olaf_EP_Extractor *) calloc(1, sizeof(Olaf_EP_Extractor));
+	if(ep_extractor == NULL){ errno = ENOMEM; return NULL; }
 
 	ep_extractor->config = config;
 
@@ -49,7 +54,7 @@ Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){
 
 	ep_extractor->eventPoints.eventPoints = (struct eventpoint *) calloc(config->maxEventPoints , sizeof(struct eventpoint));
 	ep_extractor->eventPoints.eventPointIndex = 0;
-	if(ep_extractor->eventPoints.eventPoints == NULL) fprintf(stdout,"Failed to allocate memory: eventPoints");
+	if(ep_extractor->eventPoints.eventPoints == NULL) goto allocation_failed;
 
 	//initialize t with a high number
 	for(int i = 0 ; i < config->maxEventPoints; i++){
@@ -57,28 +62,38 @@ Olaf_EP_Extractor * olaf_ep_extractor_new(Olaf_Config * config){
 	}
 	
 	ep_extractor->mags  =(float **) calloc(config->filterSizeTime , sizeof(float *));
-	if(ep_extractor->mags == NULL) fprintf(stdout,"Failed to allocate memory: mags");
+	if(ep_extractor->mags == NULL) goto allocation_failed;
 	ep_extractor->maxes = (float **) calloc(config->filterSizeTime , sizeof(float *));
-	if(ep_extractor->maxes == NULL) fprintf(stdout,"Failed to allocate memory: maxes");
+	if(ep_extractor->maxes == NULL) goto allocation_failed;
 
 	for(int i = 0; i < config->filterSizeTime ;i++){
+		ep_extractor->allocated_rows = i + 1;
 		ep_extractor->maxes[i]= (float *) calloc(halfAudioBlockSize , sizeof(float));
-		if(ep_extractor->maxes[i] == NULL) fprintf(stdout,"Failed to allocate memory: maxes[i]");
+		if(ep_extractor->maxes[i] == NULL) goto allocation_failed;
 
 		ep_extractor->mags[i] = (float *) calloc(halfAudioBlockSize , sizeof(float));
-		if(ep_extractor->mags[i] == NULL) fprintf(stderr,"Failed to allocate memory: mags[i]");
+		if(ep_extractor->mags[i] == NULL) goto allocation_failed;
 	}
 
+	ep_extractor->time_slice = (float *) calloc(config->filterSizeTime, sizeof(float));
+	if(ep_extractor->time_slice == NULL) goto allocation_failed;
 	ep_extractor->filterIndex = 0;
 	return ep_extractor;
+
+allocation_failed:
+	olaf_ep_extractor_destroy(ep_extractor);
+	errno = ENOMEM;
+	return NULL;
 }
 
 void olaf_ep_extractor_destroy(Olaf_EP_Extractor * ep_extractor){
+	if(ep_extractor == NULL) return;
+	free(ep_extractor->time_slice);
 	free(ep_extractor->eventPoints.eventPoints);
 
-	for(int i = 0; i < ep_extractor->config->filterSizeTime ;i++){
-	  free(ep_extractor->maxes[i]);
-	  free(ep_extractor->mags[i]);
+	for(int i = 0; i < ep_extractor->allocated_rows ;i++){
+	  if(ep_extractor->maxes) free(ep_extractor->maxes[i]);
+	  if(ep_extractor->mags) free(ep_extractor->mags[i]);
 	}
 
 	free(ep_extractor->maxes);
@@ -93,15 +108,21 @@ void olaf_ep_extractor_destroy(Olaf_EP_Extractor * ep_extractor){
 	
 	// ARM NEON implementation here
 	float olaf_ep_extractor_max_filter_time(float* array, size_t array_size){
-		assert(array_size % 4 == 0);
+		if(array_size < 4){
+			float max = -10000000;
+			for(size_t i = 0; i < array_size; i++) if(array[i] > max) max = array[i];
+			return max;
+		}
 		float32x4_t vec_max = vld1q_f32(array);
-		for (size_t j = 4; j < array_size; j += 4) {
+		for (size_t j = 4; j + 4 <= array_size; j += 4) {
 			float32x4_t vec = vld1q_f32(array + j);
 			vec_max = vmaxq_f32(vec_max, vec);
 		}
 		float32x2_t max_val = vpmax_f32(vget_low_f32(vec_max), vget_high_f32(vec_max));
 		max_val = vpmax_f32(max_val, max_val);
-		return vget_lane_f32(max_val, 0);
+		float max = vget_lane_f32(max_val, 0);
+		for(size_t j = array_size - array_size % 4; j < array_size; j++) if(array[j] > max) max = array[j];
+		return max;
 	}
 
 #else
@@ -149,7 +170,7 @@ void extract_internal(Olaf_EP_Extractor * ep_extractor){
     }
 
     //Only now execute the horizontal max filter
-    float timeslice[filterSizeTime];
+    float * timeslice = ep_extractor->time_slice;
     for(size_t t = 0 ; t < filterSizeTime; t++){
       timeslice[t] = ep_extractor->maxes[t][j];
     }

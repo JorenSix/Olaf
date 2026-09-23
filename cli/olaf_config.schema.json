@@ -66,27 +66,37 @@
     "audio_block_size": {
       "type": "integer",
       "description": "The size of a single audio block in samples.",
-      "default": 1024
+      "default": 1024,
+      "minimum": 1024,
+      "maximum": 1024,
+      "const": 1024
     },
     "audio_step_size": {
       "type": "integer",
       "description": "The size of a step from one block of samples to the next.",
-      "default": 128
+      "default": 128,
+      "minimum": 1,
+      "maximum": 1024
     },
     "bytes_per_audio_sample": {
       "type": "integer",
       "description": "The size of a single audio sample in bytes (e.g., 4 for 32-bit float).",
-      "default": 4
+      "default": 4,
+      "minimum": 4,
+      "maximum": 4,
+      "const": 4
     },
     "max_event_points": {
       "type": "integer",
       "description": "Max number of event points before they are combined into fingerprints.",
-      "default": 60
+      "default": 60,
+      "minimum": 1
     },
     "event_point_threshold": {
       "type": "integer",
-      "description": "Once this number of event points is listed, start combining them into fingerprints.",
-      "default": 30
+      "description": "Once this number of event points is listed, start combining them into fingerprints. Must be strictly below max_event_points.",
+      "default": 30,
+      "minimum": 0
     },
     "sqrt_magnitude": {
       "type": "boolean",
@@ -96,27 +106,33 @@
     "filter_size_frequency": {
       "type": "integer",
       "description": "The filter size of the max filter in frequency bins.",
-      "default": 103
+      "default": 103,
+      "minimum": 1
     },
     "filter_size_time": {
       "type": "integer",
-      "description": "The filter size of the max filter in time (horizontal direction), expressed in blocks.",
-      "default": 24
+      "description": "The filter size of the max filter in time (horizontal direction), expressed in blocks. At least 2; odd sizes and sizes not divisible by four are supported.",
+      "default": 24,
+      "minimum": 2
     },
     "min_event_point_magnitude": {
       "type": "number",
       "description": "To avoid extracting event points of silence, the EP magnitude should be at least this value.",
-      "default": 0.001
+      "default": 0.001,
+      "minimum": 0
     },
     "max_event_point_usages": {
       "type": "integer",
-      "description": "The amount each event point is reused.",
-      "default": 10
+      "description": "The amount each event point is reused. Its sum with max_fingerprints must fit a C int.",
+      "default": 10,
+      "minimum": 1
     },
     "min_frequency_bin": {
       "type": "integer",
       "description": "Frequency bins below this value are not used in EP extraction.",
-      "default": 9
+      "default": 9,
+      "minimum": 0,
+      "maximum": 511
     },
     "verbose": {
       "type": "boolean",
@@ -126,7 +142,13 @@
     "number_of_eps_per_fp": {
       "type": "integer",
       "description": "The number of event points (peaks) per fingerprint.",
-      "default": 3
+      "default": 3,
+      "minimum": 2,
+      "maximum": 3,
+      "enum": [
+        2,
+        3
+      ]
     },
     "use_magnitude_info": {
       "type": "boolean",
@@ -136,62 +158,74 @@
     "min_time_distance": {
       "type": "integer",
       "description": "Min time distance between two event points for fingerprint (in time steps).",
-      "default": 2
+      "default": 2,
+      "minimum": 1
     },
     "max_time_distance": {
       "type": "integer",
-      "description": "Max time distance between two event points for fingerprint (in time steps).",
-      "default": 33
+      "description": "Max time distance between two event points for fingerprint (in time steps). Must be at least min_time_distance.",
+      "default": 33,
+      "minimum": 1
     },
     "min_freq_distance": {
       "type": "integer",
       "description": "Min freq distance between two event points for fingerprint (in bins).",
-      "default": 1
+      "default": 1,
+      "minimum": 0
     },
     "max_freq_distance": {
       "type": "integer",
-      "description": "Max freq distance between two event points for fingerprint (in bins).",
-      "default": 128
+      "description": "Max freq distance between two event points for fingerprint (in bins). Must be at least min_freq_distance.",
+      "default": 128,
+      "minimum": 0
     },
     "max_fingerprints": {
       "type": "integer",
       "description": "The maximum number of fingerprints to keep in memory during fingerprint extraction.",
-      "default": 300
+      "default": 300,
+      "minimum": 1
     },
     "max_results": {
       "type": "integer",
       "description": "The maximum number of results in the matching step.",
-      "default": 50
+      "default": 50,
+      "minimum": 1
     },
     "search_range": {
       "type": "integer",
       "description": "The range around a hash to search.",
-      "default": 5
+      "default": 5,
+      "minimum": 0
     },
     "min_match_count": {
       "type": "integer",
       "description": "Minimum aligned matches before reporting match.",
-      "default": 6
+      "default": 6,
+      "minimum": 1
     },
     "min_match_time_diff": {
       "type": "number",
       "description": "Duration in seconds before a match is reported. Zero means all matches are reported.",
-      "default": 0
+      "default": 0,
+      "minimum": 0
     },
     "keep_matches_for": {
       "type": "number",
-      "description": "Forget matches after x seconds, or never when zero. Live queries (microphone) use 10 when zero.",
-      "default": 0
+      "description": "Forget matches after x seconds, or never when zero. Live queries (microphone) use 10 when zero. Must be finite; seconds * target_sample_rate / audio_step_size must not exceed INT_MAX.",
+      "default": 0,
+      "minimum": 0
     },
     "print_result_every": {
       "type": "number",
-      "description": "Print results after x seconds or only at the end of stream when zero. Live queries (microphone) use 3 when zero.",
-      "default": 0
+      "description": "Print results after x seconds or only at the end of stream when zero. Live queries (microphone) use 3 when zero. Must be finite; seconds * target_sample_rate / audio_step_size must not exceed INT_MAX.",
+      "default": 0,
+      "minimum": 0
     },
     "max_db_collisions": {
       "type": "integer",
       "description": "Number of matches (hash collisions) allowed.",
-      "default": 2000
+      "default": 2000,
+      "minimum": 1
     }
   },
   "required": [],

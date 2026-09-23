@@ -1,4 +1,5 @@
 import os
+import errno
 #make sure it can find olaf_cffi module
 import sys
 sys.path.insert(0, '.')
@@ -42,6 +43,8 @@ class Olaf:
 
 	# Initializing
 	def __init__(self,command,path):
+		for name in ("config", "fft", "ep_extractor", "fp_extractor", "fp_db", "fp_matcher", "fp_db_writer"):
+			setattr(self, name, ffi.NULL)
 		#Initialize the OLAF objects
 		# Same identifier as the olaf CLI: the canonical absolute path of an
 		# existing file (symlinks resolved), and the CLI's id function (a
@@ -50,23 +53,23 @@ class Olaf:
 		self.command = command
 		path_bytes = str.encode(self.path)
 		self.audio_identifier = lib.olaf_db_identifier_id(ffi.new("char []", path_bytes), len(path_bytes));
-		self.config = lib.olaf_config_default()
-		self.fft = lib.olaf_fft_new(self.config)
-		self.ep_extractor = lib.olaf_ep_extractor_new(self.config)
-		self.fp_extractor = lib.olaf_fp_extractor_new(self.config)
-
+		self.config = self._require(lib.olaf_config_default())
 		if self.command == OlafCommand.EXTRACT_MAGNITUDES:
 			#Forces olaf to calculate the sqrt of the magnitudes, 
 			#for visualization
 			self.config.sqrtMagnitude = True
+		self.fft = self._require(lib.olaf_fft_new(self.config))
+		self.ep_extractor = self._require(lib.olaf_ep_extractor_new(self.config))
+		self.fp_extractor = self._require(lib.olaf_fp_extractor_new(self.config))
+
 		if self.command == OlafCommand.QUERY:
-			self.fp_db = lib.olaf_db_new(self.config.dbFolder,True);
+			self.fp_db = self._require(lib.olaf_db_new(self.config.dbFolder,True))
 			Olaf.results.clear()
 			#register callback
-			self.fp_matcher = lib.olaf_fp_matcher_new(self.config,self.fp_db,lib.olaf_python_wrapper_handle_result)
+			self.fp_matcher = self._require(lib.olaf_fp_matcher_new(self.config,self.fp_db,lib.olaf_python_wrapper_handle_result))
 		if self.command == OlafCommand.STORE:
-			self.fp_db = lib.olaf_db_new(self.config.dbFolder,False);
-			self.fp_db_writer = lib.olaf_fp_db_writer_new(self.fp_db,self.audio_identifier)
+			self.fp_db = self._require(lib.olaf_db_new(self.config.dbFolder,False))
+			self.fp_db_writer = self._require(lib.olaf_fp_db_writer_new(self.fp_db,self.audio_identifier))
 
 		print("Initialized OLAF with default config")
 		print("\tAudio sample rate:\t" + str(self.config.audioSampleRate))
@@ -74,22 +77,36 @@ class Olaf:
 		print("\tAudio identifier:\t" + str(self.audio_identifier))
 		print("\tAudio path:\t" + str(self.path))
 			
-	# Destructor frees resources
+	def _require(self, pointer):
+		if pointer == ffi.NULL:
+			error = ffi.errno
+			self._close()
+			if error == errno.EINVAL:
+				raise ValueError("Invalid Olaf configuration; see core diagnostic")
+			if error == errno.ENOMEM:
+				raise MemoryError("Could not initialize Olaf")
+			raise RuntimeError("Could not initialize Olaf")
+		return pointer
+
+	def _close(self):
+		# Safe after partial construction and repeated cleanup.
+		for name, destroy in (
+			("fp_matcher", lib.olaf_fp_matcher_destroy),
+			("fp_db_writer", lambda p: lib.olaf_fp_db_writer_destroy(p, True)),
+			("fp_db", lib.olaf_db_destroy),
+			("ep_extractor", lib.olaf_ep_extractor_destroy),
+			("fp_extractor", lib.olaf_fp_extractor_destroy),
+			("fft", lib.olaf_fft_destroy),
+			("config", lib.olaf_config_destroy),
+		):
+			pointer = getattr(self, name, ffi.NULL)
+			if pointer != ffi.NULL:
+				setattr(self, name, ffi.NULL)
+				destroy(pointer)
+
+	# Destructor frees resources even if initialization failed.
 	def __del__(self):
-		lib.olaf_ep_extractor_destroy(self.ep_extractor)
-		lib.olaf_fp_extractor_destroy(self.fp_extractor)
-		if self.command == OlafCommand.QUERY:
-			lib.olaf_fp_matcher_destroy(self.fp_matcher)
-			lib.olaf_db_destroy(self.fp_db)
-
-		if self.command == OlafCommand.STORE:
-			lib.olaf_fp_db_writer_destroy(self.fp_db_writer,True)
-			lib.olaf_db_destroy(self.fp_db)
-
-		lib.olaf_fft_destroy(self.fft)
-		lib.olaf_config_destroy(self.config)
-		
-		print("Cleaned memory and resources")
+		self._close()
 
 
 	def do(self,duration=None,y=None):

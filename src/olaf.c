@@ -106,6 +106,7 @@ void olaf_print_help(const char* message){
 int olaf_stats(void){
 	//print database statistics and exit
 	Olaf_Config* config = olaf_config_default();
+	if(config == NULL){ perror("Olaf configuration"); exit(EXIT_FAILURE); }
 	Olaf_DB* db = olaf_db_new(config->dbFolder,true);
 	olaf_db_stats(db,config->verbose);
 	olaf_db_destroy(db);
@@ -121,6 +122,7 @@ int olaf_stats(void){
  */
 int olaf_has(int argc, const char* argv[]){
 	Olaf_Config* config = olaf_config_default();
+	if(config == NULL){ perror("Olaf configuration"); exit(EXIT_FAILURE); }
 	Olaf_DB* db = olaf_db_new(config->dbFolder,true);
 
 	printf("audio file path; internal identifier; duration (s); fingerprints (#)\n");
@@ -148,6 +150,7 @@ int olaf_has(int argc, const char* argv[]){
  */
 int olaf_store_cached(int argc, const char* argv[]){
 	Olaf_Config* config = olaf_config_default();
+	if(config == NULL){ perror("Olaf configuration"); exit(EXIT_FAILURE); }
 	Olaf_DB* db = olaf_db_new(config->dbFolder,false);
 
 	for(int arg_index = 2 ; arg_index < argc ; arg_index++){
@@ -179,6 +182,7 @@ int main(int argc, const char* argv[]){
 	#else
 		Olaf_Config* config = olaf_config_default();
 	#endif
+	if(config == NULL){ perror("Olaf configuration"); return EXIT_FAILURE; }
 
 	const char* command = argv[1];
 	int runner_mode = OLAF_RUNNER_MODE_QUERY; 
@@ -208,14 +212,23 @@ int main(int argc, const char* argv[]){
 		olaf_print_help("Unknown command\n");
 	}
 
+	if(runner_mode == OLAF_RUNNER_MODE_QUERY && argc == 2){
+		config->printResultEvery = 3;
+		config->keepMatchesFor = 10;
+	}
 	Olaf_Runner * runner = olaf_runner_new(runner_mode, config, NULL, NULL);
+	if(runner == NULL){ perror("Olaf runner"); olaf_config_destroy(config); return EXIT_FAILURE; }
 
 	if(runner_mode == OLAF_RUNNER_MODE_QUERY && argc == 2){
 		//read audio samples from standard input
-		runner->config->printResultEvery = 3;//print results every three seconds
-		runner->config->keepMatchesFor = 10;//keep matches for 7 seconds
 		fprintf(stderr,"Start listening for incoming raw audio samples piped in over STDIN.\n");
 		Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,NULL,"stdin");
+		if(processor == NULL){
+			perror("Olaf stream processor");
+			olaf_runner_destroy(runner);
+			olaf_config_destroy(config);
+			return EXIT_FAILURE;
+		}
 		olaf_stream_processor_process(processor);
 		olaf_stream_processor_destroy(processor);
 	}else{
@@ -230,6 +243,12 @@ int main(int argc, const char* argv[]){
 			const char* raw_path =  argv[arg_index];
 			const char* orig_path = argv[arg_index + 1];
 			Olaf_Stream_Processor* processor = olaf_stream_processor_new(runner,raw_path,orig_path);
+			if(processor == NULL){
+				perror("Olaf stream processor");
+				olaf_runner_destroy(runner);
+				olaf_config_destroy(config);
+				return EXIT_FAILURE;
+			}
 			olaf_stream_processor_process(processor);
 			olaf_stream_processor_destroy(processor);
 		}

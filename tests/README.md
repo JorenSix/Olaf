@@ -51,3 +51,59 @@ Other helpers: `env.expectExit(args, code)`, `env.shell(script, code)`, `env.wri
 ## Continuous integration
 
 `.github/workflows/make.yml` builds with `make` (default, `mem` and core), runs the legacy C tests (`make test`) and `zig build test` on Ubuntu; `.github/workflows/release.yml` cross-compiles the release targets (Linux, macOS, Windows).
+
+### Database ownership and writer safety
+
+`zig build test-db-safety` runs synthetic regressions without ffmpeg or a dataset.
+They also run as part of `zig build test`. The C writer test checks exact output
+for empty, full, oversized, and split batches in store and delete modes. The DB
+helper exercises shared environments, 32 simultaneous readers, concurrent and
+mixed readers/writers, path aliases, last-close races, independent databases,
+and snapshots held across a separate process's writes/deletes. Helpers have a
+30-second watchdog; subprocess handshakes and barriers establish overlap.
+
+Instrument the production C backend and bundled LMDB with Clang:
+
+```sh
+python3 tests/run_db_sanitizers.py
+python3 tests/run_db_sanitizers.py --sanitizer thread
+```
+
+The first command enables ASan and UBSan; the second enables TSan. No sanitizer
+suppressions are used. Both commands require Python 3, Clang, pthreads, and a
+host that permits LMDB's mappings and locks. Temporary databases are isolated
+and removed after testing. `CC` can select a different Clang executable.
+
+The LMDB backend retains one environment per directory identity. Handles own
+transactions and borrow the environment's DBIs. The last handle (including
+pending openers) releases the environment. Each database has a writer mutex;
+snapshot registration/release and writer operations share a short mutex because
+the bundled LMDB reads reusable writer flags before its own lock and scans or
+releases reader slots without locking. Existing read transactions remain usable
+while writers operate, and no registry/snapshot mutex is held while waiting for
+an external writer. Normal LMDB locks provide interprocess synchronization.
+
+Configuration safety regressions:
+
+```bash
+zig build test-config-safety
+zig build check-config-safety -Dtarget=x86-linux-musl
+python3 tests/run_config_sanitizers.py
+python3 tests/test_python_constructor.py
+```
+
+The C tests run with assertions disabled and fail each successive constructor
+allocation, including nested FFT and hash-table allocations. They check EINVAL
+versus ENOMEM, complete cleanup, valid presets, allocation-size overflow,
+duration conversion boundaries, and time filters of size 2, 3, 4, 13 and 24.
+The sanitizer runner tests both native SIMD and scalar implementations. The
+Python ownership tests use a fake CFFI library, so no audio packages are needed.
+CLI tests cover JSON rejection before storage creation/decoding, programmatic
+configuration validation, schema bounds, and C/Zig rule parity.
+
+Core constructors borrow their configuration: keep it alive and do not change
+structural settings while objects use it. Invalid configuration returns NULL,
+sets errno to EINVAL, and emits a field-specific diagnostic. Allocation failure
+returns NULL with ENOMEM. Database runtime failures retain their existing
+behavior. The extraction pipeline requires 1024-sample blocks and four-byte
+float samples; a standalone reader accepts other positive block sizes.

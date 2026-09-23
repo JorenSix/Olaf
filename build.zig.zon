@@ -1,6 +1,6 @@
 .{
     .name = .olaf,
-    .version = "3.0.0",
+    .version = "3.1.0",
     .fingerprint = 0xdbfb9486fc04d895,
     .minimum_zig_version = "0.16.0",
     .paths = .{

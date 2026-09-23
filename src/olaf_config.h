@@ -33,6 +33,14 @@
 
 #ifndef OLAF_CONFIG_H
 #define OLAF_CONFIG_H
+
+/* Configurations are borrowed by core objects and must outlive them. Keep
+ * structural fields (buffer sizes, filters, timing and extraction settings)
+ * unchanged until those objects are destroyed. Constructors return NULL with
+ * errno=EINVAL for invalid configuration, or ENOMEM on allocation failure.
+ * Invalid configuration emits one field-specific diagnostic to stderr.
+ */
+
 	
 	/** @typedef Olaf_Config
 	 *  @brief Typedef for struct Olaf_Config.

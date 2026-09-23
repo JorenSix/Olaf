@@ -20,6 +20,8 @@
 
 #include "hash-table.h"
 #include "olaf_fp_matcher.h"
+#include "olaf_config_internal.h"
+#include "olaf_fp_matcher_internal.h"
 #include "olaf_fp_extractor.h"
 #include "olaf_db.h"
 
@@ -42,25 +44,10 @@ struct match_result{
 	uint64_t result_hash_table_key; /**< The key used in the hash table */
 };
 
-inline int max ( int a, int b ) { return a > b ? a : b; }
-inline int min ( int a, int b ) { return a < b ? a : b; }
+static inline int max ( int a, int b ) { return a > b ? a : b; }
+static inline int min ( int a, int b ) { return a < b ? a : b; }
 
-struct Olaf_FP_Matcher{
 
-	HashTable *result_hash_table; /**< Hash table mapping match_id/time-diff combinations to match structs */
-
-	Olaf_DB * db; /**< The database to use */
-
-	Olaf_Config * config; /**< The configuration of Olaf */
-
-	uint64_t * db_results; /**< List of results returned by the database, limited to maxDBCollisions */
-
-	Olaf_FP_Matcher_Result_Callback result_callback; /**< Callback invoked for each match result */
-
-	const char * header; /**< Optional header string for result output */
-
-	int last_print_at; /**< Audio block index of the last printed result */
-};
 
 //For the hash table use a 64 bit key mapped to 32 bits
 unsigned int uint64_t_hash(void *vlocation){
@@ -100,7 +87,9 @@ void olaf_hash_table_value_free_func(void *value){
 
 //Creates a new matcher 
 Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db,Olaf_FP_Matcher_Result_Callback callback ){
-	Olaf_FP_Matcher *fp_matcher = (Olaf_FP_Matcher *) malloc(sizeof(Olaf_FP_Matcher));
+	if(!olaf_config_check(olaf_config_matcher_error(config))) return NULL;
+	Olaf_FP_Matcher *fp_matcher = (Olaf_FP_Matcher *) calloc(1, sizeof(Olaf_FP_Matcher));
+	if(fp_matcher == NULL){ errno = ENOMEM; return NULL; }
 	
 	//The database results are integers which combine a time info and match id
 	fp_matcher->db_results = (uint64_t *) calloc(config->maxDBCollisions , sizeof(uint64_t));
@@ -111,6 +100,14 @@ Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db,Olaf_FP_M
 	fp_matcher->result_callback = callback;
 	fp_matcher->header = NULL;
 
+	fp_matcher->match_results = (struct match_result **) calloc(config->maxResults, sizeof(struct match_result *));
+	if(!fp_matcher->db_results || !fp_matcher->result_hash_table || !fp_matcher->match_results){
+		olaf_fp_matcher_destroy(fp_matcher);
+		errno = ENOMEM;
+		return NULL;
+	}
+	fp_matcher->max_age = olaf_config_duration_blocks(config->keepMatchesFor, config);
+	fp_matcher->print_interval = olaf_config_duration_blocks(config->printResultEvery, config);
 	hash_table_register_free_functions(fp_matcher->result_hash_table,NULL, olaf_hash_table_value_free_func);
 
 	return fp_matcher;
@@ -121,7 +118,7 @@ Olaf_FP_Matcher * olaf_fp_matcher_new(Olaf_Config * config,Olaf_DB* db,Olaf_FP_M
 void olaf_fp_matcher_remove_old_matches(Olaf_FP_Matcher * fp_matcher, int current_query_time ){
 	
 	//from seconds to the number of blocks 
-	int max_age = (int) ((fp_matcher->config->keepMatchesFor  * fp_matcher->config->audioSampleRate) /  fp_matcher->config->audioStepSize);
+	int max_age = fp_matcher->max_age;
 
 	HashTableIterator iterator;
 	HashTablePair pair;
@@ -233,7 +230,7 @@ void olaf_fp_matcher_match(Olaf_FP_Matcher * fp_matcher, struct extracted_finger
 	}
 	
 	if(fingerprints->fingerprintIndex > 0 && fp_matcher->config->printResultEvery != 0){
-		int printResultEvery = (fp_matcher->config->printResultEvery *  fp_matcher->config->audioSampleRate ) /  fp_matcher->config->audioStepSize;
+		int printResultEvery = fp_matcher->print_interval;
 		int current_query_time = fingerprints->fingerprints[fingerprints->fingerprintIndex-1].timeIndex3;
 		//printf("Current time: %d, Last print at: %d \n", current_query_time,fp_matcher->last_print_at );
 		if( current_query_time - fp_matcher->last_print_at > printResultEvery){
@@ -275,7 +272,7 @@ void olaf_fp_matcher_callback_print_result(int matchCount, float queryStart, flo
 void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 	size_t match_results_index = 0;
 	size_t match_results_max = fp_matcher->config->maxResults;
-	struct match_result ** match_results = (struct match_result **) calloc(match_results_max, sizeof(struct match_result*));
+	struct match_result ** match_results = fp_matcher->match_results;
 
 	HashTableIterator iterator;
 	HashTablePair pair;
@@ -336,14 +333,13 @@ void olaf_fp_matcher_print_results(Olaf_FP_Matcher * fp_matcher){
 		//printf("%d, %.2f, %.2f, %s, %u, %.2f, %.2f\n",0,0.0,0.0,"",0,0.0,0.0);
 		fp_matcher->result_callback(0,0,0,"",0,0,0);
 	}
-
-	free(match_results);
 }
 
 
-
 void olaf_fp_matcher_destroy(Olaf_FP_Matcher * fp_matcher){
-	hash_table_free(fp_matcher->result_hash_table);
+	if(fp_matcher == NULL) return;
+	free(fp_matcher->match_results);
+	if(fp_matcher->result_hash_table) hash_table_free(fp_matcher->result_hash_table);
 	free(fp_matcher->db_results);
 	free(fp_matcher);
 }
