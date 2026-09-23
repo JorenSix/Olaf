@@ -294,6 +294,8 @@ const TranscodeCtx = struct {
     convert: ConvertFn,
     sample_rate: u32,
     output_mutex: *Io.Mutex,
+    /// -f: convert again even when the output exists.
+    force: bool,
 };
 
 /// Shared driver for the transcoding commands. Rejects jobs whose output
@@ -307,6 +309,7 @@ pub fn runTranscodeJobs(
     num_threads: u32,
     sample_rate: u32,
     convert: ConvertFn,
+    force: bool,
 ) !usize {
     var failures: usize = 0;
     var runnable: std.ArrayList(TranscodeJob) = .empty;
@@ -332,20 +335,21 @@ pub fn runTranscodeJobs(
     }
 
     var output_mutex: Io.Mutex = .init;
-    const ctx = TranscodeCtx{ .io = io, .convert = convert, .sample_rate = sample_rate, .output_mutex = &output_mutex };
+    const ctx = TranscodeCtx{ .io = io, .convert = convert, .sample_rate = sample_rate, .output_mutex = &output_mutex, .force = force };
     failures += try forEachParallel(TranscodeJob, TranscodeCtx, io, allocator, runnable.items, num_threads, ctx, transcodeWorker, TranscodeJob.label);
     return failures;
 }
 
-/// Skip the conversion if the output already exists (re-runs are cheap),
-/// otherwise convert into `<output>.part` and rename it into place, so an
-/// interrupted or failed ffmpeg run never leaves a partial output that a
-/// later run would mistake for a finished one.
+/// Skip the conversion if the output already exists (re-runs are cheap)
+/// unless forced, and say so: the existing file may come from another input
+/// with the same name or another sample rate. Otherwise convert into
+/// `<output>.part` and rename it into place, so an interrupted or failed
+/// ffmpeg run never leaves a partial output that looks finished.
 fn transcodeWorker(ctx: TranscodeCtx, job: TranscodeJob, index: usize, total: usize, allocator: std.mem.Allocator) !void {
     const io = ctx.io;
-    if (Io.Dir.cwd().statFile(io, job.output, .{})) |_| {
-        debug("Output already exists: {s}, skipping", .{job.output});
-    } else |_| {
+    const exists = if (Io.Dir.cwd().statFile(io, job.output, .{})) |_| true else |_| false;
+    const skip = exists and !ctx.force;
+    if (!skip) {
         const part = try std.fmt.allocPrint(allocator, "{s}.part", .{job.output});
         defer allocator.free(part);
         errdefer Io.Dir.cwd().deleteFile(io, part) catch {};
@@ -356,7 +360,8 @@ fn transcodeWorker(ctx: TranscodeCtx, job: TranscodeJob, index: usize, total: us
     // Uncontended no-op when single-threaded.
     ctx.output_mutex.lockUncancelable(io);
     defer ctx.output_mutex.unlock(io);
-    olaf_cli_util.print("{d}/{d},{s},{s}\n", .{ index + 1, total, job.col1, job.col2 });
+    const note = if (skip) ",SKIPPED: output exists (use -f to re-convert)" else "";
+    olaf_cli_util.print("{d}/{d},{s},{s}{s}\n", .{ index + 1, total, job.col1, job.col2, note });
 }
 
 test "fragments cover the duration, the last one shorter" {

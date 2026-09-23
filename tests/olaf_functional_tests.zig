@@ -1874,6 +1874,36 @@ test "functional: long identifiers are stored and reported" {
     try testing.expect(std.mem.indexOf(u8, r.stderr, long_id) != null);
 }
 
+test "functional: to_raw says when it reuses an existing output, -f re-converts" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "to_raw_force");
+    defer env.deinit();
+
+    const run_in_home = struct {
+        fn f(fx: *Fixture, force: bool) ![]u8 {
+            const script = try std.fmt.allocPrint(fx.allocator, "cd '{s}' && '{s}' to_raw {s}'{s}'", .{ fx.home, fx.bin, if (force) "-f " else "", fx.ref });
+            defer fx.allocator.free(script);
+            const r = try fx.shell(script, 0);
+            fx.allocator.free(r.stderr);
+            return r.stdout;
+        }
+    }.f;
+
+    const first = try run_in_home(&env, false);
+    defer allocator.free(first);
+    try testing.expect(std.mem.indexOf(u8, first, "SKIPPED") == null);
+    // The existing output used to be reported as a fresh conversion.
+    const again = try run_in_home(&env, false);
+    defer allocator.free(again);
+    try testing.expect(std.mem.indexOf(u8, again, "SKIPPED: output exists") != null);
+    const forced = try run_in_home(&env, true);
+    defer allocator.free(forced);
+    try testing.expect(std.mem.indexOf(u8, forced, "SKIPPED") == null);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

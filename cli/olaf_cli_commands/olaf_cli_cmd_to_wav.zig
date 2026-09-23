@@ -10,8 +10,8 @@ const print = olaf_cli_util.print;
 
 pub const CommandInfo = struct {
     pub const name = "to_wav";
-    pub const description = "Converts audio to single channel wav, written next to the input as <name>.wav.\n\t--threads n\t The number of threads to use.";
-    pub const help = "[--threads n] audio_files...";
+    pub const description = "Converts audio to single channel wav, written next to the input as <name>.wav.\n\t-f, --force\t Convert again when the output file already exists.\n\t--threads n\t The number of threads to use.";
+    pub const help = "[-f] [--threads n] audio_files...";
     pub const needs_audio_files = true;
 };
 
@@ -34,7 +34,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         try jobs.append(arena, .{ .input = audio_file.path, .input_abs = input_abs, .output = output, .col1 = without_ext, .col2 = output });
     }
 
-    failures += try olaf_cli_threading.runTranscodeJobs(args.io, allocator, jobs.items, args.threads, args.config.?.target_sample_rate, olaf_cli_util_audio.convertToWav);
+    failures += try olaf_cli_threading.runTranscodeJobs(args.io, allocator, jobs.items, args.threads, args.config.?.target_sample_rate, olaf_cli_util_audio.convertToWav, args.force);
 
     if (failures > 0) {
         print("WAV conversion completed with {d} error(s)\n", .{failures});
