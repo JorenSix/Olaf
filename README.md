@@ -221,7 +221,7 @@ The query command has several options.
 
 **--threads n** tells Olaf to use multiple threads to query the index. This can significantly speed up matching if multiple cores are available on your system.
 
-**--fragmented** this chops the query into 30 second fragments and matches each fragment with the reference database separately. The first 30 seconds are matched and matches are reported, then it goes on with the next 30 seconds and so forth. This is practical if an unsegmented audio file needs to be matched with the reference database.
+**--fragmented** this chops the query into fragments of `fragment_duration_in_seconds` (default 30 seconds) and matches each fragment with the reference database separately. The first fragment is matched and matches are reported, then it goes on with the next fragment and so forth. Each result reports the fragment start as `query_offset`. This is practical if an unsegmented audio file needs to be matched with the reference database.
 
 **--no-identity-match** If the query is present in the index it obviously matches itself. This option prevents identity matches to be reported. This is useful for deduplication.
 
@@ -276,7 +276,7 @@ olaf dedup [--threads n] [--fragmented] [--skip-store] field_recordings/archive
 
 **--threads n** tells Olaf to use multiple threads during the store step. This can significantly speed up indexing if multiple cores are available on your system.
 
-**--fragmented** this tells Olaf to chop each query into 30 second fragments during matching. The first 30 seconds are matched with the reference database and matches are reported, then it goes on with the next 30 seconds and so forth. This is practical for partial matches with the reference database.
+**--fragmented** this tells Olaf to chop each query into fragments of `fragment_duration_in_seconds` (default 30 seconds) during matching. The first fragment is matched with the reference database and matches are reported, then it goes on with the next fragment and so forth. This is practical for partial matches with the reference database.
 
 **--skip-store** skips the store step. Use this when the index already contains the folder, so dedup only runs the query phase.
 

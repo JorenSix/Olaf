@@ -9,7 +9,7 @@ const print = olaf_cli_util.print;
 
 pub const CommandInfo = struct {
     pub const name = "dedup";
-    pub const description = "Find duplicate audio content in a folder. Each file is stored, then queried against the index with self-matches filtered out.\n\t\t--threads n\t The number of threads to use for the store step.\n\t\t--fragmented\t Chop queries into 30s fragments and match each fragment.\n\t\t--skip-store\t Skip the store step (use when the index already contains the folder).";
+    pub const description = "Find duplicate audio content in a folder. Each file is stored, then queried against the index with self-matches filtered out.\n\t\t--threads n\t The number of threads to use for the store step.\n\t\t--fragmented\t Chop queries into fragments of fragment_duration_in_seconds (default 30s) and match each fragment.\n\t\t--skip-store\t Skip the store step (use when the index already contains the folder).";
     pub const help = "[--fragmented] [--threads n] [--skip-store] audio_files...";
     pub const needs_audio_files = true;
 };
@@ -46,7 +46,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             args.audio_files.items,
             args.config.?,
             args.threads,
-            args.fragment_duration,
+            args.config.?.fragment_duration_in_seconds,
             false,
             args.output_format,
         );

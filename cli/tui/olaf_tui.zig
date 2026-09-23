@@ -170,6 +170,10 @@ const Model = struct {
             self.appendLog("  duration probe failed: {s}", .{@errorName(e)});
             return;
         };
+        if (self.config.fragment_duration_in_seconds == 0) {
+            self.appendLog("  config: fragment_duration_in_seconds must be > 0", .{});
+            return;
+        }
         const frag_len: f32 = @floatFromInt(self.config.fragment_duration_in_seconds);
         var frag_start: f32 = 0;
         while (frag_start < total) : (frag_start += frag_len) {

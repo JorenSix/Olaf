@@ -8,7 +8,6 @@ pub const Args = struct {
     audio_files: std.ArrayList(olaf_cli_util.AudioFileWithId),
     threads: u32 = 1,
     fragmented: bool = false,
-    fragment_duration: u32 = 30,
     use_audio_ids: bool = false,
     allow_identity_match: bool = true,
     skip_store: bool = false,

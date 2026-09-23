@@ -9,7 +9,7 @@ const print = olaf_cli_util.print;
 
 pub const CommandInfo = struct {
     pub const name = "query";
-    pub const description = "Query for fingerprint matches.\n\t\t--threads n\t The number of threads to use.\n\t\t--fragmented\t Chop queries into 30s fragments and match each fragment.\n\t\t--no-identity-match\t Identity matches are not reported.\n\t\t--format <csv|json>\t Output format (default: csv).";
+    pub const description = "Query for fingerprint matches.\n\t\t--threads n\t The number of threads to use.\n\t\t--fragmented\t Chop queries into fragments of fragment_duration_in_seconds (default 30s) and match each fragment.\n\t\t--no-identity-match\t Identity matches are not reported.\n\t\t--format <csv|json>\t Output format (default: csv).";
     pub const help = "[--fragmented] [--threads n] [--format <csv|json>] [audio_file...] | --with-ids [[audio_file audio_identifier]...]";
     pub const needs_audio_files = true;
 };
@@ -29,7 +29,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             args.audio_files.items,
             args.config.?,
             args.threads,
-            args.fragment_duration,
+            args.config.?.fragment_duration_in_seconds,
             args.allow_identity_match,
             args.output_format,
         );

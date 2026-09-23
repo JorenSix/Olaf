@@ -285,6 +285,12 @@ pub fn executeFragmentedQuery(
     allow_identity_match: bool,
     output_format: olaf_cli_bridge.OutputFormat,
 ) !void {
+    // A 0s fragment would never advance fragment_start: loop forever.
+    if (fragment_duration == 0) {
+        std.log.err("config: 'fragment_duration_in_seconds' must be > 0", .{});
+        return error.InvalidConfigValue;
+    }
+
     const filter_identity = !allow_identity_match;
     debug("Querying {d} audio files in fragments of {d}s with {d} threads (filter_identity={})", .{
         audio_files.len, fragment_duration, num_threads, filter_identity,

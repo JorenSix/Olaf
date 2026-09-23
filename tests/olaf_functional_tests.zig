@@ -885,7 +885,8 @@ test "functional: usage errors exit with status 2" {
 
 /// Store REF_AUDIO_FILE, run `query --fragmented` on it, and check that each
 /// matched fragment reports its offset: expected offsets must all appear, all
-/// offsets are multiples of `step`, and ref_start ~= query_offset + query_start.
+/// offsets are multiples of `step`, and for strong matches
+/// ref_start ~= query_offset + query_start.
 fn expectFragmentOffsets(allocator: std.mem.Allocator, olaf_bin: []const u8, env: *TestEnv, ref_abs: []const u8, step: f32, expected: []const f32) !void {
     const store = try runOlaf(allocator, olaf_bin, env, &.{ "store", ref_abs }, error.OlafStoreFailed);
     allocator.free(store.stdout);
@@ -903,6 +904,9 @@ fn expectFragmentOffsets(allocator: std.mem.Allocator, olaf_bin: []const u8, env
         const r = (try parseResultLine(allocator, line)) orelse continue;
         if (r.empty_match) continue;
         try testing.expectEqual(@as(f32, 0), @mod(r.query_offset, step));
+        // Weak secondary matches against repeated passages elsewhere in the
+        // same song are legitimate; only the strong self-match must align.
+        if (r.match_count < 50) continue;
         try testing.expect(@abs(r.ref_start - (r.query_offset + r.query_start)) < 2.0);
         try seen.append(allocator, r.query_offset);
     }
@@ -933,6 +937,46 @@ test "functional: query --fragmented reports fragment offsets" {
     defer allocator.free(json_result.stdout);
     defer allocator.free(json_result.stderr);
     try testing.expect(std.mem.indexOf(u8, json_result.stdout, "\"query_offset\": 30.000") != null);
+}
+
+/// Replace the test env's olaf_config.json (written by setupTestEnv).
+fn writeTestConfig(env: *TestEnv, config_json: []const u8) !void {
+    const config_path = try std.fmt.allocPrint(env.allocator, "{s}/olaf_config.json", .{env.olaf_dir});
+    defer env.allocator.free(config_path);
+    const f = try Io.Dir.cwd().createFile(env.io, config_path, .{});
+    defer f.close(env.io);
+    try f.writeStreamingAll(env.io, config_json);
+}
+
+test "functional: query --fragmented honours fragment_duration_in_seconds" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
+    const ref_abs = ref_buf[0..ref_n];
+
+    {
+        var env = try setupTestEnv(io, allocator, "frag20");
+        defer env.deinit();
+        try writeTestConfig(&env,
+            \\{"db_folder": "~/.olaf/db/", "cache_folder": "~/.olaf/cache/", "fragment_duration_in_seconds": 20}
+        );
+        try expectFragmentOffsets(allocator, olaf_bin, &env, ref_abs, 20, &.{ 0, 20, 40 });
+    }
+    {
+        // 0 used to spin forever (fragment_start never advances); now a config error.
+        var env = try setupTestEnv(io, allocator, "frag0");
+        defer env.deinit();
+        try writeTestConfig(&env,
+            \\{"db_folder": "~/.olaf/db/", "cache_folder": "~/.olaf/cache/", "fragment_duration_in_seconds": 0}
+        );
+        try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--fragmented", ref_abs }, 1);
+    }
 }
 
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {

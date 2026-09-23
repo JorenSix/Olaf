@@ -59,6 +59,7 @@ import sys
 
 MIN_DURATION_IN_SECONDS = 5
 MIN_MATCH_SCORE = 13
+# Must match fragment_duration_in_seconds in the olaf config used for `query --fragmented`.
 FRAGMENT_DURATION_IN_SECONDS = 30
 
 
