@@ -28,7 +28,7 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         // Live capture has no natural end to flush JSON, so only CSV is supported.
         if (args.output_format == .json) {
             print("The microphone command only supports live CSV output; --format json is not available.\n", .{});
-            return;
+            return error.Usage;
         }
 
         const sample_rate_str = try std.fmt.allocPrint(allocator, "{d}", .{config.target_sample_rate});

@@ -237,6 +237,43 @@ fn runOlaf(
     return result;
 }
 
+/// Run an olaf CLI command and assert it exited normally with `expected`
+/// status. A panic (signal / abnormal termination) always fails the test.
+fn runOlafExpectExit(
+    allocator: std.mem.Allocator,
+    olaf_bin: []const u8,
+    env: *TestEnv,
+    args: []const []const u8,
+    expected: u8,
+) !void {
+    var argv: std.ArrayList([]const u8) = .empty;
+    defer argv.deinit(allocator);
+    try argv.append(allocator, olaf_bin);
+    try argv.appendSlice(allocator, args);
+
+    const result = try std.process.run(allocator, env.io, .{
+        .argv = argv.items,
+        .environ_map = &env.env_map,
+    });
+    defer {
+        allocator.free(result.stdout);
+        allocator.free(result.stderr);
+    }
+
+    const ok = switch (result.term) {
+        .exited => |code| code == expected,
+        else => false,
+    };
+    if (!ok) {
+        const joined = try std.mem.join(allocator, " ", args);
+        defer allocator.free(joined);
+        std.debug.print("\nolaf {s}: expected exit {d}, got {}\nstdout:\n{s}\nstderr:\n{s}\n", .{
+            joined, expected, result.term, result.stdout, result.stderr,
+        });
+        return error.UnexpectedExitStatus;
+    }
+}
+
 /// Store every file in REF_FILES_FOR_QUERY using the CLI.
 fn storeAllRefs(
     io: Io,
@@ -815,6 +852,31 @@ test "functional: config validation" {
     try testing.expect(config.*.audioBlockSize > 0);
     try testing.expect(config.*.audioStepSize > 0);
     try testing.expect(config.*.audioStepSize <= config.*.audioBlockSize);
+}
+
+test "functional: usage errors exit with status 2" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try setupTestEnv(io, allocator, "usage");
+    defer env.deinit();
+
+    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
+    const ref_abs = ref_buf[0..ref_n];
+
+    try runOlafExpectExit(allocator, olaf_bin, &env, &.{"nosuchcmd"}, 2);
+    try runOlafExpectExit(allocator, olaf_bin, &env, &.{"query"}, 2);
+    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--format", "xml", ref_abs }, 2);
+    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--threads" }, 2);
+    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--threads", "abc", ref_abs }, 2);
+    try runOlafExpectExit(allocator, olaf_bin, &env, &.{ "query", "--threads", "0", ref_abs }, 2);
+    try runOlafExpectExit(allocator, olaf_bin, &env, &.{"--help"}, 0);
 }
 
 // ============================================================================

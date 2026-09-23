@@ -29,6 +29,9 @@ pub const std_options: std.Options = .{
     .log_level = .info,
 };
 
+/// Returned for invalid command-line usage; `main` maps it to exit status 2.
+pub const UsageError = error{Usage};
+
 const Command = struct {
     name: []const u8,
     description: []const u8,
@@ -125,7 +128,7 @@ const commands = [_]Command{
 };
 
 fn printCommandList() void {
-    print("No such command, the following commands are valid:\n", .{});
+    print("The following commands are valid:\n", .{});
     for (commands) |cmd| {
         print("\n{s}\t{s}\n", .{ cmd.name, cmd.description });
         print("\tolaf {s} {s}\n", .{ cmd.name, cmd.help });
@@ -151,7 +154,15 @@ fn printHelp(io: Io) !void {
     printCommandList();
 }
 
-pub fn main(init: std.process.Init) !void {
+pub fn main(init: std.process.Init) !u8 {
+    run(init) catch |err| switch (err) {
+        error.Usage => return 2,
+        else => return err,
+    };
+    return 0;
+}
+
+fn run(init: std.process.Init) !void {
     const allocator = init.gpa;
     const io = init.io;
 
@@ -199,6 +210,11 @@ pub fn main(init: std.process.Init) !void {
     const command_name = args_list[1];
     debug("Command name: {s}", .{command_name});
 
+    if (std.mem.eql(u8, command_name, "help") or std.mem.eql(u8, command_name, "--help") or std.mem.eql(u8, command_name, "-h")) {
+        try printHelp(io);
+        return;
+    }
+
     var args = types.Args{
         .audio_files = .empty,
         .io = io,
@@ -218,11 +234,16 @@ pub fn main(init: std.process.Init) !void {
 
         if (std.mem.eql(u8, arg, "--threads")) {
             if (i + 1 < args_list.len) {
-                args.threads = try std.fmt.parseInt(u32, args_list[i + 1], 10);
+                const threads_arg = args_list[i + 1];
+                args.threads = std.fmt.parseInt(u32, threads_arg, 10) catch 0;
+                if (args.threads == 0) {
+                    print("'--threads' expects a positive integer, got '{s}'\n", .{threads_arg});
+                    return error.Usage;
+                }
                 i += 1;
             } else {
                 print("Expected a numeric argument for '--threads': 'olaf cache files --threads 8'\n", .{});
-                return;
+                return error.Usage;
             }
         } else if (std.mem.eql(u8, arg, "--no-identity-match")) {
             args.allow_identity_match = false;
@@ -246,12 +267,12 @@ pub fn main(init: std.process.Init) !void {
                     args.store_format = .human;
                 } else {
                     print("Unknown --format value '{s}', expected 'csv', 'json', or 'human'.\n", .{fmt});
-                    return;
+                    return error.Usage;
                 }
                 i += 1;
             } else {
                 print("Expected an argument for '--format': 'olaf query --format json file.mp3'\n", .{});
-                return;
+                return error.Usage;
             }
         } else if (std.mem.eql(u8, arg, "-f") or std.mem.eql(u8, arg, "--force")) {
             args.force = true;
@@ -272,7 +293,7 @@ pub fn main(init: std.process.Init) !void {
             if (cmd.needs_audio_files and args.audio_files.items.len == 0) {
                 print("This command needs audio files, none are found.\n", .{});
                 print("olaf {s} {s}\n", .{ cmd.name, cmd.help });
-                return;
+                return error.Usage;
             }
 
             try cmd.func(allocator, &args);
@@ -281,5 +302,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     // Command not found
+    print("No such command: '{s}'\n", .{command_name});
     try printHelp(io);
+    return error.Usage;
 }
