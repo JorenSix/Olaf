@@ -21,8 +21,8 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     // fd_t is a HANDLE so this code does not even compile. The comptime
     // if/else keeps the POSIX body out of Windows analysis entirely.
     if (builtin.os.tag == .windows) {
-        print("The microphone command is not supported on Windows.\n", .{});
-        return;
+        std.log.err("the microphone command is not supported on Windows", .{});
+        return error.ProcessingFailed;
     } else {
         const config = args.config.?;
 
@@ -69,6 +69,8 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             .stdout = .pipe,
             .stderr = .inherit,
         });
+        // Should anything below fail, do not leave ffmpeg capturing.
+        errdefer child.kill(io);
 
         // Redirect ffmpeg's PCM output onto this process's stdin (fd 0) so the C
         // stream reader (olaf_reader_stream.c) picks it up via freopen(NULL,...).
