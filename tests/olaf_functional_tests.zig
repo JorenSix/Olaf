@@ -1659,6 +1659,26 @@ test "functional: no home directory is an error, not a ./~ folder" {
     try testing.expect(!try fileExists(io, allocator, env.home, "~"));
 }
 
+test "functional: delete skips files that are not indexed" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "delete_unindexed");
+    defer env.deinit();
+    var other_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const other_n = try Io.Dir.cwd().realPathFile(io, "dataset/ref/173050.mp3", &other_buf);
+    const other = other_buf[0..other_n];
+
+    try env.ok(&.{ "store", env.ref });
+    // The unindexed file comes first: it used to exit(-42) in the core, so
+    // the indexed file after it was never deleted.
+    const r = try env.run(&.{ "delete", other, env.ref }, 0);
+    defer r.deinit();
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "not indexed") != null);
+    try testing.expectEqual(@as(u32, 0), try env.songCount());
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

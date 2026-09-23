@@ -367,6 +367,16 @@ pub fn delete(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifi
         std.log.info("nothing to delete: no database yet in {s}", .{session.config.db_folder});
         return;
     }
+    // Deleting a resource that is not indexed makes the core exit(-42) on
+    // MDB_NOTFOUND, which would abort the rest of the batch.
+    {
+        var db = (try ReadDb.open(allocator, config)).?;
+        defer db.close();
+        if (!db.isStored(identifier)) {
+            std.log.info("nothing to delete: not indexed: {s}", .{identifier});
+            return;
+        }
+    }
     _ = try session.run(.delete, raw_audio_path, identifier, .{});
 }
 
@@ -570,7 +580,8 @@ test "session calls report a raw audio file that cannot be opened" {
     try std.testing.expectError(error.AudioOpenFailed, store(allocator, missing, "missing", &config));
     try std.testing.expectError(error.AudioOpenFailed, query(allocator, info, missing, "missing", &config, 0, .csv));
     try std.testing.expectError(error.AudioOpenFailed, query(allocator, info, missing, "missing", &config, 0, .json));
-    try std.testing.expectError(error.AudioOpenFailed, delete(allocator, missing, "missing", &config));
+    // Not indexed: nothing to delete, so the (missing) audio is never read.
+    try delete(allocator, missing, "missing", &config);
 
     // The cache files are opened (and must be closed) before the audio fails.
     const tdb = try std.fmt.allocPrint(allocator, "{s}1.tdb", .{db_folder});
