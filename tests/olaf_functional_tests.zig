@@ -1947,6 +1947,19 @@ test "functional: store numbers stored and skipped files together" {
     try testing.expect(std.mem.indexOf(u8, r.stderr, "skip,2,2,") != null);
 }
 
+test "functional: dedup --format csv writes the store CSV header" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "dedup_csv");
+    defer env.deinit();
+    // The store records came without a header row (only `store` wrote it).
+    const r = try env.run(&.{ "dedup", "--format", "csv", env.ref }, 0);
+    defer r.deinit();
+    try testing.expect(std.mem.startsWith(u8, r.stderr, "action,file_index,file_total,"));
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);
