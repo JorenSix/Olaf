@@ -26,7 +26,7 @@
     "fragment_duration_in_seconds": {
       "type": "integer",
       "description": "Duration of audio fragments in seconds.",
-      "minimum": 3,
+      "minimum": 1,
       "default": 30
     },
     "target_sample_rate": {
@@ -42,7 +42,26 @@
       "items": {
         "type": "string"
       },
-      "default": [".m4a", ".wav", ".mp4", ".wv", ".ape", ".ogg", ".mp3", ".raw", ".flac", ".wma"]
+      "default": [
+        ".m4a",
+        ".wav",
+        ".mp4",
+        ".wv",
+        ".ape",
+        ".ogg",
+        ".mp3",
+        ".raw",
+        ".flac",
+        ".wma"
+      ]
+    },
+    "microphone_input_format": {
+      "type": "string",
+      "description": "ffmpeg input format of the microphone (the `-f` option). Default depends on the platform: avfoundation on macOS, alsa on Linux, dshow elsewhere."
+    },
+    "microphone_device": {
+      "type": "string",
+      "description": "ffmpeg input device of the microphone (the `-i` option). Default depends on the platform: ':default' on macOS, 'default' on Linux, 'audio=default' elsewhere."
     },
     "audio_block_size": {
       "type": "integer",
@@ -175,5 +194,9 @@
       "default": 2000
     }
   },
-  "required": []
+  "required": [],
+  "patternProperties": {
+    "^\\$": {}
+  },
+  "additionalProperties": false
 }

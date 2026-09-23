@@ -188,7 +188,7 @@ fn hasSettingType(comptime T: type, v: std.json.Value) bool {
 /// loaded config owns all of them. A present value of the wrong JSON type,
 /// or an integer out of range, is a config error rather than a silent
 /// fallback to the default.
-fn loadField(comptime T: type, a: std.mem.Allocator, obj: ?std.json.ObjectMap, name: []const u8, cur: T) !T {
+fn loadField(comptime T: type, a: std.mem.Allocator, obj: ?std.json.ObjectMap, comptime name: []const u8, cur: T) !T {
     const val: ?std.json.Value = if (obj) |o| o.get(name) else null;
     if (val) |v| if (!hasSettingType(T, v)) {
         std.log.err("config: '{s}' must be a {s}", .{ name, expectedJsonType(T) });
@@ -212,8 +212,42 @@ fn loadField(comptime T: type, a: std.mem.Allocator, obj: ?std.json.ObjectMap, n
             .integer => @floatFromInt(v.integer),
             else => unreachable, // checked by hasSettingType
         } else cur,
-        else => return if (obj) |o| getInt(o, name, T, cur) else cur,
+        else => {
+            const v = if (obj) |o| try getInt(o, name, T, cur) else cur;
+            if (val != null and !inBounds(name, v)) {
+                const b = comptime boundsOf(name);
+                std.log.err("config: '{s}' = {d} is out of range ({d}..{d})", .{ name, v, b.min orelse 0, b.max orelse std.math.maxInt(c_int) });
+                return error.InvalidConfigValue;
+            }
+            return v;
+        },
     }
+}
+
+/// Numeric bounds of settings, enforced when loading and documented as
+/// minimum/maximum in cli/olaf_config.schema.json (a test keeps both equal).
+/// Every integer setting must in addition fit the C `int` it is copied into.
+const setting_bounds = .{
+    .{ "fragment_duration_in_seconds", 1, null },
+    .{ "target_sample_rate", 4000, 48000 },
+};
+
+const Bounds = struct { min: ?i64, max: ?i64 };
+
+fn boundsOf(comptime name: []const u8) Bounds {
+    inline for (setting_bounds) |b| {
+        if (comptime std.mem.eql(u8, b[0], name)) return .{ .min = b[1], .max = b[2] };
+    }
+    return .{ .min = null, .max = null };
+}
+
+/// Whether integer `v` is allowed for setting `name` (pure, for tests).
+fn inBounds(comptime name: []const u8, v: i64) bool {
+    const b = comptime boundsOf(name);
+    if (v > std.math.maxInt(c_int)) return false;
+    if (b.min) |min| if (v < min) return false;
+    if (b.max) |max| if (v > max) return false;
+    return true;
 }
 
 fn isSettingName(name: []const u8) bool {
@@ -421,4 +455,80 @@ test "hasSettingType: every setting type rejects the wrong JSON type" {
     try std.testing.expect(isSettingName("max_results"));
     try std.testing.expect(!isSettingName("max_result"));
     try std.testing.expect(!isSettingName("arena"));
+}
+
+test "inBounds: schema bounds and the C int limit" {
+    try std.testing.expect(inBounds("target_sample_rate", 16000));
+    try std.testing.expect(!inBounds("target_sample_rate", 2000));
+    try std.testing.expect(!inBounds("target_sample_rate", 96000));
+    try std.testing.expect(!inBounds("fragment_duration_in_seconds", 0));
+    try std.testing.expect(inBounds("max_results", 50));
+    try std.testing.expect(!inBounds("max_results", 3000000000));
+}
+
+// Keeps cli/olaf_config.schema.json in step with the Config struct: every
+// setting documented with its type, default and bounds, and nothing else.
+test "olaf_config.schema.json matches the Config struct" {
+    const allocator = std.testing.allocator;
+    const text = Io.Dir.cwd().readFileAlloc(std.testing.io, "cli/olaf_config.schema.json", allocator, .limited(1 << 20)) catch return error.SkipZigTest;
+    defer allocator.free(text);
+    const parsed = try json.parseFromSlice(json.Value, allocator, text, .{});
+    defer parsed.deinit();
+    const props = parsed.value.object.get("properties").?.object;
+
+    const defaults = Config{};
+    var settings: usize = 0;
+    inline for (std.meta.fields(Config)) |field| {
+        if (comptime isSetting(field.name)) {
+            settings += 1;
+            const prop = (props.get(field.name) orelse {
+                std.debug.print("schema is missing setting '{s}'\n", .{field.name});
+                return error.SchemaMismatch;
+            }).object;
+            const want_type = switch (field.type) {
+                []const u8 => "string",
+                []const []const u8 => "array",
+                bool => "boolean",
+                f32 => "number",
+                else => "integer",
+            };
+            try std.testing.expectEqualStrings(want_type, prop.get("type").?.string);
+
+            const d = @field(defaults, field.name);
+            // Platform-dependent defaults are described, not given.
+            const platform_default = comptime std.mem.startsWith(u8, field.name, "microphone_");
+            if (!platform_default) {
+                const sd = prop.get("default") orelse {
+                    std.debug.print("schema has no default for '{s}'\n", .{field.name});
+                    return error.SchemaMismatch;
+                };
+                switch (field.type) {
+                    []const u8 => try std.testing.expectEqualStrings(d, sd.string),
+                    []const []const u8 => {
+                        try std.testing.expectEqual(d.len, sd.array.items.len);
+                        for (d, sd.array.items) |x, y| try std.testing.expectEqualStrings(x, y.string);
+                    },
+                    bool => try std.testing.expectEqual(d, sd.bool),
+                    f32 => try std.testing.expectEqual(d, @as(f32, switch (sd) {
+                        .float => @floatCast(sd.float),
+                        .integer => @floatFromInt(sd.integer),
+                        else => return error.SchemaMismatch,
+                    })),
+                    else => try std.testing.expectEqual(@as(i64, d), sd.integer),
+                }
+            }
+
+            if (field.type == u32) {
+                const b = comptime boundsOf(field.name);
+                const smin: ?i64 = if (prop.get("minimum")) |m| m.integer else null;
+                const smax: ?i64 = if (prop.get("maximum")) |m| m.integer else null;
+                std.testing.expectEqual(b.min, smin) catch |e| {
+                    std.debug.print("minimum of '{s}' differs between code and schema\n", .{field.name});
+                    return e;
+                };
+                try std.testing.expectEqual(b.max, smax);
+            }
+        }
+    }
+    try std.testing.expectEqual(settings, props.count());
 }
