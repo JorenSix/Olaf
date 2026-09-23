@@ -5,13 +5,28 @@ const olaf_cli_util = @import("olaf_cli_util.zig");
 
 const debug = std.log.scoped(.olaf_cli).debug;
 
+const IntFieldError = error{ IntOutOfRange, NotAnInteger };
+
+/// Convert a JSON value to integer type `T`, rejecting other JSON types and
+/// values outside `T`'s range (which `@intCast` would turn into a panic/UB).
+fn castInt(comptime T: type, val: std.json.Value) IntFieldError!T {
+    return switch (val) {
+        .integer => |v| std.math.cast(T, v) orelse error.IntOutOfRange,
+        else => error.NotAnInteger,
+    };
+}
+
 /// Read an integer JSON field, coercing to `T`. Returns `cur` when the key is
-/// absent or not a JSON integer.
-fn getInt(obj: std.json.ObjectMap, key: []const u8, comptime T: type, cur: T) T {
-    if (obj.get(key)) |val| {
-        if (val == .integer) return @intCast(val.integer);
-    }
-    return cur;
+/// absent; an invalid value is a config error rather than a silent fallback.
+fn getInt(obj: std.json.ObjectMap, key: []const u8, comptime T: type, cur: T) !T {
+    const val = obj.get(key) orelse return cur;
+    return castInt(T, val) catch |err| {
+        switch (err) {
+            error.IntOutOfRange => std.log.err("config: '{s}' = {d} is out of range ({d}..{d})", .{ key, val.integer, std.math.minInt(T), std.math.maxInt(T) }),
+            error.NotAnInteger => std.log.err("config: '{s}' must be an integer", .{key}),
+        }
+        return error.InvalidConfigValue;
+    };
 }
 
 /// Read a boolean JSON field. Returns `cur` when absent or not a JSON bool.
@@ -353,27 +368,27 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, io: Io, home: ?[]co
         config.use_magnitude_info = getBool(obj, "use_magnitude_info", config.use_magnitude_info);
 
         // Integer fields
-        config.fragment_duration_in_seconds = getInt(obj, "fragment_duration_in_seconds", @TypeOf(config.fragment_duration_in_seconds), config.fragment_duration_in_seconds);
-        config.target_sample_rate = getInt(obj, "target_sample_rate", @TypeOf(config.target_sample_rate), config.target_sample_rate);
-        config.audio_block_size = getInt(obj, "audio_block_size", @TypeOf(config.audio_block_size), config.audio_block_size);
-        config.audio_step_size = getInt(obj, "audio_step_size", @TypeOf(config.audio_step_size), config.audio_step_size);
-        config.bytes_per_audio_sample = getInt(obj, "bytes_per_audio_sample", @TypeOf(config.bytes_per_audio_sample), config.bytes_per_audio_sample);
-        config.max_event_points = getInt(obj, "max_event_points", @TypeOf(config.max_event_points), config.max_event_points);
-        config.event_point_threshold = getInt(obj, "event_point_threshold", @TypeOf(config.event_point_threshold), config.event_point_threshold);
-        config.filter_size_frequency = getInt(obj, "filter_size_frequency", @TypeOf(config.filter_size_frequency), config.filter_size_frequency);
-        config.filter_size_time = getInt(obj, "filter_size_time", @TypeOf(config.filter_size_time), config.filter_size_time);
-        config.max_event_point_usages = getInt(obj, "max_event_point_usages", @TypeOf(config.max_event_point_usages), config.max_event_point_usages);
-        config.min_frequency_bin = getInt(obj, "min_frequency_bin", @TypeOf(config.min_frequency_bin), config.min_frequency_bin);
-        config.number_of_eps_per_fp = getInt(obj, "number_of_eps_per_fp", @TypeOf(config.number_of_eps_per_fp), config.number_of_eps_per_fp);
-        config.min_time_distance = getInt(obj, "min_time_distance", @TypeOf(config.min_time_distance), config.min_time_distance);
-        config.max_time_distance = getInt(obj, "max_time_distance", @TypeOf(config.max_time_distance), config.max_time_distance);
-        config.min_freq_distance = getInt(obj, "min_freq_distance", @TypeOf(config.min_freq_distance), config.min_freq_distance);
-        config.max_freq_distance = getInt(obj, "max_freq_distance", @TypeOf(config.max_freq_distance), config.max_freq_distance);
-        config.max_fingerprints = getInt(obj, "max_fingerprints", @TypeOf(config.max_fingerprints), config.max_fingerprints);
-        config.max_results = getInt(obj, "max_results", @TypeOf(config.max_results), config.max_results);
-        config.search_range = getInt(obj, "search_range", @TypeOf(config.search_range), config.search_range);
-        config.min_match_count = getInt(obj, "min_match_count", @TypeOf(config.min_match_count), config.min_match_count);
-        config.max_db_collisions = getInt(obj, "max_db_collisions", @TypeOf(config.max_db_collisions), config.max_db_collisions);
+        config.fragment_duration_in_seconds = try getInt(obj, "fragment_duration_in_seconds", @TypeOf(config.fragment_duration_in_seconds), config.fragment_duration_in_seconds);
+        config.target_sample_rate = try getInt(obj, "target_sample_rate", @TypeOf(config.target_sample_rate), config.target_sample_rate);
+        config.audio_block_size = try getInt(obj, "audio_block_size", @TypeOf(config.audio_block_size), config.audio_block_size);
+        config.audio_step_size = try getInt(obj, "audio_step_size", @TypeOf(config.audio_step_size), config.audio_step_size);
+        config.bytes_per_audio_sample = try getInt(obj, "bytes_per_audio_sample", @TypeOf(config.bytes_per_audio_sample), config.bytes_per_audio_sample);
+        config.max_event_points = try getInt(obj, "max_event_points", @TypeOf(config.max_event_points), config.max_event_points);
+        config.event_point_threshold = try getInt(obj, "event_point_threshold", @TypeOf(config.event_point_threshold), config.event_point_threshold);
+        config.filter_size_frequency = try getInt(obj, "filter_size_frequency", @TypeOf(config.filter_size_frequency), config.filter_size_frequency);
+        config.filter_size_time = try getInt(obj, "filter_size_time", @TypeOf(config.filter_size_time), config.filter_size_time);
+        config.max_event_point_usages = try getInt(obj, "max_event_point_usages", @TypeOf(config.max_event_point_usages), config.max_event_point_usages);
+        config.min_frequency_bin = try getInt(obj, "min_frequency_bin", @TypeOf(config.min_frequency_bin), config.min_frequency_bin);
+        config.number_of_eps_per_fp = try getInt(obj, "number_of_eps_per_fp", @TypeOf(config.number_of_eps_per_fp), config.number_of_eps_per_fp);
+        config.min_time_distance = try getInt(obj, "min_time_distance", @TypeOf(config.min_time_distance), config.min_time_distance);
+        config.max_time_distance = try getInt(obj, "max_time_distance", @TypeOf(config.max_time_distance), config.max_time_distance);
+        config.min_freq_distance = try getInt(obj, "min_freq_distance", @TypeOf(config.min_freq_distance), config.min_freq_distance);
+        config.max_freq_distance = try getInt(obj, "max_freq_distance", @TypeOf(config.max_freq_distance), config.max_freq_distance);
+        config.max_fingerprints = try getInt(obj, "max_fingerprints", @TypeOf(config.max_fingerprints), config.max_fingerprints);
+        config.max_results = try getInt(obj, "max_results", @TypeOf(config.max_results), config.max_results);
+        config.search_range = try getInt(obj, "search_range", @TypeOf(config.search_range), config.search_range);
+        config.min_match_count = try getInt(obj, "min_match_count", @TypeOf(config.min_match_count), config.min_match_count);
+        config.max_db_collisions = try getInt(obj, "max_db_collisions", @TypeOf(config.max_db_collisions), config.max_db_collisions);
 
         // Float fields (accept JSON integer literals too)
         config.min_event_point_magnitude = getFloat(obj, "min_event_point_magnitude", @TypeOf(config.min_event_point_magnitude), config.min_event_point_magnitude);
@@ -445,4 +460,21 @@ pub fn main() !void {
     defer config.deinit(allocator);
 
     config.debugPrint();
+}
+
+test "castInt / getInt: range and type checks" {
+    const parsed = try json.parseFromSlice(json.Value, std.testing.allocator,
+        \\{"neg":-1,"big":4294967296,"float":2.5,"str":"50","ok":7}
+    , .{});
+    defer parsed.deinit();
+    const obj = parsed.value.object;
+
+    try std.testing.expectEqual(@as(u32, 7), try getInt(obj, "ok", u32, 5));
+    try std.testing.expectEqual(@as(u32, 5), try getInt(obj, "missing", u32, 5));
+    // castInt carries the same checks as getInt without logging (the test
+    // runner fails any test that emits log.err).
+    try std.testing.expectError(error.IntOutOfRange, castInt(u32, obj.get("neg").?));
+    try std.testing.expectError(error.IntOutOfRange, castInt(u32, obj.get("big").?));
+    try std.testing.expectError(error.NotAnInteger, castInt(u32, obj.get("float").?));
+    try std.testing.expectError(error.NotAnInteger, castInt(u32, obj.get("str").?));
 }
