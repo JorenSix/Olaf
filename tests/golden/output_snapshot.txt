@@ -662,56 +662,56 @@ query_index, total_queries, query_path, query_offset, match_count, query_start, 
 }
 == query csv comma path
 query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 2386 ,0.256 ,91.224, "Crosby, Stills", 3331107306, 0.256, 91.224
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 781 ,4.096 ,91.224, "Crosby, Stills", 3331107306, 0.256, 87.384
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 777 ,0.256 ,87.384, "Crosby, Stills", 3331107306, 4.096, 91.224
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 495 ,7.936 ,91.224, "Crosby, Stills", 3331107306, 0.256, 83.544
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 483 ,0.256 ,83.544, "Crosby, Stills", 3331107306, 7.936, 91.224
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 325 ,31.704 ,91.224, "Crosby, Stills", 3331107306, 0.984, 60.504
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 311 ,0.984 ,60.504, "Crosby, Stills", 3331107306, 31.704, 91.224
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 196 ,12.008 ,91.224, "Crosby, Stills", 3331107306, 0.488, 79.704
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 184 ,0.488 ,79.704, "Crosby, Stills", 3331107306, 12.008, 91.224
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 177 ,27.136 ,91.224, "Crosby, Stills", 3331107306, 0.256, 64.344
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 163 ,34.816 ,91.224, "Crosby, Stills", 3331107306, 0.256, 56.664
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 161 ,0.256 ,64.344, "Crosby, Stills", 3331107306, 27.136, 91.224
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 159 ,23.312 ,88.784, "Crosby, Stills", 3331107306, 0.256, 65.728
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 152 ,0.256 ,64.344, "Crosby, Stills", 3331107306, 23.296, 87.384
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 147 ,38.656 ,90.464, "Crosby, Stills", 3331107306, 0.256, 52.064
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 144 ,0.256 ,56.664, "Crosby, Stills", 3331107306, 34.816, 91.224
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 132 ,0.256 ,52.064, "Crosby, Stills", 3331107306, 38.656, 90.464
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 103 ,43.224 ,90.464, "Crosby, Stills", 3331107306, 0.984, 48.224
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 92 ,19.456 ,91.224, "Crosby, Stills", 3331107306, 0.256, 72.024
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 88 ,0.984 ,48.224, "Crosby, Stills", 3331107306, 43.224, 90.464
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 83 ,0.256 ,72.024, "Crosby, Stills", 3331107306, 19.456, 91.224
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 72 ,15.680 ,87.384, "Crosby, Stills", 3331107306, 0.320, 72.024
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 64 ,0.320 ,72.024, "Crosby, Stills", 3331107306, 15.680, 87.384
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 51 ,50.176 ,91.224, "Crosby, Stills", 3331107306, 0.256, 41.304
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 50 ,46.336 ,87.384, "Crosby, Stills", 3331107306, 0.256, 41.304
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 36 ,57.856 ,91.224, "Crosby, Stills", 3331107306, 0.256, 33.624
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 35 ,56.680 ,88.784, "Crosby, Stills", 3331107306, 2.904, 35.008
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 34 ,0.256 ,41.304, "Crosby, Stills", 3331107306, 46.336, 87.384
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 34 ,0.256 ,41.304, "Crosby, Stills", 3331107306, 50.176, 91.224
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 24 ,1.704 ,50.176, "Crosby, Stills", 3331107306, 36.272, 84.744
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 22 ,0.256 ,33.624, "Crosby, Stills", 3331107306, 57.856, 91.224
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,0.320 ,57.856, "Crosby, Stills", 3331107306, 27.208, 84.744
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,1.704 ,46.536, "Crosby, Stills", 3331107306, 43.952, 88.784
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,1.704 ,50.176, "Crosby, Stills", 3331107306, 32.432, 80.904
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,19.496 ,47.304, "Crosby, Stills", 3331107306, 57.928, 85.736
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,19.520 ,81.096, "Crosby, Stills", 3331107306, 27.208, 88.784
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 18 ,15.680 ,73.216, "Crosby, Stills", 3331107306, 27.208, 84.744
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 18 ,2.904 ,33.624, "Crosby, Stills", 3331107306, 56.664, 87.384
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 18 ,63.144 ,91.224, "Crosby, Stills", 3331107306, 1.704, 29.784
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 17 ,0.312 ,38.848, "Crosby, Stills", 3331107306, 50.248, 88.784
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 17 ,4.152 ,35.008, "Crosby, Stills", 3331107306, 57.928, 88.784
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 16 ,0.320 ,27.136, "Crosby, Stills", 3331107306, 57.928, 84.744
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 16 ,1.392 ,38.848, "Crosby, Stills", 3331107306, 47.488, 84.944
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 16 ,1.392 ,69.568, "Crosby, Stills", 3331107306, 20.608, 88.784
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 16 ,23.360 ,82.696, "Crosby, Stills", 3331107306, 27.208, 86.544
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 14 ,4.152 ,65.728, "Crosby, Stills", 3331107306, 27.208, 88.784
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 13 ,14.192 ,69.568, "Crosby, Stills", 3331107306, 29.568, 84.944
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 11 ,1.680 ,24.264, "Crosby, Stills", 3331107306, 63.152, 85.736
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 11 ,2.904 ,29.784, "Crosby, Stills", 3331107306, 64.344, 91.224
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 11 ,6.520 ,90.184, "Crosby, Stills", 3331107306, 2.688, 86.352
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 2386 ,0.256 ,91.224,"Crosby, Stills", 3331107306, 0.256, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 781 ,4.096 ,91.224,"Crosby, Stills", 3331107306, 0.256, 87.384
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 777 ,0.256 ,87.384,"Crosby, Stills", 3331107306, 4.096, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 495 ,7.936 ,91.224,"Crosby, Stills", 3331107306, 0.256, 83.544
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 483 ,0.256 ,83.544,"Crosby, Stills", 3331107306, 7.936, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 325 ,31.704 ,91.224,"Crosby, Stills", 3331107306, 0.984, 60.504
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 311 ,0.984 ,60.504,"Crosby, Stills", 3331107306, 31.704, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 196 ,12.008 ,91.224,"Crosby, Stills", 3331107306, 0.488, 79.704
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 184 ,0.488 ,79.704,"Crosby, Stills", 3331107306, 12.008, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 177 ,27.136 ,91.224,"Crosby, Stills", 3331107306, 0.256, 64.344
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 163 ,34.816 ,91.224,"Crosby, Stills", 3331107306, 0.256, 56.664
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 161 ,0.256 ,64.344,"Crosby, Stills", 3331107306, 27.136, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 159 ,23.312 ,88.784,"Crosby, Stills", 3331107306, 0.256, 65.728
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 152 ,0.256 ,64.344,"Crosby, Stills", 3331107306, 23.296, 87.384
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 147 ,38.656 ,90.464,"Crosby, Stills", 3331107306, 0.256, 52.064
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 144 ,0.256 ,56.664,"Crosby, Stills", 3331107306, 34.816, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 132 ,0.256 ,52.064,"Crosby, Stills", 3331107306, 38.656, 90.464
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 103 ,43.224 ,90.464,"Crosby, Stills", 3331107306, 0.984, 48.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 92 ,19.456 ,91.224,"Crosby, Stills", 3331107306, 0.256, 72.024
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 88 ,0.984 ,48.224,"Crosby, Stills", 3331107306, 43.224, 90.464
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 83 ,0.256 ,72.024,"Crosby, Stills", 3331107306, 19.456, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 72 ,15.680 ,87.384,"Crosby, Stills", 3331107306, 0.320, 72.024
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 64 ,0.320 ,72.024,"Crosby, Stills", 3331107306, 15.680, 87.384
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 51 ,50.176 ,91.224,"Crosby, Stills", 3331107306, 0.256, 41.304
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 50 ,46.336 ,87.384,"Crosby, Stills", 3331107306, 0.256, 41.304
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 36 ,57.856 ,91.224,"Crosby, Stills", 3331107306, 0.256, 33.624
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 35 ,56.680 ,88.784,"Crosby, Stills", 3331107306, 2.904, 35.008
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 34 ,0.256 ,41.304,"Crosby, Stills", 3331107306, 46.336, 87.384
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 34 ,0.256 ,41.304,"Crosby, Stills", 3331107306, 50.176, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 24 ,1.704 ,50.176,"Crosby, Stills", 3331107306, 36.272, 84.744
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 22 ,0.256 ,33.624,"Crosby, Stills", 3331107306, 57.856, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,0.320 ,57.856,"Crosby, Stills", 3331107306, 27.208, 84.744
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,1.704 ,46.536,"Crosby, Stills", 3331107306, 43.952, 88.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,1.704 ,50.176,"Crosby, Stills", 3331107306, 32.432, 80.904
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,19.496 ,47.304,"Crosby, Stills", 3331107306, 57.928, 85.736
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 19 ,19.520 ,81.096,"Crosby, Stills", 3331107306, 27.208, 88.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 18 ,15.680 ,73.216,"Crosby, Stills", 3331107306, 27.208, 84.744
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 18 ,2.904 ,33.624,"Crosby, Stills", 3331107306, 56.664, 87.384
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 18 ,63.144 ,91.224,"Crosby, Stills", 3331107306, 1.704, 29.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 17 ,0.312 ,38.848,"Crosby, Stills", 3331107306, 50.248, 88.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 17 ,4.152 ,35.008,"Crosby, Stills", 3331107306, 57.928, 88.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 16 ,0.320 ,27.136,"Crosby, Stills", 3331107306, 57.928, 84.744
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 16 ,1.392 ,38.848,"Crosby, Stills", 3331107306, 47.488, 84.944
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 16 ,1.392 ,69.568,"Crosby, Stills", 3331107306, 20.608, 88.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 16 ,23.360 ,82.696,"Crosby, Stills", 3331107306, 27.208, 86.544
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 14 ,4.152 ,65.728,"Crosby, Stills", 3331107306, 27.208, 88.784
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 13 ,14.192 ,69.568,"Crosby, Stills", 3331107306, 29.568, 84.944
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 11 ,1.680 ,24.264,"Crosby, Stills", 3331107306, 63.152, 85.736
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 11 ,2.904 ,29.784,"Crosby, Stills", 3331107306, 64.344, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 11 ,6.520 ,90.184,"Crosby, Stills", 3331107306, 2.688, 86.352
 == query csv --no-identity-match (--with-ids)
 query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
 == stats

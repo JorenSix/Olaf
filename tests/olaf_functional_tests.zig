@@ -1224,6 +1224,11 @@ test "functional: query CSV quotes paths with commas" {
     const quoted = try std.fmt.allocPrint(allocator, "\"{s}\"", .{song_abs});
     defer allocator.free(quoted);
     try testing.expect(std.mem.indexOf(u8, r.stdout, quoted) != null);
+    // Strict RFC 4180 parsers need the quote right after the separator: the
+    // reference path used to follow ", " (pandas/Excel split it).
+    const ref_field = try std.fmt.allocPrint(allocator, ",\"{s}\", ", .{song_abs});
+    defer allocator.free(ref_field);
+    try testing.expect(std.mem.indexOf(u8, r.stdout, ref_field) != null);
 
     const row = (try firstResultLine(allocator, r.stdout)) orelse return error.NoResultLine;
     try testing.expect(!row.empty_match);

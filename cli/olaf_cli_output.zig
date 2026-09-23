@@ -18,10 +18,14 @@ pub const store_csv_header = "action,file_index,file_total,audio_identifier,inte
 
 pub const query_csv_header = "query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop\n";
 
+pub fn needsCsvQuotes(s: []const u8) bool {
+    return std.mem.indexOfAny(u8, s, ",\"\r\n") != null;
+}
+
 /// RFC 4180-style field: quoted only when it contains a comma, quote or line
 /// break, with embedded quotes doubled.
 pub fn csvField(w: *Io.Writer, s: []const u8) !void {
-    if (std.mem.indexOfAny(u8, s, ",\"\r\n") == null) return w.writeAll(s);
+    if (!needsCsvQuotes(s)) return w.writeAll(s);
     try w.writeByte('"');
     for (s) |ch| {
         if (ch == '"') try w.writeByte('"');
@@ -195,7 +199,9 @@ fn formatMatchRow(w: *Io.Writer, q: QueryInfo, m: Match) !void {
     try cFloat(w, "%.3f", m.query_start);
     try w.writeAll(" ,");
     try cFloat(w, "%.3f", m.query_stop);
-    try w.writeAll(", ");
+    // RFC 4180 only recognises a quote directly after the separator, so a
+    // quoted path must not get the usual leading space.
+    try w.writeAll(if (needsCsvQuotes(m.path)) "," else ", ");
     try csvField(w, m.path);
     try w.print(", {d}, ", .{m.match_identifier});
     try cFloat(w, "%.3f", m.reference_start);
