@@ -121,8 +121,12 @@ fn run(init: std.process.Init) !void {
 
     // Temp raw audio (about 3.8 MB per minute of audio, per worker) goes
     // where the user points temporary files, not always to /tmp.
+    // An empty value (TMPDIR=) counts as unset: it would put the temp files
+    // in the current directory.
     const tmp_dir: ?[]const u8 = for ([_][]const u8{ "TMPDIR", "TEMP", "TMP" }) |name| {
-        if (init.minimal.environ.getAlloc(allocator, name) catch null) |v| break v;
+        const v = init.minimal.environ.getAlloc(allocator, name) catch continue;
+        if (v.len > 0) break v;
+        allocator.free(v);
     } else null;
     defer if (tmp_dir) |t| allocator.free(t);
     if (tmp_dir) |t| olaf_cli_threading.setTempRoot(t);

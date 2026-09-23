@@ -285,7 +285,7 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, io: Io, home: ?[]co
 
         var read_buf: [16 * 1024]u8 = undefined;
         var file_reader = file.reader(io, &read_buf);
-        const contents = try file_reader.interface.allocRemaining(a, .limited(10 * 1024));
+        const contents = try file_reader.interface.allocRemaining(a, .limited(1024 * 1024));
         parsed = try json.parseFromSlice(json.Value, allocator, contents, .{});
         if (parsed.?.value != .object) return error.InvalidJson;
     } else |err| switch (err) {
@@ -320,7 +320,8 @@ pub fn readJsonConfigOrDefault(allocator: std.mem.Allocator, io: Io, home: ?[]co
 /// Attempts to load config from ~/.olaf/olaf_config.json, then from olaf_config.json in the executable's directory.
 /// `home` is the resolved $HOME value (or null), captured by the caller from
 /// the process environment (no longer globally accessible in 0.16).
-/// Returns the config and the path used, or an error if neither is found.
+/// When neither file exists the built-in defaults are used; an unreadable or
+/// invalid config file is an error.
 pub fn olafWrapperConfig(allocator: std.mem.Allocator, io: Io, home: ?[]const u8) !Config {
     // 1. Try ~/.olaf/olaf_config.json
     var home_buf: [std.fs.max_path_bytes]u8 = undefined;
