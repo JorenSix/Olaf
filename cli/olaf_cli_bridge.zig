@@ -96,6 +96,15 @@ fn copy_to_c_config(config: *const olaf_cli_config.Config, c_config: *olaf.Olaf_
     debug("Configuration copy complete", .{});
 }
 
+/// Stdin/live queries have no natural end of stream, so results must be
+/// printed periodically and old matches aged out (mirrors src/olaf.c stdin
+/// mode). Only fills in values left at 0, the batch-query defaults, so an
+/// explicit config value still wins.
+fn applyLiveStreamDefaults(c_config: *olaf.Olaf_Config) void {
+    if (c_config.printResultEvery == 0) c_config.printResultEvery = 3;
+    if (c_config.keepMatchesFor == 0) c_config.keepMatchesFor = 10;
+}
+
 /// Owns a C `Olaf_Config` plus the Zig-allocated dbFolder that replaces the
 /// C-allocated default. `deinit` performs the two-stage teardown: free the
 /// dbFolder with the Zig allocator, then free the config with the C allocator.
@@ -378,6 +387,7 @@ pub fn olaf_query_stdin(
     var cc = try CConfig.init(allocator, config);
     defer cc.deinit();
     const c_config = cc.c_config;
+    applyLiveStreamDefaults(c_config);
 
     const c_query_path = try allocator.dupeZ(u8, query_path);
     defer allocator.free(c_query_path);
@@ -722,4 +732,21 @@ test "config defaults: olaf_cli_config.zig matches olaf_config.c" {
             return err;
         };
     }
+}
+
+test "applyLiveStreamDefaults fills only zeroed live settings" {
+    const c_config = olaf.olaf_config_default();
+    defer olaf.olaf_config_destroy(c_config);
+
+    c_config.*.printResultEvery = 0;
+    c_config.*.keepMatchesFor = 0;
+    applyLiveStreamDefaults(c_config);
+    try std.testing.expectEqual(@as(f32, 3), c_config.*.printResultEvery);
+    try std.testing.expectEqual(@as(f32, 10), c_config.*.keepMatchesFor);
+
+    c_config.*.printResultEvery = 1;
+    c_config.*.keepMatchesFor = 5;
+    applyLiveStreamDefaults(c_config);
+    try std.testing.expectEqual(@as(f32, 1), c_config.*.printResultEvery);
+    try std.testing.expectEqual(@as(f32, 5), c_config.*.keepMatchesFor);
 }

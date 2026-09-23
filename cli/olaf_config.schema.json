@@ -161,12 +161,12 @@
     },
     "keep_matches_for": {
       "type": "number",
-      "description": "Forget matches after x seconds, or never when zero.",
+      "description": "Forget matches after x seconds, or never when zero. Live queries (microphone) use 10 when zero.",
       "default": 0
     },
     "print_result_every": {
       "type": "number",
-      "description": "Print results after x seconds or only at the end of stream when zero.",
+      "description": "Print results after x seconds or only at the end of stream when zero. Live queries (microphone) use 3 when zero.",
       "default": 0
     },
     "max_db_collisions": {
