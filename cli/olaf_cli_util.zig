@@ -180,10 +180,12 @@ pub fn isAudioFile(path: []const u8, allowed_audio_file_extensions: []const []co
 }
 
 /// Populates `files` with audio file paths found from the argument `arg`.
-/// If `arg` is a directory, all audio files inside are added.
-/// If `arg` is a .txt file, each line is treated as a path and expanded.
+/// If `arg` is a directory, all audio files inside are added, sorted by path.
+/// If `arg` is a .txt file, each line is handled like a command-line argument
+/// (file or directory); empty lines and `#` comments are ignored, and bad
+/// lines are reported and skipped instead of aborting the run.
 /// If `arg` is a file, it is added if it matches allowed extensions.
-/// When no explicit identifier is provided, the full path is used as the identifier.
+/// When no explicit identifier is provided, the canonical path is used as the identifier.
 pub fn audioFileList(
     allocator: std.mem.Allocator,
     io: Io,
@@ -192,77 +194,119 @@ pub fn audioFileList(
     files: *std.ArrayList(AudioFileWithId),
     allowed_audio_file_extensions: []const []const u8,
 ) !void {
+    try addPath(allocator, io, home, arg, files, allowed_audio_file_extensions, null);
+}
+
+/// Where a path came from when it was read from a `.txt` list.
+const ListLine = struct { list: []const u8, line: usize };
+
+fn addPath(
+    allocator: std.mem.Allocator,
+    io: Io,
+    home: ?[]const u8,
+    arg: []const u8,
+    files: *std.ArrayList(AudioFileWithId),
+    allowed_audio_file_extensions: []const []const u8,
+    from_list: ?ListLine,
+) anyerror!void { // explicit: addPath and addList recurse into each other
     const home_expanded = try expandPath(allocator, home, arg);
     defer allocator.free(home_expanded);
     const expanded = try canonicalPath(allocator, io, home_expanded);
     defer allocator.free(expanded);
 
     const stat = Io.Dir.cwd().statFile(io, expanded, .{}) catch |err| {
-        l_err("Could not find: {s}\n", .{expanded});
+        if (from_list) |l| {
+            l_err("{s}:{d}: could not find {s}, skipping", .{ l.list, l.line, expanded });
+            return;
+        }
+        l_err("Could not find: {s}", .{expanded});
         return err;
     };
 
     switch (stat.kind) {
-        .directory => {
-            var dir = try Io.Dir.cwd().openDir(io, expanded, .{ .iterate = true });
-            defer dir.close(io);
-
-            debug("Walking directory: {s}", .{expanded});
-
-            var walker = try dir.walk(allocator);
-            defer walker.deinit();
-
-            while (try walker.next(io)) |entry| {
-                if (entry.kind == .file and !std.mem.startsWith(u8, entry.basename, ".")) {
-                    if (isAudioFile(entry.path, allowed_audio_file_extensions)) {
-                        const full_path = try fs.path.join(allocator, &.{ expanded, entry.path });
-                        debug("Found audio file: {s}", .{full_path});
-
-                        const audio_file = AudioFileWithId{
-                            .path = full_path,
-                            .identifier = try allocator.dupe(u8, full_path),
-                        };
-                        try files.append(allocator, audio_file);
-                    }
-                }
-            }
-        },
+        .directory => try addDirectory(allocator, io, expanded, files, allowed_audio_file_extensions),
         .file => {
             if (std.mem.endsWith(u8, expanded, ".txt")) {
-                const content = try Io.Dir.cwd().readFileAlloc(io, expanded, allocator, .limited(1024 * 1024 * 10));
-                defer allocator.free(content);
-
-                var it = std.mem.tokenizeAny(u8, content, "\n");
-                while (it.next()) |line| {
-                    const trimmed = std.mem.trim(u8, line, " \t\r\n");
-                    if (trimmed.len > 0) {
-                        const line_expanded = try expandPath(allocator, home, trimmed);
-                        defer allocator.free(line_expanded);
-                        const audio_path = try canonicalPath(allocator, io, line_expanded);
-
-                        const audio_file = AudioFileWithId{
-                            .path = audio_path,
-                            .identifier = try allocator.dupe(u8, audio_path),
-                        };
-                        try files.append(allocator, audio_file);
-                    }
+                if (from_list) |l| {
+                    l_err("{s}:{d}: nested list {s} is not supported, skipping", .{ l.list, l.line, expanded });
+                    return;
                 }
+                try addList(allocator, io, home, expanded, files, allowed_audio_file_extensions);
+            } else if (isAudioFile(expanded, allowed_audio_file_extensions)) {
+                try appendAudioFile(allocator, files, expanded);
             } else {
-                if (isAudioFile(expanded, allowed_audio_file_extensions)) {
-                    const path_copy = try allocator.dupe(u8, expanded);
-
-                    const audio_file = AudioFileWithId{
-                        .path = path_copy,
-                        .identifier = try allocator.dupe(u8, path_copy),
-                    };
-                    try files.append(allocator, audio_file);
-                } else {
-                    l_err("File is not an audio file: {s}\n", .{expanded});
-                    return error.NotAudioFile;
+                if (from_list) |l| {
+                    l_err("{s}:{d}: not an audio file {s}, skipping", .{ l.list, l.line, expanded });
+                    return;
                 }
+                l_err("File is not an audio file: {s}", .{expanded});
+                return error.NotAudioFile;
             }
         },
         else => {},
+    }
+}
+
+fn appendAudioFile(allocator: std.mem.Allocator, files: *std.ArrayList(AudioFileWithId), path: []const u8) !void {
+    const path_copy = try allocator.dupe(u8, path);
+    errdefer allocator.free(path_copy);
+    const identifier = try allocator.dupe(u8, path);
+    errdefer allocator.free(identifier);
+    try files.append(allocator, .{ .path = path_copy, .identifier = identifier });
+}
+
+fn lessThanByPath(_: void, a: AudioFileWithId, b: AudioFileWithId) bool {
+    return std.mem.lessThan(u8, a.path, b.path);
+}
+
+/// Add every (non-hidden) audio file below `dir_path`. Walk order depends on
+/// the file system (e.g. hash order on ext4), so the files found for this
+/// directory are sorted to make file indices and output order reproducible.
+fn addDirectory(
+    allocator: std.mem.Allocator,
+    io: Io,
+    dir_path: []const u8,
+    files: *std.ArrayList(AudioFileWithId),
+    allowed_audio_file_extensions: []const []const u8,
+) !void {
+    var dir = try Io.Dir.cwd().openDir(io, dir_path, .{ .iterate = true });
+    defer dir.close(io);
+
+    debug("Walking directory: {s}", .{dir_path});
+
+    var walker = try dir.walk(allocator);
+    defer walker.deinit();
+
+    const start = files.items.len;
+    while (try walker.next(io)) |entry| {
+        if (entry.kind == .file and !std.mem.startsWith(u8, entry.basename, ".") and isAudioFile(entry.path, allowed_audio_file_extensions)) {
+            const full_path = try fs.path.join(allocator, &.{ dir_path, entry.path });
+            defer allocator.free(full_path);
+            debug("Found audio file: {s}", .{full_path});
+            try appendAudioFile(allocator, files, full_path);
+        }
+    }
+    std.mem.sort(AudioFileWithId, files.items[start..], {}, lessThanByPath);
+}
+
+fn addList(
+    allocator: std.mem.Allocator,
+    io: Io,
+    home: ?[]const u8,
+    list_path: []const u8,
+    files: *std.ArrayList(AudioFileWithId),
+    allowed_audio_file_extensions: []const []const u8,
+) !void {
+    const content = try Io.Dir.cwd().readFileAlloc(io, list_path, allocator, .limited(1024 * 1024 * 10));
+    defer allocator.free(content);
+
+    var line_no: usize = 0;
+    var it = std.mem.splitScalar(u8, content, '\n');
+    while (it.next()) |line| {
+        line_no += 1;
+        const trimmed = std.mem.trim(u8, line, " \t\r");
+        if (trimmed.len == 0 or trimmed[0] == '#') continue;
+        try addPath(allocator, io, home, trimmed, files, allowed_audio_file_extensions, .{ .list = list_path, .line = line_no });
     }
 }
 

@@ -1290,6 +1290,75 @@ test "functional: relative, absolute and symlinked paths share one identifier" {
     try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
 }
 
+test "functional: directory arguments are processed in sorted order" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+
+    var env = try setupTestEnv(io, allocator, "order");
+    defer env.deinit();
+
+    // Created out of order; APFS/ext4 readdir order is not alphabetical
+    // (APFS returns a b c f d e for these names).
+    const dir = try std.fmt.allocPrint(allocator, "{s}/music", .{env.home});
+    defer allocator.free(dir);
+    const names = [_][]const u8{ "d.mp3", "b.mp3", "f.mp3", "a.mp3", "e.mp3", "c.mp3" };
+    for (names) |n| try touchFile(io, allocator, dir, n);
+
+    // Empty files fail in ffmpeg; with the continue-on-error policy each
+    // failure is logged in processing order, which is all this test needs.
+    var argv: std.ArrayList([]const u8) = .empty;
+    defer argv.deinit(allocator);
+    try argv.appendSlice(allocator, &.{ olaf_bin, "store", dir });
+    const r = try std.process.run(allocator, io, .{ .argv = argv.items, .environ_map = &env.env_map });
+    defer allocator.free(r.stdout);
+    defer allocator.free(r.stderr);
+
+    var last: usize = 0;
+    for ([_][]const u8{ "a.mp3", "b.mp3", "c.mp3", "d.mp3", "e.mp3", "f.mp3" }) |n| {
+        const needle = try std.fmt.allocPrint(allocator, "Failed to process {s}/{s}", .{ dir, n });
+        defer allocator.free(needle);
+        const pos = std.mem.indexOf(u8, r.stderr, needle) orelse return error.MissingFile;
+        try testing.expect(pos >= last);
+        last = pos;
+    }
+}
+
+test "functional: .txt lists skip bad lines instead of aborting" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try setupTestEnv(io, allocator, "txtlist");
+    defer env.deinit();
+
+    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
+    try touchFile(io, allocator, env.home, "notes.doc");
+
+    const list_path = try std.fmt.allocPrint(allocator, "{s}/list.txt", .{env.home});
+    defer allocator.free(list_path);
+    const list = try std.fmt.allocPrint(allocator, "{s}\n# a comment\n\n/nonexistent/x.mp3\n{s}/notes.doc\n", .{ ref_buf[0..ref_n], env.home });
+    defer allocator.free(list);
+    {
+        const f = try Io.Dir.cwd().createFile(io, list_path, .{});
+        defer f.close(io);
+        try f.writeStreamingAll(io, list);
+    }
+
+    const r = try runOlaf(allocator, olaf_bin, &env, &.{ "store", list_path }, error.OlafStoreFailed);
+    defer allocator.free(r.stdout);
+    defer allocator.free(r.stderr);
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "list.txt:4: could not find") != null);
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "list.txt:5: not an audio file") != null);
+    try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);
