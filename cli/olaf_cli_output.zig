@@ -276,7 +276,7 @@ pub fn writeQueryJson(allocator: std.mem.Allocator, q: QueryInfo, stats: QuerySt
     try jsonString(w, q.path);
     try w.writeAll(",\n  \"query_offset\": ");
     try cFloat(w, "%.3f", q.offset);
-    try w.print(",\n  \"fingerprints_matched\": {d},\n  \"query_duration_seconds\": ", .{stats.fingerprints});
+    try w.print(",\n  \"query_fingerprints\": {d},\n  \"query_duration_seconds\": ", .{stats.fingerprints});
     try cFloat(w, "%.3f", stats.audio_seconds);
     try w.writeAll(",\n  \"fingerprints_per_second\": ");
     try cFloat(w, "%.3f", fp_per_second);

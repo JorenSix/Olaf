@@ -690,7 +690,7 @@ test "functional: query --json emits a parseable object with summary + matches" 
     const required_keys = [_][]const u8{
         "query_index",            "total_queries",
         "query_path",             "query_offset",
-        "fingerprints_matched",   "query_duration_seconds",
+        "query_fingerprints",     "query_duration_seconds",
         "fingerprints_per_second", "search_time_seconds",
         "realtime_factor",        "matches",
     };
