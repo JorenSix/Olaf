@@ -1155,6 +1155,50 @@ test "functional: output redirected to a file keeps every line" {
     try testing.expect(std.mem.indexOf(u8, content, "olaf dedup") != null);
 }
 
+test "functional: cache then store_cached on a fresh database" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try setupTestEnv(io, allocator, "store_cached");
+    defer env.deinit();
+
+    var ref_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_n = try Io.Dir.cwd().realPathFile(io, REF_AUDIO_FILE, &ref_buf);
+    const cached = try runOlaf(allocator, olaf_bin, &env, &.{ "cache", ref_buf[0..ref_n] }, error.OlafCacheFailed);
+    allocator.free(cached.stdout);
+    allocator.free(cached.stderr);
+
+    {
+        // Used to exit() in the C core: the duplicate check opened a
+        // read-only env on a database that did not exist yet.
+        const r = try runOlaf(allocator, olaf_bin, &env, &.{"store_cached"}, error.OlafStoreCachedFailed);
+        defer allocator.free(r.stdout);
+        defer allocator.free(r.stderr);
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "1/1, ") != null);
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "stored from cache") != null);
+        // olaf_has used to print this header + a row per file to stdout.
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "internal identifier") == null);
+    }
+    try testing.expectEqual(@as(u32, 1), try statsSongCount(allocator, olaf_bin, &env));
+    {
+        const r = try runOlaf(allocator, olaf_bin, &env, &.{"store_cached"}, error.OlafStoreCachedFailed);
+        defer allocator.free(r.stdout);
+        defer allocator.free(r.stderr);
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "SKIPPED: already indexed") != null);
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "Stored 0 cache file(s), skipped 1") != null);
+    }
+    {
+        const r = try runOlaf(allocator, olaf_bin, &env, &.{ "store_cached", "-f" }, error.OlafStoreCachedFailed);
+        defer allocator.free(r.stdout);
+        defer allocator.free(r.stderr);
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "Stored 1 cache file(s)") != null);
+    }
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);
