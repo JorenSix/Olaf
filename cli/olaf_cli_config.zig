@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const Io = std.Io;
 const json = std.json;
 const olaf_cli_util = @import("olaf_cli_util.zig");
@@ -70,12 +71,20 @@ pub const Config = struct {
         ".m4a", ".wav", ".mp4", ".wv", ".ape", ".ogg", ".mp3", ".raw", ".flac", ".wma",
     },
 
-    // Microphone input configurations (used by the `microphone` command).
-    // The default targets the macOS CoreAudio default microphone via ffmpeg's
-    // avfoundation input. On other platforms override these in the config file
-    // (e.g. "alsa" / "default" on Linux).
-    microphone_input_format: []const u8 = "avfoundation",
-    microphone_device: []const u8 = ":default",
+    // Microphone input configurations (used by the `microphone` command): the
+    // ffmpeg input format and device of the platform's default microphone
+    // (avfoundation on macOS, ALSA on Linux, DirectShow elsewhere). Override
+    // them in the config file for another device or backend (e.g. "pulse").
+    microphone_input_format: []const u8 = switch (builtin.os.tag) {
+        .macos => "avfoundation",
+        .linux => "alsa",
+        else => "dshow",
+    },
+    microphone_device: []const u8 = switch (builtin.os.tag) {
+        .macos => ":default",
+        .linux => "default",
+        else => "audio=default",
+    },
 
     // Audio configurations
     audio_block_size: u32 = 1024,

@@ -39,7 +39,9 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         const argv = [_][]const u8{
             "ffmpeg",
             "-hide_banner",
-            "-loglevel",        "panic",
+            // "error", not "panic": a wrong input format, missing device or
+            // denied microphone permission must reach the user.
+            "-loglevel",        "error",
             "-f",               config.microphone_input_format,
             "-i",               config.microphone_device,
             "-ac",              "1",
@@ -66,14 +68,41 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         // Redirect ffmpeg's PCM output onto this process's stdin (fd 0) so the C
         // stream reader (olaf_reader_stream.c) picks it up via freopen(NULL,...).
         // std.posix.dup2 was removed in 0.16; libc dup2 is available since we link libc.
-        if (std.c.dup2(child.stdout.?.handle, std.posix.STDIN_FILENO) == -1) {
+        const pipe_fd = child.stdout.?.handle;
+        if (std.c.dup2(pipe_fd, std.posix.STDIN_FILENO) == -1) {
             return error.Dup2Failed;
         }
+        // fd 0 now owns the pipe; drop the original so wait() does not close
+        // it a second time.
+        _ = std.c.close(pipe_fd);
+        child.stdout = null;
 
         // Blocks, matching and printing CSV rows live until the stream ends
         // (Ctrl+C / ffmpeg exit / EOF).
         try olaf_cli_bridge.olaf_query_stdin(allocator, "microphone", config);
 
-        _ = child.wait(io) catch {};
+        // A capture that ends on its own is ffmpeg failing (bad input format,
+        // no device, no permission); report it instead of exiting silently.
+        const term = child.wait(io) catch |err| {
+            std.log.err("microphone capture: waiting for ffmpeg failed: {}", .{err});
+            return error.ProcessingFailed;
+        };
+        const ok = switch (term) {
+            .exited => |code| code == 0,
+            .signal => |sig| sig == .INT,
+            else => false,
+        };
+        if (!ok) {
+            var how_buf: [64]u8 = undefined;
+            const how = switch (term) {
+                .exited => |code| std.fmt.bufPrint(&how_buf, "exit code {d}", .{code}) catch "an error",
+                .signal => |sig| std.fmt.bufPrint(&how_buf, "signal {s}", .{@tagName(sig)}) catch "a signal",
+                else => "an abnormal termination",
+            };
+            std.log.err("microphone capture failed: ffmpeg ended with {s} (input format '{s}', device '{s}'); set microphone_input_format / microphone_device in the config", .{
+                how, config.microphone_input_format, config.microphone_device,
+            });
+            return error.ProcessingFailed;
+        }
     }
 }

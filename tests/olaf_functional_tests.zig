@@ -1408,6 +1408,31 @@ test "functional: query CSV quotes paths with commas" {
     try testing.expectEqualStrings(song_abs, row.ref_path);
 }
 
+test "functional: microphone reports a capture failure" {
+    if (@import("builtin").os.tag == .windows) return error.SkipZigTest;
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+
+    var env = try setupTestEnv(io, allocator, "microphone");
+    defer env.deinit();
+    // ffmpeg fails immediately on an unknown input format: no real
+    // microphone is needed. This used to end silently with exit status 0.
+    try writeTestConfig(&env,
+        \\{"db_folder": "~/.olaf/db/", "cache_folder": "~/.olaf/cache/", "microphone_input_format": "no_such_format"}
+    );
+
+    const r = try std.process.run(allocator, io, .{ .argv = &.{ olaf_bin, "microphone" }, .environ_map = &env.env_map });
+    defer allocator.free(r.stdout);
+    defer allocator.free(r.stderr);
+    try testing.expect(r.term == .exited and r.term.exited == 1);
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "microphone capture failed") != null);
+    // ffmpeg's own reason is no longer hidden by -loglevel panic.
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "no_such_format") != null);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);
