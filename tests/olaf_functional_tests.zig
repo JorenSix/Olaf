@@ -881,6 +881,49 @@ test "functional: usage errors exit with status 2" {
     try runOlafExpectExit(allocator, olaf_bin, &env, &.{"--help"}, 0);
 }
 
+fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
+    const path = try std.fs.path.join(allocator, &.{ dir, name });
+    defer allocator.free(path);
+    if (std.fs.path.dirname(path)) |parent| try Io.Dir.cwd().createDirPath(io, parent);
+    const f = try Io.Dir.cwd().createFile(io, path, .{});
+    f.close(io);
+}
+
+fn fileExists(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !bool {
+    const path = try std.fs.path.join(allocator, &.{ dir, name });
+    defer allocator.free(path);
+    Io.Dir.cwd().access(io, path, .{}) catch return false;
+    return true;
+}
+
+test "functional: clear -f deletes only olaf files" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    const olaf_bin = try resolveOlafBinAndDeps(io, allocator);
+    defer freeOlafBin(allocator, olaf_bin);
+
+    var env = try setupTestEnv(io, allocator, "clear");
+    defer env.deinit();
+
+    for ([_][]const u8{ "data.mdb", "lock.mdb", "keep.txt", "sub/nested.mdb" }) |n| try touchFile(io, allocator, env.db_dir, n);
+    for ([_][]const u8{ "1.tdb", "1.meta", "notes.txt" }) |n| try touchFile(io, allocator, env.cache_dir, n);
+
+    const result = try runOlaf(allocator, olaf_bin, &env, &.{ "clear", "-f" }, error.OlafClearFailed);
+    allocator.free(result.stdout);
+    allocator.free(result.stderr);
+
+    // Olaf-owned files are gone...
+    try testing.expect(!try fileExists(io, allocator, env.db_dir, "data.mdb"));
+    try testing.expect(!try fileExists(io, allocator, env.db_dir, "lock.mdb"));
+    try testing.expect(!try fileExists(io, allocator, env.cache_dir, "1.tdb"));
+    try testing.expect(!try fileExists(io, allocator, env.cache_dir, "1.meta"));
+    // ...everything else, including nested files, survives.
+    try testing.expect(try fileExists(io, allocator, env.db_dir, "keep.txt"));
+    try testing.expect(try fileExists(io, allocator, env.db_dir, "sub/nested.mdb"));
+    try testing.expect(try fileExists(io, allocator, env.cache_dir, "notes.txt"));
+}
+
 // ============================================================================
 // Integration Tests - Testing End-to-End Workflows
 // ============================================================================

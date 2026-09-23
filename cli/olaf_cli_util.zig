@@ -47,28 +47,6 @@ pub fn getFileModificationDate(io: Io, path: []const u8) !struct { year: i64, mo
     };
 }
 
-/// Returns the total size (in MB) of all files in the directory at `path` (recursively).
-pub fn folderSize(io: Io, path: []const u8) !f64 {
-    var total_size: u64 = 0;
-    var dir = try Io.Dir.cwd().openDir(io, path, .{ .iterate = true });
-    defer dir.close(io);
-
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const allocator = arena.allocator();
-
-    var walker = try dir.walk(allocator);
-    defer walker.deinit();
-
-    while (try walker.next(io)) |entry| {
-        if (entry.kind == .file) {
-            const file_path = try fs.path.join(allocator, &.{ path, entry.path });
-            const stat = try Io.Dir.cwd().statFile(io, file_path, .{});
-            total_size += stat.size;
-        }
-    }
-    return @as(f64, @floatFromInt(total_size)) / (1024.0 * 1024.0);
-}
 /// Expands a path, replacing '~/' with `home` if present. Returns a newly
 /// allocated string. When `home` is null (HOME not set), the path is returned
 /// unchanged. In 0.16 the process environment is not globally accessible, so
