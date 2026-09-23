@@ -124,7 +124,7 @@ Accepts filenames or numpy arrays (mono audio @ 16kHz sample rate).
 - **Important**: Changes to these make existing databases incompatible with new queries
 - Multiple preset configs: `olaf_config_default()`, `olaf_config_esp_32()`, `olaf_config_mem()`, `olaf_config_test()`
 
-**Runtime config** (Zig CLI): Operational settings in `olaf_config.json`
+**Runtime config** (Zig CLI): Operational settings in `olaf_config.json` (annotated example: `cli/olaf_config.example.json`, schema: `cli/olaf_config.schema.json`)
 - Database/cache paths (default: `~/.olaf/db/`, `~/.olaf/cache/`)
 - Thread counts for parallel processing
 - Audio file extensions allowlist

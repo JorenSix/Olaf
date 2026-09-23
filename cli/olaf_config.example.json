@@ -1,0 +1,10 @@
+{
+  "$schema": "./olaf_config.schema.json",
+
+  "db_folder": "~/.olaf/db/",
+  "cache_folder": "~/.olaf/cache/",
+  "skip_duplicates": true,
+  "fragment_duration_in_seconds": 30,
+  "target_sample_rate": 16000,
+  "allowed_audio_file_extensions": [".m4a", ".wav", ".mp4", ".wv", ".ape", ".ogg", ".mp3", ".raw", ".flac", ".wma"]
+}

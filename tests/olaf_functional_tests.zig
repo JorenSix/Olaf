@@ -1770,6 +1770,25 @@ test "functional: store_cached reports a malformed cache file and stores the res
     try testing.expectEqual(@as(u32, 1), try env.songCount());
 }
 
+test "functional: the shipped example config is valid and uses the defaults" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    var env = try Fixture.init(allocator, io, "example_config");
+    defer env.deinit();
+    const example = try Io.Dir.cwd().readFileAlloc(io, "cli/olaf_config.example.json", allocator, .limited(64 * 1024));
+    defer allocator.free(example);
+    try env.writeConfig(example);
+
+    const r = try env.run(&.{"config"}, 0);
+    defer r.deinit();
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "unknown setting") == null);
+    // The release used to ship an example with a 2000 Hz sample rate as the
+    // live config, making fingerprints incompatible with a 16 kHz index.
+    try testing.expect(std.mem.indexOf(u8, r.stdout, "target_sample_rate: 16000") != null);
+    try testing.expect(std.mem.indexOf(u8, r.stdout, ".flac") != null);
+}
+
 fn touchFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8) !void {
     const path = try std.fs.path.join(allocator, &.{ dir, name });
     defer allocator.free(path);

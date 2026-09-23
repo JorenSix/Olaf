@@ -70,7 +70,9 @@ jobs:
           else
             cp zig-out/bin/olaf release/
           fi
-          cp cli/olaf_config.json cli/olaf_config.schema.json release/
+          # Example only: the loader never reads olaf_config.example.json.
+          # Copy it to ~/.olaf/olaf_config.json to customise settings.
+          cp cli/olaf_config.example.json cli/olaf_config.schema.json release/
           cd release
           if [[ "${{ matrix.target }}" == *"windows"* ]]; then
             zip -r "olaf_cli-${{ matrix.os_name }}.zip" *
