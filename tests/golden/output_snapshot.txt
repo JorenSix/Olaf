@@ -165,7 +165,7 @@ query_index, total_queries, query_path, query_offset, match_count, query_start, 
 query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
 1 ,1 ,<REPO>/dataset/ref/11266.mp3, 60.000, 424 ,0.576 ,28.976, ref-a, 3517681762, 60.576, 88.976
 query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
-1 ,1 ,<REPO>/dataset/ref/11266.mp3, 90.000, 125 ,0.088 ,5.928, ref-a, 3517681762, 90.088, 95.928
+1 ,1 ,<REPO>/dataset/ref/11266.mp3, 90.000, 137 ,0.088 ,7.616, ref-a, 3517681762, 90.088, 97.616
 == query json --fragmented
 {
   "query_index": 1,
@@ -587,13 +587,13 @@ query_index, total_queries, query_path, query_offset, match_count, query_start, 
   "realtime_factor": <T>,
   "matches": [
     {
-      "match_count": 329,
+      "match_count": 353,
       "query_start": 0.120,
-      "query_stop": 17.192,
+      "query_stop": 19.096,
       "path": "ref-b",
       "match_identifier": 3824301295,
       "reference_start": 90.120,
-      "reference_stop": 107.192
+      "reference_stop": 109.096
     },
     {
       "match_count": 34,
@@ -662,7 +662,7 @@ query_index, total_queries, query_path, query_offset, match_count, query_start, 
 }
 == query csv comma path
 query_index, total_queries, query_path, query_offset, match_count, query_start, query_stop, path, match_identifier, reference_start, reference_stop
-1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 2386 ,0.256 ,91.224,"Crosby, Stills", 3331107306, 0.256, 91.224
+1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 2387 ,0.256 ,92.424,"Crosby, Stills", 3331107306, 0.256, 92.424
 1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 781 ,4.096 ,91.224,"Crosby, Stills", 3331107306, 0.256, 87.384
 1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 777 ,0.256 ,87.384,"Crosby, Stills", 3331107306, 4.096, 91.224
 1 ,1 ,"<HOME>/Crosby, Stills.mp3", 0.000, 495 ,7.936 ,91.224,"Crosby, Stills", 3331107306, 0.256, 83.544
@@ -720,7 +720,18 @@ query_index, total_queries, query_path, query_offset, match_count, query_start, 
 =========================
 > Size of database page:        16384
 > Depth of the B-tree:          2
-> Number of items in databases: 7421
+> Number of items in databases: 7458
+> File size of the databases:   0MB
+=========================
+Number of songs (#):	3
+Total duration (s):	300.587
+Avg prints/s (fp/s):	24.881
+== stats --verbose
+[MDB database statistics]
+=========================
+> Size of database page:        16384
+> Depth of the B-tree:          2
+> Number of items in databases: 7458
 > File size of the databases:   0MB
 =========================
   key  	duration(s)	Prints(#)	Prints(#/s)	path

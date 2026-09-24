@@ -177,7 +177,6 @@ fn run(init: std.process.Init) !void {
         return;
     }
 
-
     const cmd = for (commands) |cmd| {
         if (std.mem.eql(u8, cmd.name, command_name)) break cmd;
     } else {
@@ -246,6 +245,9 @@ fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *c
                 print("Expected an argument for '--format': 'olaf query --format json file.mp3'\n", .{});
                 return error.Usage;
             }
+        } else if (std.mem.eql(u8, arg, "--verbose")) {
+            try allow(cmd, .verbose, arg);
+            args.verbose = true;
         } else if (std.mem.eql(u8, arg, "-f") or std.mem.eql(u8, arg, "--force")) {
             try allow(cmd, .force, arg);
             args.force = true;

@@ -192,6 +192,9 @@
 	 */
 	void olaf_db_stats(Olaf_DB * db,bool verbose);
 
+	/** Print summary statistics and optionally file rows, never individual fingerprints. */
+	void olaf_db_print_stats(Olaf_DB * db, bool include_files);
+
 	/**
 	 * Hash a string into a 32 bit integer e.g. using a Jenkins hash. This can be practial to convert an audio 
 	 * file name into an identifier.

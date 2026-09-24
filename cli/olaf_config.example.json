@@ -4,6 +4,7 @@
   "db_folder": "~/.olaf/db/",
   "cache_folder": "~/.olaf/cache/",
   "skip_duplicates": true,
+  "verbose": false,
   "fragment_duration_in_seconds": 30,
   "target_sample_rate": 16000,
   "audio_block_size": 1024,

@@ -495,6 +495,16 @@ test "inBounds: schema bounds and the C int limit" {
     try std.testing.expect(!inBounds("max_results", 3000000000));
 }
 
+test "default and example configuration are nonverbose" {
+    try std.testing.expect(!(Config{}).verbose);
+    const allocator = std.testing.allocator;
+    const text = try Io.Dir.cwd().readFileAlloc(std.testing.io, "cli/olaf_config.example.json", allocator, .limited(1 << 20));
+    defer allocator.free(text);
+    const parsed = try json.parseFromSlice(json.Value, allocator, text, .{});
+    defer parsed.deinit();
+    try std.testing.expect(!parsed.value.object.get("verbose").?.bool);
+}
+
 // Keeps cli/olaf_config.schema.json in step with the Config struct: every
 // setting documented with its type, default and bounds, and nothing else.
 test "olaf_config.schema.json matches the Config struct" {

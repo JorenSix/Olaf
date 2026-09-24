@@ -5,7 +5,7 @@ const olaf_cli_output = @import("olaf_cli_output.zig");
 
 /// Command-line options. Each command lists the ones it supports in
 /// `CommandInfo.flags`; any other option is a usage error.
-pub const Flag = enum { threads, no_identity_match, with_ids, fragmented, skip_store, format, force };
+pub const Flag = enum { threads, no_identity_match, with_ids, fragmented, skip_store, format, force, verbose };
 
 /// Shared Args type for all commands
 pub const Args = struct {
@@ -16,6 +16,7 @@ pub const Args = struct {
     allow_identity_match: bool = true,
     skip_store: bool = false,
     force: bool = false,
+    verbose: bool = false,
     /// --format; null = the command's default (store: human, query: csv).
     format: ?olaf_cli_output.Format = null,
     config: ?*const olaf_cli_config.Config = null,

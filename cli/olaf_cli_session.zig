@@ -548,8 +548,8 @@ pub const ReadDb = struct {
     }
 
     /// The core's human-readable statistics on stdout (`olaf stats`).
-    pub fn printStats(self: *ReadDb) void {
-        c.olaf_db_stats(self.db, self.session.config.ptr.verbose);
+    pub fn printStats(self: *ReadDb, include_files: bool) void {
+        c.olaf_db_print_stats(self.db, include_files);
     }
 };
 
@@ -616,13 +616,13 @@ pub fn lookupMeta(allocator: std.mem.Allocator, config: *const Config, id: u32) 
 }
 
 /// `olaf stats`: the core's statistics, or zeros when there is no database.
-pub fn printStats(allocator: std.mem.Allocator, config: *const Config) !void {
+pub fn printStats(allocator: std.mem.Allocator, config: *const Config, include_files: bool) !void {
     var db = try ReadDb.open(allocator, config) orelse {
         olaf_cli_util.print("Number of songs (#):\t0\nTotal duration (s):\t0.0\nAvg prints/s (fp/s):\t0.0\n", .{});
         return;
     };
     defer db.close();
-    db.printStats();
+    db.printStats(include_files);
 }
 
 // ---------------------------------------------------------------------------
@@ -662,7 +662,47 @@ test "session calls report a raw audio file that cannot be opened" {
     try std.testing.expectError(error.CacheFileOpenFailed, cacheToFiles(allocator, missing, "missing", &config, tdb, "/nonexistent/dir/1.meta"));
 }
 
-test "three-phase store writes the same database content as the direct STORE path" {
+test "cache writes every fingerprint from a 20 second dataset excerpt" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+    const ref = "dataset/ref/11266.mp3";
+    Io.Dir.cwd().access(io, ref, .{}) catch return error.SkipZigTest;
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const dir = try tmp.dir.realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(dir);
+    const raw = try std.fs.path.join(allocator, &.{ dir, "ref.raw" });
+    defer allocator.free(raw);
+    const tdb = try std.fs.path.join(allocator, &.{ dir, "ref.tdb" });
+    defer allocator.free(tdb);
+    const meta_path = try std.fs.path.join(allocator, &.{ dir, "ref.meta" });
+    defer allocator.free(meta_path);
+    ffmpegToRaw(allocator, io, ref, raw, &.{ "-t", "20" }) catch return error.SkipZigTest;
+    try cacheToFiles(allocator, raw, ref, &Config{}, tdb, meta_path);
+    const meta = (try readCacheMeta(io, allocator, meta_path)).?;
+    defer allocator.free(meta.identifier);
+    const content = try Io.Dir.cwd().readFileAlloc(io, tdb, allocator, .unlimited);
+    defer allocator.free(content);
+    var lines = std.mem.tokenizeAny(u8, content, "\r\n");
+    _ = lines.next(); // CSV header
+    var rows: i64 = 0;
+    var latest: u64 = 0;
+    while (lines.next()) |line| {
+        if (std.mem.trim(u8, line, " \t").len == 0) continue;
+        var cols = std.mem.splitScalar(u8, line, ',');
+        _ = cols.next(); // hash
+        const t1 = try std.fmt.parseInt(u64, std.mem.trim(u8, cols.next().?, " \t"), 10);
+        latest = @max(latest, t1);
+        rows += 1;
+    }
+    errdefer std.debug.print("\nEOF cache: metadata={d}, rows={d}, latest anchor={d:.3}s\n", .{
+        meta.fingerprints, rows, @as(f64, @floatFromInt(latest)) * 128 / 16000,
+    });
+    try std.testing.expect(rows > 0);
+    try std.testing.expectEqual(meta.fingerprints, rows);
+}
+
+test "three-phase store preserves tail matches from a 20 second dataset excerpt" {
     const allocator = std.testing.allocator;
     const io = std.testing.io;
 
@@ -679,8 +719,11 @@ test "three-phase store writes the same database content as the direct STORE pat
     const cut = try std.fmt.allocPrint(allocator, "{s}/cut.raw", .{tmp_path});
     defer allocator.free(cut);
     // Plain ffmpeg calls: importing olaf_cli_util_audio would add nothing here.
-    ffmpegToRaw(allocator, io, ref, raw, &.{}) catch return error.SkipZigTest; // no ffmpeg
-    try ffmpegToRaw(allocator, io, ref, cut, &.{ "-ss", "20", "-t", "20" });
+    ffmpegToRaw(allocator, io, ref, raw, &.{ "-t", "20" }) catch return error.SkipZigTest; // no ffmpeg
+    const samples = try Io.Dir.cwd().readFileAlloc(io, raw, allocator, .unlimited);
+    defer allocator.free(samples);
+    try std.testing.expectEqual(@as(usize, 20 * 16000 * 4), samples.len);
+    try Io.Dir.cwd().writeFile(io, .{ .sub_path = cut, .data = samples[12 * 16000 * 4 ..] });
 
     const db_a = try std.fmt.allocPrint(allocator, "{s}/a/", .{tmp_path});
     defer allocator.free(db_a);
@@ -709,18 +752,19 @@ test "three-phase store writes the same database content as the direct STORE pat
     try std.testing.expectEqual(meta_a.fingerprints, meta_b.fingerprints);
     try std.testing.expectEqualStrings(meta_a.path, meta_b.path);
 
-    // Matching reads the stored fingerprints themselves: identical match
-    // lists mean identical keys and values.
+    // Query the tail, where the final extraction batch contributes matches.
     const matches_a = try queryCollect(allocator, cut, "cut", &config_a, 0);
     defer freeMatches(allocator, matches_a);
     const matches_b = try queryCollect(allocator, cut, "cut", &config_b, 0);
     defer freeMatches(allocator, matches_b);
+    errdefer std.debug.print("\nEOF matches: direct={any}\ncache-backed={any}\n", .{ matches_a, matches_b });
     try std.testing.expect(matches_a.len > 0);
     try std.testing.expectEqual(matches_a.len, matches_b.len);
     for (matches_a, matches_b) |ma, mb| {
         try std.testing.expectEqual(ma.match_identifier, mb.match_identifier);
         try std.testing.expectEqual(ma.match_count, mb.match_count);
         try std.testing.expectEqual(ma.query_start, mb.query_start);
+        try std.testing.expectEqual(ma.query_stop, mb.query_stop);
         try std.testing.expectEqual(ma.reference_start, mb.reference_start);
         try std.testing.expectEqual(ma.reference_stop, mb.reference_stop);
     }

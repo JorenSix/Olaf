@@ -426,7 +426,7 @@ static Olaf_DB_Stats olaf_db_stats_walk(Olaf_DB * olaf_db, bool verbose, bool pr
 		return stats;
 	}
 
-	if(print_rows){
+	if(print_rows && verbose){
 		printf("  key  \tduration(s)\tPrints(#)\tPrints(#/s)\tpath\n");
 	}
 	//query
@@ -649,6 +649,10 @@ void olaf_db_stats(Olaf_DB * olaf_db,bool verbose){
 	if(verbose){
 		olaf_db_stats_verbose(olaf_db);
 	}
+	olaf_db_print_stats(olaf_db, true);
+}
+
+void olaf_db_print_stats(Olaf_DB * olaf_db, bool include_files){
 
 	/* Get a database statistics */
 	MDB_stat stats;
@@ -662,7 +666,7 @@ void olaf_db_stats(Olaf_DB * olaf_db,bool verbose){
 		printf("> File size of the databases:   %luMB\n", olaf_db_size(olaf_db) / (1024 * 1024));
 		printf("=========================\n\n");
 
-		olaf_db_stats_meta_data(olaf_db,true);
+		olaf_db_stats_meta_data(olaf_db,include_files);
 	} else {
 		fprintf(stderr, "Can't retrieve the database statistics: %s\n", mdb_strerror(err));
 	}

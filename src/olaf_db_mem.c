@@ -186,6 +186,10 @@ void olaf_db_stats(Olaf_DB * olaf_db,bool verbose){
 	printf("Number of fingerprints in header file: %zu\n",olaf_db->ref_fp_length);
 }
 
+void olaf_db_print_stats(Olaf_DB * olaf_db, bool include_files){
+	olaf_db_stats(olaf_db, include_files);
+}
+
 //olaf_db_string_hash and olaf_db_identifier_id are implemented in
 //olaf_db_id.c, shared with the other database implementations
 

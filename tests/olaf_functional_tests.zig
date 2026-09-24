@@ -315,6 +315,64 @@ test "functional: store via CLI and verify via stats command" {
     try testing.expectEqual(@as(u32, 1), try env.songCount());
 }
 
+test "functional: stats summary and verbose precedence" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+    var env = try Fixture.init(allocator, io, "stats_verbose");
+    defer env.deinit();
+
+    // A read of a missing database must not create database files.
+    for ([_][]const []const u8{ &.{"stats"}, &.{ "stats", "--verbose" } }) |args| {
+        const r = try env.run(args, 0);
+        defer r.deinit();
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "Number of songs (#):\t0") != null);
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "duration(s)") == null);
+    }
+    try testing.expectEqual(@as(usize, 0), try countFilesWithSuffix(io, env.db_dir, ".mdb"));
+
+    // Exercise an existing but empty LMDB separately from the missing case.
+    const db_path = try allocator.dupeZ(u8, env.db_dir);
+    defer allocator.free(db_path);
+    const db = c.olaf_db_new(db_path.ptr, false) orelse return error.DatabaseOpenFailed;
+    c.olaf_db_destroy(db);
+    for ([_][]const []const u8{ &.{"stats"}, &.{ "stats", "--verbose" } }) |args| {
+        const r = try env.run(args, 0);
+        defer r.deinit();
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "Number of songs (#):\t0") != null);
+        try testing.expect(std.mem.indexOf(u8, r.stdout, "duration(s)") == null);
+    }
+
+    try env.ok(&.{ "store", env.ref });
+    const compact = try env.run(&.{"stats"}, 0);
+    defer compact.deinit();
+    try testing.expect(std.mem.indexOf(u8, compact.stdout, "Number of songs (#):\t1") != null);
+    try testing.expect(std.mem.indexOf(u8, compact.stdout, "duration(s)") == null);
+    try testing.expect(std.mem.indexOf(u8, compact.stdout, env.ref) == null);
+    const detailed = try env.run(&.{ "stats", "--verbose" }, 0);
+    defer detailed.deinit();
+    try testing.expect(std.mem.indexOf(u8, detailed.stdout, "duration(s)") != null);
+    try testing.expect(std.mem.indexOf(u8, detailed.stdout, env.ref) != null);
+    try testing.expect(std.mem.indexOf(u8, detailed.stdout, "Total fingerprints:") == null);
+    // Every summary line must be preserved in verbose output.
+    var lines = std.mem.tokenizeScalar(u8, compact.stdout, '\n');
+    while (lines.next()) |line| try testing.expect(std.mem.indexOf(u8, detailed.stdout, line) != null);
+
+    for ([_]bool{ false, true }) |config_verbose| {
+        const json = try std.fmt.allocPrint(allocator, "{{\"verbose\":{s}}}", .{if (config_verbose) "true" else "false"});
+        defer allocator.free(json);
+        try env.writeConfig(json);
+        for ([_]bool{ false, true }) |flag| {
+            const r = try env.run(if (flag) &.{ "stats", "--verbose" } else &.{"stats"}, 0);
+            defer r.deinit();
+            try testing.expectEqualStrings(if (config_verbose or flag) detailed.stdout else compact.stdout, r.stdout);
+        }
+    }
+    const help = try env.run(&.{"--help"}, 0);
+    defer help.deinit();
+    try testing.expect(std.mem.indexOf(u8, help.stdout, "olaf stats [--verbose]") != null);
+}
+
 const QueryExpectation = struct {
     /// Query audio file under dataset/queries/.
     query_file: []const u8,
@@ -808,6 +866,7 @@ test "functional: usage errors exit with status 2" {
     try env.expectExit(&.{ "config", "no_such_file.mp3" }, 2);
     try env.expectExit(&.{ "query", "--format", "human", ref_abs }, 2);
     try env.expectExit(&.{ "store", "--bogus", ref_abs }, 2);
+    try env.expectExit(&.{ "store", "--verbose", ref_abs }, 2);
     // '-f' after a --with-ids file used to become its identifier.
     try env.expectExit(&.{ "store", "--with-ids", ref_abs, "-f" }, 2);
     try env.expectExit(&.{"--help"}, 0);
@@ -1495,6 +1554,7 @@ test "functional: output snapshot" {
         .{ .title = "query csv comma path", .args = &.{ "query", comma }, .stream = .stdout },
         .{ .title = "query csv --no-identity-match (--with-ids)", .args = &.{ "query", "--no-identity-match", "--with-ids", ref_b, "ref-b" }, .stream = .stdout },
         .{ .title = "stats", .args = &.{"stats"}, .stream = .stdout },
+        .{ .title = "stats --verbose", .args = &.{ "stats", "--verbose" }, .stream = .stdout },
     };
 
     var transcript: std.Io.Writer.Allocating = .init(allocator);

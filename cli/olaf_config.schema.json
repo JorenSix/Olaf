@@ -136,7 +136,7 @@
     },
     "verbose": {
       "type": "boolean",
-      "description": "Print debug info. If true, a lot of messages are printed to the console.",
+      "description": "Print debug info and include the per-file table in stats. The stats --verbose flag enables the table for one invocation regardless of this setting.",
       "default": false
     },
     "number_of_eps_per_fp": {
