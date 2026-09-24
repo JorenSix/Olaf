@@ -151,6 +151,8 @@ pub fn build(b: *std.Build) void {
 
             tests.root_module.addIncludePath(b.path("cli"));
             tests.root_module.addIncludePath(b.path("src"));
+            tests.root_module.addIncludePath(b.path("tests"));
+            tests.root_module.addCSourceFile(.{ .file = b.path("tests/olaf_config_parity.c"), .flags = &cflags });
             addCoreSources(tests, b, &cflags, true, false);
             tests.root_module.link_libc = true;
 

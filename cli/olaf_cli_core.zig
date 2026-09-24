@@ -12,7 +12,7 @@ pub const c = @cImport({
     @cInclude("stdlib.h");
 
     @cInclude("olaf_config.h");
-    if (@import("builtin").is_test) @cInclude("olaf_config_internal.h");
+    if (@import("builtin").is_test) @cInclude("olaf_config_parity.h");
     @cInclude("olaf_db.h");
     @cInclude("olaf_runner.h");
     @cInclude("olaf_stream_processor.h");
@@ -182,13 +182,13 @@ test "Zig and C configuration safety rules agree" {
         @field(config, pair[0]) = pair[1];
         copyConfig(&config, ptr);
         try std.testing.expect(olaf_cli_config.validationIssue(&config) != null);
-        try std.testing.expect(c.olaf_config_error(ptr) != null);
+        try std.testing.expect(c.olaf_test_config_error(ptr) != null);
         try std.testing.expectError(error.InvalidConfigValue, CoreConfig.init(std.testing.allocator, &config));
     }
     for ([_]u32{ 2, 3, 4, 13, 24 }) |size| {
         const config = olaf_cli_config.Config{ .filter_size_time = size };
         copyConfig(&config, ptr);
         try std.testing.expect(olaf_cli_config.validationIssue(&config) == null);
-        try std.testing.expect(c.olaf_config_error(ptr) == null);
+        try std.testing.expect(c.olaf_test_config_error(ptr) == null);
     }
 }
