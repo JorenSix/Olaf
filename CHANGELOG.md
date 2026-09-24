@@ -2,6 +2,23 @@
 
 All notable changes to Olaf. The release notes on GitHub are taken from the section of the released version.
 
+## [3.1.1] - 2026-09-24
+
+### Fixed
+
+- Cache and print modes write the final batch of fingerprints at the end of audio. This also fixes missing fingerprints and shortened tail matches when using the cache-backed CLI store path.
+- Added dataset regressions checking cache row counts against metadata and comparing tail matches between direct and cache-backed storage.
+
+### Changed
+
+- `olaf stats` prints summary statistics by default. Use `--verbose` or config `"verbose": true` to include the per-file table; neither CLI mode dumps individual fingerprints. The default config remains nonverbose.
+- Added `olaf_db_print_stats(db, include_files)` for summary and optional per-file reporting while preserving the legacy `olaf_db_stats()` behavior.
+
+### Validation and compatibility
+
+- Native suite: 77 tests passed, 1 skipped. Clean memory-backend build passed.
+- Existing databases remain readable. Regenerate affected caches and re-index affected audio to recover fingerprints omitted by earlier versions; upgrading alone does not restore missing entries.
+
 ## [3.1.0] - 2026-09-23
 
 Core safety improvements for native and embedded use. Default fingerprints and existing databases remain compatible; unsafe custom configurations are now rejected.
