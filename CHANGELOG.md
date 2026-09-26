@@ -2,7 +2,7 @@
 
 All notable changes to Olaf. The release notes on GitHub are taken from the section of the released version.
 
-## [Unreleased]
+## [3.2.1] - 2026-09-26
 
 ### Added
 
