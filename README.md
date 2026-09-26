@@ -142,6 +142,8 @@ open "http://localhost:8000/wasm/spectrogram.html" # spectrogram with event poin
 open "http://localhost:8000/wasm/test.html"        # automated test with a query from the test dataset
 ```
 
+With [just](https://github.com/casey/just) installed, `just demo`, `just spectrogram` and `just test-page` build the module, serve the repository and open the page; `just` lists the other tasks (build, tests, benchmarks).
+
 The spectrogram demo shows what Olaf extracts: its own spectra of the resampled audio, drawn with WebGL, with the event points on the time block and frequency bin they were found in. It plays the microphone, the test query or a local audio file.
 
 `node wasm/olaf_wasm_test.mjs` runs the module outside the browser; `zig build test` includes it. Note that the web version does not use a key value store but a list of hashes stored in a header-file (`src/olaf_fp_ref_mem.h`). See below for more info.

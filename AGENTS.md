@@ -14,7 +14,7 @@ Olaf (Overly Lightweight Acoustic Fingerprinting) is an acoustic fingerprinting 
 
 ## Build System
 
-The project uses **two build systems**:
+The project uses **two build systems**. A `justfile` offers shortcuts on top of them (`just` lists the recipes, e.g. `just test`, `just spectrogram`).
 
 ### 1. Makefile (Traditional)
 ```bash
