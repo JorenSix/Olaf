@@ -20,6 +20,8 @@ const cmd_cache = @import("olaf_cli_commands/olaf_cli_cmd_cache.zig");
 const cmd_store_cached = @import("olaf_cli_commands/olaf_cli_cmd_store_cached.zig");
 const cmd_dedup = @import("olaf_cli_commands/olaf_cli_cmd_dedup.zig");
 const cmd_microphone = @import("olaf_cli_commands/olaf_cli_cmd_microphone.zig");
+const cmd_rest = @import("olaf_cli_commands/olaf_cli_cmd_rest.zig");
+const cmd_has = @import("olaf_cli_commands/olaf_cli_cmd_has.zig");
 
 const debug = std.log.scoped(.olaf_cli).debug;
 
@@ -38,11 +40,17 @@ const Command = struct {
     help: []const u8,
     needs_audio_files: bool,
     flags: []const types.Flag,
+    /// An http(s):// argument is the endpoint URL (`Args.endpoint`).
+    accepts_endpoint: bool = false,
+    /// `olaf <name> <sub> ...`: e.g. `olaf rest store`. A subcommand's name
+    /// is the full "<name> <sub>".
+    subcommands: []const Command = &.{},
     func: *const fn (allocator: std.mem.Allocator, args: *types.Args) anyerror!void,
 };
 
 /// A command module exports `CommandInfo` (name, description, help,
-/// needs_audio_files) and `execute`.
+/// needs_audio_files, flags, optionally accepts_endpoint) and `execute`, and
+/// optionally `subcommands` (a tuple of command modules).
 fn command(comptime m: type) Command {
     return .{
         .name = m.CommandInfo.name,
@@ -50,6 +58,13 @@ fn command(comptime m: type) Command {
         .help = m.CommandInfo.help,
         .needs_audio_files = m.CommandInfo.needs_audio_files,
         .flags = m.CommandInfo.flags,
+        .accepts_endpoint = @hasDecl(m.CommandInfo, "accepts_endpoint") and m.CommandInfo.accepts_endpoint,
+        .subcommands = if (@hasDecl(m, "subcommands")) comptime blk: {
+            var subs: [m.subcommands.len]Command = undefined;
+            for (m.subcommands, 0..) |sub, i| subs[i] = command(sub);
+            const final = subs;
+            break :blk &final;
+        } else &.{},
         .func = m.execute,
     };
 }
@@ -62,11 +77,13 @@ const commands = [_]Command{
     command(cmd_store),
     command(cmd_config),
     command(cmd_query),
+    command(cmd_has),
     command(cmd_clear),
     command(cmd_delete),
     command(cmd_cache),
     command(cmd_store_cached),
     command(cmd_dedup),
+    command(cmd_rest),
 };
 
 fn printCommandList() void {
@@ -74,6 +91,10 @@ fn printCommandList() void {
     for (commands) |cmd| {
         print("\n{s}\t{s}\n", .{ cmd.name, cmd.description });
         print("\tolaf {s} {s}\n", .{ cmd.name, cmd.help });
+        for (cmd.subcommands) |sub| {
+            print("\n{s}\t{s}\n", .{ sub.name, sub.description });
+            print("\tolaf {s} {s}\n", .{ sub.name, sub.help });
+        }
     }
 }
 
@@ -105,6 +126,7 @@ pub fn main(init: std.process.Init) !u8 {
         error.InvalidConfigValue => return 1,
         error.NoHomeDirectory => return 1,
         error.DatabaseNotWritable => return 1,
+        error.ListenFailed => return 1,
         else => return err,
     };
     return 0;
@@ -177,15 +199,30 @@ fn run(init: std.process.Init) !void {
         return;
     }
 
-    const cmd = for (commands) |cmd| {
+    const top = for (commands) |cmd| {
         if (std.mem.eql(u8, cmd.name, command_name)) break cmd;
     } else {
         print("No such command: '{s}'\n", .{command_name});
         try printHelp(io);
         return error.Usage;
     };
+    // `olaf rest store ...`: the subcommand named by the next argument.
+    var cmd = top;
+    var rest_args = args_list[2..];
+    if (top.subcommands.len > 0) {
+        cmd = for (top.subcommands) |sub| {
+            if (rest_args.len > 0 and std.mem.eql(u8, sub.name[top.name.len + 1 ..], rest_args[0])) break sub;
+        } else {
+            // A command group: it needs one of its subcommands.
+            if (rest_args.len > 0) print("Unknown 'olaf {s}' subcommand '{s}'.\n", .{ top.name, rest_args[0] });
+            print("olaf {s} {s}\n", .{ top.name, top.help });
+            for (top.subcommands) |sub| print("\tolaf {s} {s}\n", .{ sub.name, sub.help });
+            return error.Usage;
+        };
+        rest_args = rest_args[1..];
+    }
 
-    var args = try parseArgs(allocator, io, home, &config, cmd, args_list[2..]);
+    var args = try parseArgs(allocator, io, home, &config, cmd, rest_args);
     defer args.deinit(allocator);
 
     if (cmd.needs_audio_files and args.audio_files.items.len == 0) {
@@ -236,8 +273,9 @@ fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *c
             try allow(cmd, .format, arg);
             if (i + 1 < args_list.len) {
                 const fmt = args_list[i + 1];
-                args.format = std.meta.stringToEnum(olaf_cli_output.Format, fmt) orelse {
-                    print("Unknown --format value '{s}', expected 'csv', 'json', or 'human'.\n", .{fmt});
+                // "text" is the human format under another name (has).
+                args.format = if (std.mem.eql(u8, fmt, "text")) .human else std.meta.stringToEnum(olaf_cli_output.Format, fmt) orelse {
+                    print("Unknown --format value '{s}', expected 'csv', 'json', 'human' or 'text'.\n", .{fmt});
                     return error.Usage;
                 };
                 i += 1;
@@ -245,12 +283,36 @@ fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *c
                 print("Expected an argument for '--format': 'olaf query --format json file.mp3'\n", .{});
                 return error.Usage;
             }
+        } else if (std.mem.eql(u8, arg, "--port")) {
+            try allow(cmd, .port, arg);
+            const port_arg = if (i + 1 < args_list.len) args_list[i + 1] else "";
+            args.port = std.fmt.parseInt(u16, port_arg, 10) catch 0;
+            if (args.port == 0) {
+                print("'--port' expects a port number (1-65535), got '{s}'\n", .{port_arg});
+                return error.Usage;
+            }
+            i += 1;
+        } else if (std.mem.eql(u8, arg, "--threshold")) {
+            try allow(cmd, .threshold, arg);
+            const value = if (i + 1 < args_list.len) args_list[i + 1] else "";
+            args.threshold = std.fmt.parseInt(u32, value, 10) catch 0;
+            if (args.threshold == 0) {
+                print("'--threshold' expects a positive match count, got '{s}'\n", .{value});
+                return error.Usage;
+            }
+            i += 1;
         } else if (std.mem.eql(u8, arg, "--verbose")) {
             try allow(cmd, .verbose, arg);
             args.verbose = true;
         } else if (std.mem.eql(u8, arg, "-f") or std.mem.eql(u8, arg, "--force")) {
             try allow(cmd, .force, arg);
             args.force = true;
+        } else if (cmd.accepts_endpoint and (std.mem.startsWith(u8, arg, "http://") or std.mem.startsWith(u8, arg, "https://"))) {
+            if (args.endpoint) |first| {
+                print("'olaf {s}' talks to one endpoint; got '{s}' and '{s}'.\nTo combine several databases, point it to an olaf rest serve-lb.\n", .{ cmd.name, first, arg });
+                return error.Usage;
+            }
+            args.endpoint = arg;
         } else {
             // Not an option: an audio file (or an unknown option).
             if (arg.len > 1 and arg[0] == '-') {

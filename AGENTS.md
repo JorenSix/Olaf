@@ -91,6 +91,7 @@ The CLI is implemented in Zig (`cli/olaf_cli.zig`) and calls the public C core A
 - `olaf_cli_threading.zig`: `forEachParallel` (the one executor for all per-file work), `TempRaw` (temp raw audio via ffmpeg) and `fragments`
 - Command structure: Modular commands in `cli/olaf_cli_commands/`; each exports a `CommandInfo` struct and `execute` function
 - Configuration: JSON-based (`olaf_config.json`), checked in home dir first; loaded and printed by reflection over the `Config` struct
+- REST API: `cli/rest/` is a separate Zig module (`olaf_rest`, std only: HTTP server, parameters, response envelope, load balancer `LbBackend`) imported by the CLI; `cli/olaf_cli_rest_backend.zig` implements its `Backend` interface on the session layer, and the `olaf rest` command group (`olaf_cli_cmd_rest.zig` with the subcommands `serve`, `serve-lb`, `store`, `query` in `olaf_cli_cmd_rest_*.zig`, the clients in `cli/olaf_cli_rest_client.zig`) uses it. Keep `cli/rest/` free of CLI and core imports
 
 ### Python Wrapper (CFFI)
 
@@ -265,6 +266,7 @@ The C code uses OOP-inspired patterns:
 **CLI and Wrappers**:
 - `cli/olaf_cli.zig`: Main CLI entry point
 - `cli/olaf_cli_session.zig`, `cli/olaf_cli_core.zig`: Zig layer over the C core
+- `cli/rest/olaf_rest.zig`: REST API server and load balancer (`olaf rest serve`, `olaf rest serve-lb`)
 - `python-wrapper/olaf.py`: Python CFFI wrapper
 - `python-wrapper/setup.py`: CFFI build script
 

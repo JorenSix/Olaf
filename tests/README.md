@@ -3,10 +3,11 @@
 ## Test files
 
 - `olaf_unit_tests.zig`: unit tests of C core components (config, deque, reader).
-- `olaf_functional_tests.zig`: functional tests that run the real `olaf` binary in an isolated HOME, one test per command or behaviour, plus the output snapshot.
+- `olaf_functional_tests.zig`: functional tests that run the real `olaf` binary in an isolated HOME, one test per command or behaviour, plus the output snapshot. The REST tests start `olaf rest serve` / `olaf rest serve-lb` on a free port with `RestServer.start` and talk to them over HTTP.
 - `dataset_download.zig`: downloads (and caches) the test dataset into `dataset/` on first use.
 - `golden/output_snapshot.txt`: the exact CLI output locked by the snapshot test.
 - `olaf_tests.c`, `16k_samples.raw`: legacy C unit tests (deque, max filter, reader) and their test audio.
+- REST unit tests (parameters, envelope, summaries, load balancer) live in `cli/rest/`.
 - CLI unit tests live next to the code: `cli/olaf_cli_session.zig`, `cli/olaf_cli_threading.zig` and the modules they import (config/schema consistency, store equivalence, output escaping, ...).
 
 ## Running tests

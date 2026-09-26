@@ -82,7 +82,7 @@ test "jsonString always produces valid JSON" {
 
 /// Format a float with libc printf semantics ("%.3f"). Query output has
 /// always been printed by C printf; this keeps its rounding byte-identical.
-fn cFloat(w: *Io.Writer, comptime fmt: [:0]const u8, value: f64) !void {
+pub fn cFloat(w: *Io.Writer, comptime fmt: [:0]const u8, value: f64) !void {
     var buf: [64]u8 = undefined;
     const n = c.snprintf(&buf, buf.len, fmt.ptr, value);
     try w.writeAll(buf[0..@intCast(n)]);
@@ -95,7 +95,7 @@ fn emitStderr(bytes: []const u8) !void {
     try Io.File.stderr().writeStreamingAll(olaf_cli_util.defaultIo(), bytes);
 }
 
-fn emitStdout(bytes: []const u8) void {
+pub fn emitStdout(bytes: []const u8) void {
     const out = cStdout();
     _ = c.fwrite(bytes.ptr, 1, bytes.len, out);
     // libc fully buffers a piped/redirected stdout: without a flush, live
@@ -137,14 +137,19 @@ pub const StoreSummary = struct {
 };
 
 pub fn writeStoreSummary(format: StoreFormat, s: StoreSummary) !void {
-    const file_index = s.index + 1; // user-facing index is 1-based
-    const fp_per_second: f64 = if (s.audio_seconds > 0.0) @as(f64, @floatFromInt(s.fingerprints)) / s.audio_seconds else 0.0;
-    const realtime_factor: f64 = if (s.cpu_seconds > 0.0) s.audio_seconds / s.cpu_seconds else 0.0;
-
     var sfa = recordAllocator();
     var record: Io.Writer.Allocating = .init(sfa.get());
     defer record.deinit();
-    const w = &record.writer;
+    try formatStoreSummary(&record.writer, format, s);
+    // One write per record: POSIX keeps writes <= PIPE_BUF atomic, so
+    // threaded workers don't interleave bytes mid-record.
+    try emitStderr(record.written());
+}
+
+pub fn formatStoreSummary(w: *Io.Writer, format: StoreFormat, s: StoreSummary) !void {
+    const file_index = s.index + 1; // user-facing index is 1-based
+    const fp_per_second: f64 = if (s.audio_seconds > 0.0) @as(f64, @floatFromInt(s.fingerprints)) / s.audio_seconds else 0.0;
+    const realtime_factor: f64 = if (s.cpu_seconds > 0.0) s.audio_seconds / s.cpu_seconds else 0.0;
 
     switch (format) {
         .human => {
@@ -168,9 +173,6 @@ pub fn writeStoreSummary(format: StoreFormat, s: StoreSummary) !void {
             });
         },
     }
-    // One write per record: POSIX keeps writes <= PIPE_BUF atomic, so
-    // threaded workers don't interleave bytes mid-record.
-    try emitStderr(record.written());
 }
 
 /// "index/total" with the index zero-padded to the width of `total`
@@ -190,7 +192,11 @@ pub fn writeStoreSkip(format: StoreFormat, index: usize, total: usize, audio_ide
     var sfa = recordAllocator();
     var record: Io.Writer.Allocating = .init(sfa.get());
     defer record.deinit();
-    const w = &record.writer;
+    try formatStoreSkip(&record.writer, format, index, total, audio_identifier, internal_id);
+    try emitStderr(record.written());
+}
+
+pub fn formatStoreSkip(w: *Io.Writer, format: StoreFormat, index: usize, total: usize, audio_identifier: []const u8, internal_id: u32) !void {
     switch (format) {
         .human => {
             try writeIndex(w, index, total);
@@ -207,7 +213,6 @@ pub fn writeStoreSkip(format: StoreFormat, index: usize, total: usize, audio_ide
             try w.print(",\"internal_id\":{d}}}\n", .{internal_id});
         },
     }
-    try emitStderr(record.written());
 }
 
 /// One line per deleted file, numbered like store records.
@@ -259,6 +264,28 @@ pub fn writeMatchRow(q: QueryInfo, m: Match) void {
     emitStdout(record.written());
 }
 
+/// One query's CSV block as the core prints it: the header, then a row per
+/// match, or the "no results" row (match_count 0) when there are none. Used
+/// for results that did not come from the local core (`olaf rest query`).
+pub fn writeQueryCsv(q: QueryInfo, matches: []const Match) !void {
+    var sfa = recordAllocator();
+    var record: Io.Writer.Allocating = .init(sfa.get());
+    defer record.deinit();
+    const w = &record.writer;
+    try w.writeAll(query_csv_header);
+    for (matches) |m| try formatMatchRow(w, q, m);
+    if (matches.len == 0) try formatMatchRow(w, q, .{
+        .match_count = 0,
+        .query_start = 0,
+        .query_stop = 0,
+        .path = "",
+        .match_identifier = 0,
+        .reference_start = 0,
+        .reference_stop = 0,
+    });
+    emitStdout(record.written());
+}
+
 fn formatMatchRow(w: *Io.Writer, q: QueryInfo, m: Match) !void {
     try w.print("{d} ,{d} ,", .{ q.index + 1, q.total });
     try csvField(w, q.path);
@@ -290,8 +317,11 @@ pub const QueryStats = struct {
 pub fn writeQueryJson(allocator: std.mem.Allocator, q: QueryInfo, stats: QueryStats, matches: []const Match) !void {
     var out: Io.Writer.Allocating = .init(allocator);
     defer out.deinit();
-    const w = &out.writer;
+    try formatQueryJson(&out.writer, q, stats, matches);
+    emitStdout(out.written());
+}
 
+pub fn formatQueryJson(w: *Io.Writer, q: QueryInfo, stats: QueryStats, matches: []const Match) !void {
     const fp_per_second: f64 = if (stats.audio_seconds > 0.0) @as(f64, @floatFromInt(stats.fingerprints)) / stats.audio_seconds else 0.0;
     const realtime_factor: f64 = if (stats.cpu_seconds > 0.0) stats.audio_seconds / stats.cpu_seconds else 0.0;
 
@@ -323,5 +353,4 @@ pub fn writeQueryJson(allocator: std.mem.Allocator, q: QueryInfo, stats: QuerySt
     }
     if (matches.len > 0) try w.writeAll("\n  ");
     try w.writeAll("]\n}\n");
-    emitStdout(out.written());
 }

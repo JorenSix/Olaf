@@ -57,6 +57,8 @@ pub fn build(b: *std.Build) void {
             exe.root_module.addIncludePath(b.path("src"));
             const zigzag = b.dependency("zigzag", .{ .target = target, .optimize = optimize });
             exe.root_module.addImport("zigzag", zigzag.module("zigzag"));
+            // The REST API (cli/rest/) only depends on std; the CLI links it in.
+            exe.root_module.addImport("olaf_rest", restModule(b, target, optimize));
             addCoreSources(exe, b, &cflags, true, false); // true = include LMDB sources
             exe.root_module.link_libc = true;
             b.installArtifact(exe);
@@ -138,7 +140,13 @@ pub fn build(b: *std.Build) void {
             // import across the module root.
             "cli/olaf_cli_session.zig",
             "cli/olaf_cli_threading.zig",
+            "cli/olaf_cli_rest_client.zig",
+            "cli/olaf_cli_has.zig",
         };
+
+        // REST server, envelope and load balancer (std only, no C core).
+        const rest_tests = b.addTest(.{ .root_module = restModule(b, target, optimize) });
+        test_step.dependOn(&b.addRunArtifact(rest_tests).step);
 
         for (test_files) |test_file| {
             const tests = b.addTest(.{
@@ -152,6 +160,7 @@ pub fn build(b: *std.Build) void {
             tests.root_module.addIncludePath(b.path("cli"));
             tests.root_module.addIncludePath(b.path("src"));
             tests.root_module.addIncludePath(b.path("tests"));
+            tests.root_module.addImport("olaf_rest", restModule(b, target, optimize));
             tests.root_module.addCSourceFile(.{ .file = b.path("tests/olaf_config_parity.c"), .flags = &cflags });
             addCoreSources(tests, b, &cflags, true, false);
             tests.root_module.link_libc = true;
@@ -165,6 +174,17 @@ pub fn build(b: *std.Build) void {
             test_step.dependOn(&run_tests.step);
         }
     }
+}
+
+/// The "olaf_rest" module: the HTTP front end and load balancer in cli/rest/.
+fn restModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) *std.Build.Module {
+    return b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .root_source_file = b.path("cli/rest/olaf_rest.zig"),
+        // listenExclusive uses the libc socket calls (POSIX).
+        .link_libc = true,
+    });
 }
 
 /// Add core Olaf C source files to an executable

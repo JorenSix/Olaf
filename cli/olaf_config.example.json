@@ -11,5 +11,15 @@
   "audio_step_size": 128,
   "bytes_per_audio_sample": 4,
   "number_of_eps_per_fp": 3,
-  "allowed_audio_file_extensions": [".m4a", ".wav", ".mp4", ".wv", ".ape", ".ogg", ".mp3", ".raw", ".flac", ".wma"]
+  "allowed_audio_file_extensions": [".m4a", ".wav", ".mp4", ".wv", ".ape", ".ogg", ".mp3", ".raw", ".flac", ".wma"],
+
+  "rest_host": "127.0.0.1",
+  "rest_port": 8920,
+  "rest_max_body_mb": 512,
+  "rest_workers": 4,
+  "rest_lb_port": 8921,
+  "rest_lb_backends": ["http://127.0.0.1:8920"],
+  "rest_lb_store_strategy": "random",
+  "rest_endpoint": "http://127.0.0.1:8920",
+  "has_min_match_count": 20
 }

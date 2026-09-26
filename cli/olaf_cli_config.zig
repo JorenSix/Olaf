@@ -68,6 +68,19 @@ pub const Config = struct {
         ".m4a", ".wav", ".mp4", ".wv", ".ape", ".ogg", ".mp3", ".raw", ".flac", ".wma",
     },
 
+    // REST API (`olaf rest serve`) and load balancer (`olaf rest serve-lb`)
+    rest_host: []const u8 = "127.0.0.1",
+    rest_port: u32 = 8920,
+    rest_max_body_mb: u32 = 512,
+    rest_workers: u32 = 4,
+    rest_lb_port: u32 = 8921,
+    rest_lb_backends: []const []const u8 = &.{"http://127.0.0.1:8920"},
+    rest_lb_store_strategy: []const u8 = "random",
+    rest_endpoint: []const u8 = "http://127.0.0.1:8920",
+
+    // `olaf has` / `olaf rest has`: a match needs at least this match_count.
+    has_min_match_count: u32 = 20,
+
     // Audio configurations
     audio_block_size: u32 = 1024,
     audio_step_size: u32 = 128,
@@ -256,6 +269,11 @@ const setting_bounds = .{
     .{ "search_range", 0, null },
     .{ "min_match_count", 1, null },
     .{ "max_db_collisions", 1, null },
+    .{ "rest_port", 1, 65535 },
+    .{ "has_min_match_count", 1, null },
+    .{ "rest_max_body_mb", 1, 4096 },
+    .{ "rest_workers", 1, null },
+    .{ "rest_lb_port", 1, 65535 },
 };
 
 const Bounds = struct { min: ?i64, max: ?i64 };

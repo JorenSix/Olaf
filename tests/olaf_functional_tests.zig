@@ -2169,3 +2169,756 @@ test "functional: unsafe configuration fails before creating storage or decoding
         }
     }
 }
+
+// ============================================================================
+// REST API: `olaf rest serve` and `olaf rest serve-lb`
+// ============================================================================
+
+/// A port nothing listens on right now (the OS picks it).
+fn freePort(io: Io) !u16 {
+    const any = try Io.net.IpAddress.parse("127.0.0.1", 0);
+    var listener = try any.listen(io, .{});
+    defer listener.deinit(io);
+    return listener.socket.address.getPort();
+}
+
+/// A running `olaf rest serve` / `olaf rest serve-lb` in a fixture's environment.
+const RestServer = struct {
+    child: std.process.Child,
+    io: Io,
+    port: u16,
+
+    /// Start `olaf <command> --port <free port>` and wait until it answers.
+    fn start(fx: *Fixture, command: []const u8) !RestServer {
+        const port = try freePort(fx.io);
+        var port_buf: [8]u8 = undefined;
+        const port_str = try std.fmt.bufPrint(&port_buf, "{d}", .{port});
+        var child = try std.process.spawn(fx.io, .{
+            .argv = &.{ fx.bin, "rest", command, "--port", port_str },
+            .environ_map = &fx.env_map,
+            .stdin = .ignore,
+            .stdout = .ignore,
+            .stderr = .ignore,
+        });
+        errdefer child.kill(fx.io);
+        var server = RestServer{ .child = child, .io = fx.io, .port = port };
+        for (0..200) |_| {
+            var arena_state = std.heap.ArenaAllocator.init(fx.allocator);
+            defer arena_state.deinit();
+            if (server.get(arena_state.allocator(), "/api/healthz")) |_| return server else |_| {}
+            try fx.io.sleep(.fromMilliseconds(50), .awake);
+        }
+        std.debug.print("\n'olaf rest {s}' did not answer on port {d}\n", .{ command, port });
+        return error.ServerDidNotStart;
+    }
+
+    fn stop(self: *RestServer) void {
+        self.child.kill(self.io);
+    }
+
+    const Response = struct { status: u16, body: std.json.Value };
+
+    fn get(self: *RestServer, arena: std.mem.Allocator, path_and_query: []const u8) !Response {
+        return self.fetch(arena, path_and_query, null);
+    }
+
+    /// POST the file at `audio_path` as the body.
+    fn post(self: *RestServer, arena: std.mem.Allocator, path_and_query: []const u8, audio_path: []const u8) !Response {
+        const body = try Io.Dir.cwd().readFileAlloc(self.io, audio_path, arena, .limited(64 << 20));
+        return self.fetch(arena, path_and_query, body);
+    }
+
+    fn fetch(self: *RestServer, arena: std.mem.Allocator, path_and_query: []const u8, payload: ?[]const u8) !Response {
+        const url = try std.fmt.allocPrint(arena, "http://127.0.0.1:{d}{s}", .{ self.port, path_and_query });
+        var client: std.http.Client = .{ .allocator = arena, .io = self.io };
+        defer client.deinit();
+        var out: Io.Writer.Allocating = .init(arena);
+        const res = try client.fetch(.{
+            .location = .{ .url = url },
+            .method = if (payload != null) .POST else .GET,
+            .payload = payload,
+            .response_writer = &out.writer,
+            .keep_alive = false,
+        });
+        return .{ .status = @intFromEnum(res.status), .body = try std.json.parseFromSliceLeaky(std.json.Value, arena, out.written(), .{}) };
+    }
+};
+
+fn jsonPath(v: std.json.Value, keys: []const []const u8) std.json.Value {
+    var cur = v;
+    for (keys) |k| cur = cur.object.get(k) orelse return .null;
+    return cur;
+}
+
+/// The results array of an envelope.
+fn restResults(v: std.json.Value) []std.json.Value {
+    return v.object.get("results").?.array.items;
+}
+
+test "functional: rest stores, queries and reports stats in multi-endpoint envelopes" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+    var env = try Fixture.init(allocator, io, "rest");
+    defer env.deinit();
+    if (env.ref.len == 0) return error.SkipZigTest;
+
+    var server = try RestServer.start(&env, "serve");
+    defer server.stop();
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+
+    // Store: one result, from this instance's own database.
+    const stored = try server.post(arena, "/api/store?identifier=11266", env.ref);
+    try testing.expectEqual(@as(u16, 200), stored.status);
+    try testing.expectEqual(@as(i64, 1), jsonPath(stored.body, &.{"endpoint_count"}).integer);
+    try testing.expectEqualStrings("local", restResults(stored.body)[0].object.get("endpoint").?.string);
+    try testing.expectEqualStrings("store", jsonPath(stored.body, &.{ "summary", "action" }).string);
+    try testing.expectEqual(@as(i64, 11266), jsonPath(stored.body, &.{ "summary", "internal_id" }).integer);
+
+    // The same identifier again is skipped (skip_duplicates), unless forced.
+    const again = try server.post(arena, "/api/store?identifier=11266", env.ref);
+    try testing.expectEqualStrings("skip", jsonPath(again.body, &.{ "summary", "action" }).string);
+
+    // Query: the stored audio matches itself, in results and in the summary.
+    const found = try server.post(arena, "/api/query?identifier=q", env.ref);
+    try testing.expectEqual(@as(u16, 200), found.status);
+    const queries = jsonPath(restResults(found.body)[0], &.{ "data", "queries" }).array.items;
+    try testing.expectEqual(@as(usize, 1), queries.len);
+    try testing.expectEqualStrings("q", queries[0].object.get("query_path").?.string);
+    const best = jsonPath(found.body, &.{ "summary", "matches" }).array.items[0];
+    try testing.expectEqual(@as(i64, 11266), best.object.get("match_identifier").?.integer);
+    try testing.expectEqualStrings("local", best.object.get("endpoint").?.string);
+
+    // ... and not with no_identity_match.
+    const self_only = try server.post(arena, "/api/query?identifier=11266&no_identity_match", env.ref);
+    try testing.expectEqual(@as(i64, 0), jsonPath(self_only.body, &.{ "summary", "match_count" }).integer);
+
+    const stats = try server.get(arena, "/api/stats");
+    try testing.expectEqual(@as(i64, 1), jsonPath(stats.body, &.{ "summary", "song_count" }).integer);
+    try testing.expectEqual(@as(i64, 1), jsonPath(restResults(stats.body)[0], &.{ "data", "song_count" }).integer);
+
+    const health = try server.get(arena, "/api/healtz");
+    try testing.expectEqualStrings("ok", jsonPath(health.body, &.{ "summary", "status" }).string);
+
+    // Rejected requests: an envelope without results and a top-level error.
+    const no_id = try server.post(arena, "/api/store", env.ref);
+    try testing.expectEqual(@as(u16, 400), no_id.status);
+    try testing.expectEqual(@as(usize, 0), restResults(no_id.body).len);
+    try testing.expect(jsonPath(no_id.body, &.{"error"}) == .string);
+    try testing.expectEqual(@as(u16, 400), (try server.post(arena, "/api/query?unknown=1", env.ref)).status);
+    try testing.expectEqual(@as(u16, 405), (try server.get(arena, "/api/store")).status);
+    try testing.expectEqual(@as(u16, 404), (try server.get(arena, "/api/nothing")).status);
+
+    // Audio ffmpeg cannot decode fails in the endpoint's result.
+    const bad = try server.fetch(arena, "/api/query", "not audio");
+    try testing.expectEqual(@as(u16, 422), bad.status);
+    try testing.expect(!restResults(bad.body)[0].object.get("ok").?.bool);
+}
+
+test "functional: serve-lb spreads stores over nodes and merges their results" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var node_a = try Fixture.init(allocator, io, "rest_node_a");
+    defer node_a.deinit();
+    var node_b = try Fixture.init(allocator, io, "rest_node_b");
+    defer node_b.deinit();
+    var balancer = try Fixture.init(allocator, io, "rest_lb");
+    defer balancer.deinit();
+    if (node_a.ref.len == 0) return error.SkipZigTest;
+
+    var a = try RestServer.start(&node_a, "serve");
+    defer a.stop();
+    var b = try RestServer.start(&node_b, "serve");
+    var b_running = true;
+    defer if (b_running) b.stop();
+
+    const url_a = try std.fmt.allocPrint(allocator, "http://127.0.0.1:{d}", .{a.port});
+    defer allocator.free(url_a);
+    const url_b = try std.fmt.allocPrint(allocator, "http://127.0.0.1:{d}", .{b.port});
+    defer allocator.free(url_b);
+    const lb_config = try std.fmt.allocPrint(allocator, "{{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"rest_lb_backends\":[\"{s}\",\"{s}/\"]}}", .{ url_a, url_b });
+    defer allocator.free(lb_config);
+    try balancer.writeConfig(lb_config);
+    var lb = try RestServer.start(&balancer, "serve-lb");
+    defer lb.stop();
+
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+
+    // Each store lands on exactly one node.
+    const ids = [_][]const u8{ "1051039", "1071559", "11266", "147199" };
+    const stored_on = try arena.alloc([]const u8, ids.len);
+    for (ids, stored_on) |id, *where| {
+        const path = try std.fmt.allocPrint(arena, "/api/store?identifier={s}", .{id});
+        const ref = try std.fmt.allocPrint(arena, "dataset/ref/{s}.mp3", .{id});
+        const r = try lb.post(arena, path, ref);
+        try testing.expectEqual(@as(u16, 200), r.status);
+        try testing.expectEqual(@as(usize, 1), restResults(r.body).len);
+        where.* = jsonPath(r.body, &.{ "summary", "endpoint" }).string;
+        try testing.expect(std.mem.eql(u8, where.*, url_a) or std.mem.eql(u8, where.*, url_b));
+    }
+
+    // Stats: one result per node, summed in the summary.
+    const stats = try lb.get(arena, "/api/stats");
+    try testing.expectEqual(@as(usize, 2), restResults(stats.body).len);
+    try testing.expectEqual(@as(i64, ids.len), jsonPath(stats.body, &.{ "summary", "song_count" }).integer);
+
+    // Query: both nodes answer; the match comes from the node that stored it.
+    const q = try lb.post(arena, "/api/query", "dataset/ref/11266.mp3");
+    try testing.expectEqual(@as(usize, 2), restResults(q.body).len);
+    const best = jsonPath(q.body, &.{ "summary", "matches" }).array.items[0];
+    try testing.expectEqual(@as(i64, 11266), best.object.get("match_identifier").?.integer);
+    try testing.expectEqualStrings(stored_on[2], best.object.get("endpoint").?.string);
+
+    // One node down: health is degraded, queries still answer from the other.
+    b.stop();
+    b_running = false;
+    const health = try lb.get(arena, "/api/healthz");
+    try testing.expectEqualStrings("degraded", jsonPath(health.body, &.{ "summary", "status" }).string);
+    const partial = try lb.post(arena, "/api/query", "dataset/ref/11266.mp3");
+    try testing.expectEqual(@as(u16, 200), partial.status);
+    try testing.expect(jsonPath(partial.body, &.{"ok"}).bool);
+    try testing.expectEqual(@as(i64, 1), jsonPath(partial.body, &.{"endpoints_ok"}).integer);
+
+    // Stores fail over to the node that is still up.
+    const moved = try lb.post(arena, "/api/store?identifier=173050", "dataset/ref/173050.mp3");
+    try testing.expectEqualStrings(url_a, jsonPath(moved.body, &.{ "summary", "endpoint" }).string);
+}
+
+// ----------------------------------------------------------------------------
+// `olaf rest store` / `olaf rest query` print what `olaf store` / `olaf query`
+// print, through one `olaf rest serve` or through an `olaf rest serve-lb` over two nodes.
+// ----------------------------------------------------------------------------
+
+/// The store/query steps of the output snapshot (a `rest` prefix is put in
+/// front of the command for the remote run).
+const EquivalenceStep = struct { command: []const u8, args: []const []const u8, stream: enum { stdout, stderr } };
+
+const EquivalencePaths = struct {
+    ref_a: []u8,
+    ref_b: []u8,
+    q_a: []u8,
+    q_b: []u8,
+    comma: []u8,
+
+    fn init(allocator: std.mem.Allocator, io: Io, repo: []const u8, shared_dir: []const u8) !EquivalencePaths {
+        const p = EquivalencePaths{
+            .ref_a = try std.fmt.allocPrint(allocator, "{s}/dataset/ref/11266.mp3", .{repo}),
+            .ref_b = try std.fmt.allocPrint(allocator, "{s}/dataset/ref/173050.mp3", .{repo}),
+            .q_a = try std.fmt.allocPrint(allocator, "{s}/dataset/queries/11266_69s-89s.mp3", .{repo}),
+            .q_b = try std.fmt.allocPrint(allocator, "{s}/dataset/queries/173050_86s-106s.mp3", .{repo}),
+            .comma = try std.fmt.allocPrint(allocator, "{s}/Crosby, Stills.mp3", .{shared_dir}),
+        };
+        try copyFileTo(io, allocator, "dataset/ref/1051039.mp3", p.comma);
+        return p;
+    }
+
+    fn deinit(self: EquivalencePaths, allocator: std.mem.Allocator) void {
+        inline for (std.meta.fields(EquivalencePaths)) |f| allocator.free(@field(self, f.name));
+    }
+};
+
+/// The steps, with their argument lists allocated (free with freeEquivalenceSteps).
+fn equivalenceSteps(allocator: std.mem.Allocator, p: EquivalencePaths) ![]EquivalenceStep {
+    const steps = [_]EquivalenceStep{
+        .{ .command = "store", .args = &.{ "--with-ids", p.ref_a, "ref-a", p.ref_b, "ref-b" }, .stream = .stderr },
+        .{ .command = "store", .args = &.{ "--with-ids", p.ref_a, "ref-a" }, .stream = .stderr },
+        .{ .command = "store", .args = &.{ "--format", "csv", "--with-ids", p.ref_a, "ref-a" }, .stream = .stderr },
+        .{ .command = "store", .args = &.{ "-f", "--format", "csv", "--with-ids", p.ref_a, "ref-a", p.ref_b, "ref-b" }, .stream = .stderr },
+        .{ .command = "store", .args = &.{ "-f", "--format", "json", "--with-ids", p.ref_b, "ref-b" }, .stream = .stderr },
+        .{ .command = "store", .args = &.{ "--with-ids", p.comma, "Crosby, Stills" }, .stream = .stderr },
+        .{ .command = "query", .args = &.{ p.q_a, p.q_b }, .stream = .stdout },
+        .{ .command = "query", .args = &.{ "--format", "json", p.q_a, p.q_b }, .stream = .stdout },
+        .{ .command = "query", .args = &.{ "--fragmented", p.ref_a }, .stream = .stdout },
+        .{ .command = "query", .args = &.{ "--fragmented", "--format", "json", p.ref_b }, .stream = .stdout },
+        .{ .command = "query", .args = &.{p.comma}, .stream = .stdout },
+        .{ .command = "query", .args = &.{ "--no-identity-match", "--with-ids", p.ref_b, "ref-b" }, .stream = .stdout },
+    };
+    const owned = try allocator.alloc(EquivalenceStep, steps.len);
+    for (steps, owned) |step, *o| o.* = .{ .command = step.command, .args = try allocator.dupe([]const u8, step.args), .stream = step.stream };
+    return owned;
+}
+
+fn freeEquivalenceSteps(allocator: std.mem.Allocator, steps: []EquivalenceStep) void {
+    for (steps) |step| allocator.free(step.args);
+    allocator.free(steps);
+}
+
+/// Run the steps (`olaf <command> ...`, or `olaf rest <command> [url] ...`
+/// when `rest` is set) and return the output, normalized like the snapshot:
+/// timings masked and tied matches in a canonical order.
+fn equivalenceTranscript(fx: *Fixture, steps: []const EquivalenceStep, rest: bool, url: ?[]const u8, repo: []const u8, shared_dir: []const u8) ![]u8 {
+    const allocator = fx.allocator;
+    var transcript: std.Io.Writer.Allocating = .init(allocator);
+    errdefer transcript.deinit();
+    for (steps, 0..) |step, n| {
+        var argv: std.ArrayList([]const u8) = .empty;
+        defer argv.deinit(allocator);
+        if (rest) try argv.append(allocator, "rest");
+        try argv.append(allocator, step.command);
+        if (url) |u| try argv.append(allocator, u);
+        try argv.appendSlice(allocator, step.args);
+        const r = try fx.run(argv.items, 0);
+        defer r.deinit();
+        try transcript.writer.print("== step {d}: {s}\n", .{ n + 1, step.command });
+        var masked: std.ArrayList([]u8) = .empty;
+        defer {
+            for (masked.items) |l| allocator.free(l);
+            masked.deinit(allocator);
+        }
+        var lines = std.mem.splitScalar(u8, if (step.stream == .stdout) r.stdout else r.stderr, '\n');
+        while (lines.next()) |raw| {
+            if (raw.len == 0) continue;
+            try masked.append(allocator, try maskVolatile(allocator, raw, repo, shared_dir));
+        }
+        try canonicalizeTies(allocator, masked.items);
+        for (masked.items) |l| try transcript.writer.print("{s}\n", .{l});
+    }
+    return transcript.toOwnedSlice();
+}
+
+test "functional: rest store and rest query print what store and query print" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_and_queries);
+
+    var local = try Fixture.init(allocator, io, "rest_equiv_local");
+    defer local.deinit();
+    var node = try Fixture.init(allocator, io, "rest_equiv_node");
+    defer node.deinit();
+    var client = try Fixture.init(allocator, io, "rest_equiv_client");
+    defer client.deinit();
+
+    const repo = try Io.Dir.cwd().realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(repo);
+    const paths = try EquivalencePaths.init(allocator, io, repo, local.home);
+    defer paths.deinit(allocator);
+    const steps = try equivalenceSteps(allocator, paths);
+    defer freeEquivalenceSteps(allocator, steps);
+
+    var server = try RestServer.start(&node, "serve");
+    defer server.stop();
+    const url = try std.fmt.allocPrint(allocator, "http://127.0.0.1:{d}", .{server.port});
+    defer allocator.free(url);
+
+    const expected = try equivalenceTranscript(&local, steps, false, null, repo, local.home);
+    defer allocator.free(expected);
+    const actual = try equivalenceTranscript(&client, steps, true, url, repo, local.home);
+    defer allocator.free(actual);
+    try testing.expectEqualStrings(expected, actual);
+
+    // More than one endpoint is not the client's job: that is what serve-lb is for.
+    const two = try client.run(&.{ "rest", "query", url, url, paths.q_a }, 2);
+    defer two.deinit();
+    try testing.expect(std.mem.indexOf(u8, two.stdout, "serve-lb") != null);
+
+    // An unreachable endpoint fails the file, like a local failure.
+    server.stop();
+    const down = try client.run(&.{ "rest", "query", url, paths.q_a }, 1);
+    defer down.deinit();
+    try testing.expect(std.mem.indexOf(u8, down.stderr, "Failed to process") != null);
+}
+
+test "functional: rest store and rest query through serve-lb print what a single local database prints" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_and_queries);
+
+    var local = try Fixture.init(allocator, io, "rest_lb_equiv_local");
+    defer local.deinit();
+    var node_a = try Fixture.init(allocator, io, "rest_lb_equiv_a");
+    defer node_a.deinit();
+    var node_b = try Fixture.init(allocator, io, "rest_lb_equiv_b");
+    defer node_b.deinit();
+    var balancer = try Fixture.init(allocator, io, "rest_lb_equiv_lb");
+    defer balancer.deinit();
+    var client = try Fixture.init(allocator, io, "rest_lb_equiv_client");
+    defer client.deinit();
+
+    const repo = try Io.Dir.cwd().realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(repo);
+    const paths = try EquivalencePaths.init(allocator, io, repo, local.home);
+    defer paths.deinit(allocator);
+    const steps = try equivalenceSteps(allocator, paths);
+    defer freeEquivalenceSteps(allocator, steps);
+
+    var a = try RestServer.start(&node_a, "serve");
+    defer a.stop();
+    var b = try RestServer.start(&node_b, "serve");
+    defer b.stop();
+    // hash: the same identifier always lands on the same node, so storing it
+    // again is skipped there, as in one database.
+    const lb_config = try std.fmt.allocPrint(allocator, "{{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"rest_lb_store_strategy\":\"hash\",\"rest_lb_backends\":[\"http://127.0.0.1:{d}\",\"http://127.0.0.1:{d}\"]}}", .{ a.port, b.port });
+    defer allocator.free(lb_config);
+    try balancer.writeConfig(lb_config);
+    var lb = try RestServer.start(&balancer, "serve-lb");
+    defer lb.stop();
+
+    // The client finds the endpoint in its config (no URL argument).
+    const client_config = try std.fmt.allocPrint(allocator, "{{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"rest_endpoint\":\"http://127.0.0.1:{d}\"}}", .{lb.port});
+    defer allocator.free(client_config);
+    try client.writeConfig(client_config);
+
+    const expected = try equivalenceTranscript(&local, steps, false, null, repo, local.home);
+    defer allocator.free(expected);
+    const actual = try equivalenceTranscript(&client, steps, true, null, repo, local.home);
+    defer allocator.free(actual);
+    try testing.expectEqualStrings(expected, actual);
+
+    // The three identifiers really are spread over both databases.
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const stats = try lb.get(arena, "/api/stats");
+    const per_node = restResults(stats.body);
+    try testing.expectEqual(@as(usize, 2), per_node.len);
+    try testing.expectEqual(@as(i64, 3), jsonPath(stats.body, &.{ "summary", "song_count" }).integer);
+    for (per_node) |r| try testing.expect(jsonPath(r, &.{ "data", "song_count" }).integer >= 1);
+}
+
+/// Absolute paths of every file in `folder` (sorted), for full-dataset runs.
+fn datasetFiles(allocator: std.mem.Allocator, io: Io, repo: []const u8, folder: []const u8) ![][]const u8 {
+    var dir = try Io.Dir.cwd().openDir(io, folder, .{ .iterate = true });
+    defer dir.close(io);
+    var list: std.ArrayList([]const u8) = .empty;
+    errdefer {
+        for (list.items) |p| allocator.free(p);
+        list.deinit(allocator);
+    }
+    var it = dir.iterate();
+    while (try it.next(io)) |entry| {
+        if (entry.kind != .file or !std.mem.endsWith(u8, entry.name, ".mp3")) continue;
+        try list.append(allocator, try std.fmt.allocPrint(allocator, "{s}/{s}/{s}", .{ repo, folder, entry.name }));
+    }
+    std.mem.sort([]const u8, list.items, {}, struct {
+        fn lt(_: void, a: []const u8, b: []const u8) bool {
+            return std.mem.lessThan(u8, a, b);
+        }
+    }.lt);
+    return list.toOwnedSlice(allocator);
+}
+
+/// In the CSV query step (step 3) of `transcript`: for each query "<id>_...",
+/// the best match is dataset/ref/<id>.mp3 when that reference is indexed, and
+/// there is no match otherwise.
+fn expectQueriesFindTheirReference(allocator: std.mem.Allocator, transcript: []const u8, refs: []const []const u8, queries: []const []const u8) !void {
+    const start = std.mem.indexOf(u8, transcript, "== step 3: query\n").?;
+    const end = std.mem.indexOfPos(u8, transcript, start, "== step 4").?;
+    var positives: usize = 0;
+    for (queries) |q| {
+        const name = std.fs.path.basename(q);
+        const id = name[0 .. std.mem.indexOfScalar(u8, name, '_') orelse name.len];
+        const ref_name = try std.fmt.allocPrint(allocator, "/{s}.mp3", .{id});
+        defer allocator.free(ref_name);
+        const indexed = for (refs) |r| {
+            if (std.mem.endsWith(u8, r, ref_name)) break true;
+        } else false;
+
+        // The first row of a query is its best match (rows are by match count).
+        const row_prefix = try std.fmt.allocPrint(allocator, "<REPO>/dataset/queries/{s}, 0.000, ", .{name});
+        defer allocator.free(row_prefix);
+        const at = std.mem.indexOf(u8, transcript[start..end], row_prefix) orelse return error.QueryMissing;
+        const line_end = std.mem.indexOfScalarPos(u8, transcript[start..end], at, '\n').?;
+        const row = transcript[start..end][at..line_end];
+        if (indexed) {
+            positives += 1;
+            testing.expect(std.mem.indexOf(u8, row, ref_name) != null) catch |e| {
+                std.debug.print("\n{s}: expected best match {s}, got: {s}\n", .{ name, ref_name, row });
+                return e;
+            };
+        } else {
+            testing.expect(std.mem.endsWith(u8, row, ", 0 ,0.000 ,0.000, , 0, 0.000, 0.000")) catch |e| {
+                std.debug.print("\n{s}: expected no match, got: {s}\n", .{ name, row });
+                return e;
+            };
+        }
+    }
+    try testing.expect(positives > 0);
+}
+
+test "functional: full dataset through rest and serve-lb gives the local results" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_and_queries);
+
+    var local = try Fixture.init(allocator, io, "rest_full_local");
+    defer local.deinit();
+    var single = try Fixture.init(allocator, io, "rest_full_single");
+    defer single.deinit();
+    var node_a = try Fixture.init(allocator, io, "rest_full_a");
+    defer node_a.deinit();
+    var node_b = try Fixture.init(allocator, io, "rest_full_b");
+    defer node_b.deinit();
+    var balancer = try Fixture.init(allocator, io, "rest_full_lb");
+    defer balancer.deinit();
+    var client = try Fixture.init(allocator, io, "rest_full_client");
+    defer client.deinit();
+
+    const repo = try Io.Dir.cwd().realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(repo);
+    const refs = try datasetFiles(allocator, io, repo, "dataset/ref");
+    defer {
+        for (refs) |p| allocator.free(p);
+        allocator.free(refs);
+    }
+    const queries = try datasetFiles(allocator, io, repo, "dataset/queries");
+    defer {
+        for (queries) |p| allocator.free(p);
+        allocator.free(queries);
+    }
+    if (refs.len < 10 or queries.len < 25) return error.SkipZigTest;
+
+    // No query may hit max_results: the core keeps the best max_results
+    // matches after an unstable sort, so which of the matches tied at the
+    // cut survive depends on the other candidates, which differ between one
+    // database and several smaller ones. With room for every match the
+    // complete result sets are compared.
+    const no_cap = "{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"max_results\":1000}";
+    for ([_]*Fixture{ &local, &single, &node_a, &node_b, &client }) |fx| try fx.writeConfig(no_cap);
+
+    // Store every reference (identifier = path), store them again (all
+    // skipped), query every query in csv and json, and every reference in
+    // fragments.
+    const json_query = try std.mem.concat(allocator, []const u8, &.{ &.{ "--format", "json" }, queries });
+    defer allocator.free(json_query);
+    const fragmented = try std.mem.concat(allocator, []const u8, &.{ &.{"--fragmented"}, refs });
+    defer allocator.free(fragmented);
+    const steps = [_]EquivalenceStep{
+        .{ .command = "store", .args = refs, .stream = .stderr },
+        .{ .command = "store", .args = refs, .stream = .stderr },
+        .{ .command = "query", .args = queries, .stream = .stdout },
+        .{ .command = "query", .args = json_query, .stream = .stdout },
+        .{ .command = "query", .args = fragmented, .stream = .stdout },
+    };
+
+    const expected = try equivalenceTranscript(&local, &steps, false, null, repo, local.home);
+    defer allocator.free(expected);
+    // Sanity check of the local run: a query cut from a reference (its name
+    // starts with the reference's id) has that reference as best match; the
+    // queries of songs that are not indexed have no match at all.
+    try expectQueriesFindTheirReference(allocator, expected, refs, queries);
+
+    // One `olaf rest serve` holding everything.
+    {
+        var server = try RestServer.start(&single, "serve");
+        defer server.stop();
+        const url = try std.fmt.allocPrint(allocator, "http://127.0.0.1:{d}", .{server.port});
+        defer allocator.free(url);
+        const actual = try equivalenceTranscript(&client, &steps, true, url, repo, local.home);
+        defer allocator.free(actual);
+        try testing.expectEqualStrings(expected, actual);
+    }
+
+    // An `olaf rest serve-lb` over two nodes, each holding part of the references.
+    var a = try RestServer.start(&node_a, "serve");
+    defer a.stop();
+    var b = try RestServer.start(&node_b, "serve");
+    defer b.stop();
+    const lb_config = try std.fmt.allocPrint(allocator, "{{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"max_results\":1000,\"rest_lb_store_strategy\":\"hash\",\"rest_lb_backends\":[\"http://127.0.0.1:{d}\",\"http://127.0.0.1:{d}\"]}}", .{ a.port, b.port });
+    defer allocator.free(lb_config);
+    try balancer.writeConfig(lb_config);
+    var lb = try RestServer.start(&balancer, "serve-lb");
+    defer lb.stop();
+    const lb_url = try std.fmt.allocPrint(allocator, "http://127.0.0.1:{d}", .{lb.port});
+    defer allocator.free(lb_url);
+    const combined = try equivalenceTranscript(&client, &steps, true, lb_url, repo, local.home);
+    defer allocator.free(combined);
+    try testing.expectEqualStrings(expected, combined);
+
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    const stats = try lb.get(arena_state.allocator(), "/api/stats");
+    try testing.expectEqual(@as(i64, @intCast(refs.len)), jsonPath(stats.body, &.{ "summary", "song_count" }).integer);
+    for (restResults(stats.body)) |r| try testing.expect(jsonPath(r, &.{ "data", "song_count" }).integer >= 1);
+}
+
+test "functional: olaf rest is a command group" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    var env = try Fixture.init(allocator, io, "rest_group");
+    defer env.deinit();
+
+    for ([_][]const []const u8{ &.{"rest"}, &.{ "rest", "bogus" } }) |args| {
+        const r = try env.run(args, 2);
+        defer r.deinit();
+        for ([_][]const u8{ "olaf rest serve ", "olaf rest serve-lb ", "olaf rest store ", "olaf rest query ", "olaf rest has " }) |usage| {
+            try testing.expect(std.mem.indexOf(u8, r.stdout, usage) != null);
+        }
+    }
+    // The load balancer moved under it.
+    const old = try env.run(&.{"rest-lb"}, 2);
+    defer old.deinit();
+    try testing.expect(std.mem.indexOf(u8, old.stdout, "No such command") != null);
+}
+
+/// The JSON lines of `olaf has` output.
+fn hasRecords(arena: std.mem.Allocator, stdout: []const u8) ![]std.json.Value {
+    var list: std.ArrayList(std.json.Value) = .empty;
+    var lines = std.mem.tokenizeScalar(u8, stdout, '\n');
+    while (lines.next()) |line| try list.append(arena, try std.json.parseFromSliceLeaky(std.json.Value, arena, line, .{}));
+    return list.items;
+}
+
+test "functional: has finds indexed audio with its tags, locally and through rest" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_and_queries);
+
+    var local = try Fixture.init(allocator, io, "has_local");
+    defer local.deinit();
+    var node = try Fixture.init(allocator, io, "has_node");
+    defer node.deinit();
+    var node_a = try Fixture.init(allocator, io, "has_node_a");
+    defer node_a.deinit();
+    var node_b = try Fixture.init(allocator, io, "has_node_b");
+    defer node_b.deinit();
+    var balancer = try Fixture.init(allocator, io, "has_lb");
+    defer balancer.deinit();
+    var client = try Fixture.init(allocator, io, "has_client");
+    defer client.deinit();
+
+    const repo = try Io.Dir.cwd().realPathFileAlloc(io, ".", allocator);
+    defer allocator.free(repo);
+    const refs = try datasetFiles(allocator, io, repo, "dataset/ref");
+    defer {
+        for (refs) |p| allocator.free(p);
+        allocator.free(refs);
+    }
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const hit = try std.fmt.allocPrint(arena, "{s}/dataset/queries/11266_69s-89s.mp3", .{repo});
+    const miss = try std.fmt.allocPrint(arena, "{s}/dataset/queries/1024035_55s-75s.mp3", .{repo});
+    const ref_11266 = try std.fmt.allocPrint(arena, "{s}/dataset/ref/11266.mp3", .{repo});
+    const files = [_][]const u8{ hit, miss, ref_11266 };
+
+    const store_args = try std.mem.concat(arena, []const u8, &.{ &.{"store"}, refs });
+    try local.ok(store_args);
+    try node.ok(store_args);
+
+    // Local: JSON by default.
+    const has_args = try std.mem.concat(arena, []const u8, &.{ &.{"has"}, &files });
+    const local_json = try local.run(has_args, 0);
+    defer local_json.deinit();
+    const records = try hasRecords(arena, local_json.stdout);
+    try testing.expectEqual(@as(usize, 3), records.len);
+
+    const r_hit = records[0].object;
+    try testing.expect(r_hit.get("match").?.bool);
+    try testing.expectEqualStrings(hit, r_hit.get("query_path").?.string);
+    const reference = r_hit.get("reference").?.object;
+    try testing.expectEqualStrings(ref_11266, reference.get("path").?.string);
+    // The tags of the matched reference, as ffprobe reports them.
+    try testing.expectEqualStrings("Politik/Affektif - position 3", reference.get("tags").?.object.get("title").?.string);
+    try testing.expectEqual(@as(i64, 1), r_hit.get("fragments_total").?.integer);
+
+    const r_miss = records[1].object;
+    try testing.expect(!r_miss.get("match").?.bool);
+    try testing.expect(r_miss.get("reference").? == .null);
+
+    // A full reference: several fragments, all matching itself.
+    const r_full = records[2].object;
+    try testing.expect(r_full.get("match").?.bool);
+    try testing.expect(r_full.get("fragments_total").?.integer > 1);
+    try testing.expectEqual(r_full.get("fragments_total").?.integer, r_full.get("fragments_matched").?.integer);
+
+    // A threshold above every match count: no match.
+    const strict = try local.run(&.{ "has", "--threshold", "100000", hit }, 0);
+    defer strict.deinit();
+    try testing.expect(!(try hasRecords(arena, strict.stdout))[0].object.get("match").?.bool);
+
+    // Text: one line per file, no tags.
+    const text_args = try std.mem.concat(arena, []const u8, &.{ &.{ "has", "--format", "text" }, &files });
+    const local_text = try local.run(text_args, 0);
+    defer local_text.deinit();
+    const want_hit = try std.fmt.allocPrint(arena, "{s}: match {s} (match_count ", .{ hit, ref_11266 });
+    try testing.expect(std.mem.startsWith(u8, local_text.stdout, want_hit));
+    try testing.expect(std.mem.indexOf(u8, local_text.stdout, try std.fmt.allocPrint(arena, "{s}: no match (best match_count 0 < 20)\n", .{miss})) != null);
+    try testing.expect(std.mem.indexOf(u8, local_text.stdout, "Politik") == null);
+    try local.expectExit(&.{ "has", "--format", "csv", hit }, 2);
+
+    // Through `olaf rest serve`: the same output.
+    var server = try RestServer.start(&node, "serve");
+    defer server.stop();
+    const url = try std.fmt.allocPrint(arena, "http://127.0.0.1:{d}", .{server.port});
+    const rest_json = try client.run(try std.mem.concat(arena, []const u8, &.{ &.{ "rest", "has", url }, &files }), 0);
+    defer rest_json.deinit();
+    try testing.expectEqualStrings(local_json.stdout, rest_json.stdout);
+    const rest_text = try client.run(try std.mem.concat(arena, []const u8, &.{ &.{ "rest", "has", url, "--format", "text" }, &files }), 0);
+    defer rest_text.deinit();
+    try testing.expectEqualStrings(local_text.stdout, rest_text.stdout);
+
+    // Through `olaf rest serve-lb` over two nodes: the same output again.
+    var a = try RestServer.start(&node_a, "serve");
+    defer a.stop();
+    var b = try RestServer.start(&node_b, "serve");
+    defer b.stop();
+    try balancer.writeConfig(try std.fmt.allocPrint(arena, "{{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"rest_lb_backends\":[\"http://127.0.0.1:{d}\",\"http://127.0.0.1:{d}\"]}}", .{ a.port, b.port }));
+    var lb = try RestServer.start(&balancer, "serve-lb");
+    defer lb.stop();
+    const lb_url = try std.fmt.allocPrint(arena, "http://127.0.0.1:{d}", .{lb.port});
+    try client.ok(try std.mem.concat(arena, []const u8, &.{ &.{ "rest", "store", lb_url }, refs }));
+    const lb_json = try client.run(try std.mem.concat(arena, []const u8, &.{ &.{ "rest", "has", lb_url }, &files }), 0);
+    defer lb_json.deinit();
+    try testing.expectEqualStrings(local_json.stdout, lb_json.stdout);
+
+    // Without ffprobe (the rest client needs no ffmpeg): still an answer, no tags.
+    try client.env_map.put("PATH", "");
+    const no_probe = try client.run(&.{ "rest", "has", url, hit }, 0);
+    defer no_probe.deinit();
+    const np = (try hasRecords(arena, no_probe.stdout))[0].object;
+    try testing.expect(np.get("match").?.bool);
+    try testing.expect(np.get("reference").?.object.get("tags").? == .null);
+}
+
+test "functional: rest serve owns its port" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    var first_env = try Fixture.init(allocator, io, "rest_port_first");
+    defer first_env.deinit();
+    var second_env = try Fixture.init(allocator, io, "rest_port_second");
+    defer second_env.deinit();
+
+    var first = try RestServer.start(&first_env, "serve");
+    defer first.stop();
+    var port_buf: [8]u8 = undefined;
+    const port = try std.fmt.bufPrint(&port_buf, "{d}", .{first.port});
+
+    // A second server on the same port is refused, not silently sharing it.
+    for ([_][]const u8{ "serve", "serve-lb" }) |command| {
+        const r = try second_env.run(&.{ "rest", command, "--port", port }, 1);
+        defer r.deinit();
+        testing.expect(std.mem.indexOf(u8, r.stderr, "already in use") != null) catch |e| {
+            std.debug.print("\nolaf rest {s} on a busy port: {s}\n", .{ command, r.stderr });
+            return e;
+        };
+    }
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    // Several requests, each on a connection the client closes: TIME_WAIT.
+    for (0..5) |_| _ = try first.get(arena, "/api/healthz");
+
+    // Stopped, the port can be taken again at once (SO_REUSEADDR).
+    first.stop();
+    var child = try std.process.spawn(io, .{
+        .argv = &.{ second_env.bin, "rest", "serve", "--port", port },
+        .environ_map = &second_env.env_map,
+        .stdin = .ignore,
+        .stdout = .ignore,
+        .stderr = .ignore,
+    });
+    var restarted = RestServer{ .child = child, .io = io, .port = first.port };
+    defer restarted.stop();
+    child = undefined;
+    for (0..200) |_| {
+        if (restarted.get(arena, "/api/healthz")) |_| return else |_| {}
+        try io.sleep(.fromMilliseconds(50), .awake);
+    }
+    return error.ServerDidNotRestart;
+}

@@ -5,7 +5,7 @@ const olaf_cli_output = @import("olaf_cli_output.zig");
 
 /// Command-line options. Each command lists the ones it supports in
 /// `CommandInfo.flags`; any other option is a usage error.
-pub const Flag = enum { threads, no_identity_match, with_ids, fragmented, skip_store, format, force, verbose };
+pub const Flag = enum { threads, no_identity_match, with_ids, fragmented, skip_store, format, force, verbose, port, threshold };
 
 /// Shared Args type for all commands
 pub const Args = struct {
@@ -17,6 +17,13 @@ pub const Args = struct {
     skip_store: bool = false,
     force: bool = false,
     verbose: bool = false,
+    /// --port (rest serve, rest serve-lb); null = the configured port.
+    port: ?u16 = null,
+    /// The http(s):// URL argument of `rest store` / `rest query`; null =
+    /// the configured rest_endpoint.
+    endpoint: ?[]const u8 = null,
+    /// --threshold (has); null = the configured has_min_match_count.
+    threshold: ?u32 = null,
     /// --format; null = the command's default (store: human, query: csv).
     format: ?olaf_cli_output.Format = null,
     config: ?*const olaf_cli_config.Config = null,

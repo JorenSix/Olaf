@@ -39,13 +39,19 @@ pub fn setTempRoot(dir: []const u8) void {
 }
 
 fn createTempRawPath(io: Io, allocator: std.mem.Allocator) ![]u8 {
+    return createTempPath(io, allocator, ".raw");
+}
+
+/// A unique path in the temp audio directory, ending in `suffix` (e.g. for
+/// an uploaded audio file, see olaf_cli_rest_backend.zig).
+pub fn createTempPath(io: Io, allocator: std.mem.Allocator, suffix: []const u8) ![]u8 {
     const dir = try tempAudioDir(allocator);
     defer allocator.free(dir);
     Io.Dir.cwd().createDirPath(io, dir) catch |e| {
         if (e != error.PathAlreadyExists) return e;
     };
     const seq = temp_path_counter.fetchAdd(1, .monotonic);
-    return std.fmt.allocPrint(allocator, "{s}/olaf_audio_{d}_{d}.raw", .{ dir, std.Thread.getCurrentId(), seq });
+    return std.fmt.allocPrint(allocator, "{s}/olaf_audio_{d}_{d}{s}", .{ dir, std.Thread.getCurrentId(), seq, suffix });
 }
 
 /// Raw f32le mono audio decoded (by ffmpeg) into a unique temp file, deleted

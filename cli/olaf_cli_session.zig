@@ -361,6 +361,16 @@ pub fn queryStdin(allocator: std.mem.Allocator, query_path: []const u8, config: 
 /// Query and return the matches instead of printing them (TUI). Caller frees
 /// with `freeMatches`.
 pub fn queryCollect(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifier: []const u8, config: *const Config, exclude_identifier: u32) ![]Match {
+    return (try queryCollectWithStats(allocator, raw_audio_path, identifier, config, exclude_identifier)).matches;
+}
+
+pub const CollectedQuery = struct {
+    matches: []Match,
+    stats: RunStats,
+};
+
+/// `queryCollect` plus the query's processing statistics (REST API).
+pub fn queryCollectWithStats(allocator: std.mem.Allocator, raw_audio_path: []const u8, identifier: []const u8, config: *const Config, exclude_identifier: u32) !CollectedQuery {
     var session = try Session.init(allocator, config);
     defer session.deinit();
     try session.ensureDb();
@@ -371,8 +381,8 @@ pub fn queryCollect(allocator: std.mem.Allocator, raw_audio_path: []const u8, id
         list.deinit(allocator);
     }
     var sink = Sink{ .exclude = exclude_identifier, .target = .{ .collect = .{ .allocator = allocator, .list = &list } } };
-    _ = try session.run(.query, raw_audio_path, identifier, .{ .sink = &sink, .suppress_summary = true });
-    return list.toOwnedSlice(allocator);
+    const run_stats = try session.run(.query, raw_audio_path, identifier, .{ .sink = &sink, .suppress_summary = true });
+    return .{ .matches = try list.toOwnedSlice(allocator), .stats = run_stats };
 }
 
 pub const DeleteResult = union(enum) {

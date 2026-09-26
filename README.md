@@ -298,6 +298,21 @@ olaf store_cached
 Also a default is the storage place for cached items: `~/.olaf/cache`. The configuration can be found at the top.
 
 
+### Is this audio indexed?
+
+`olaf has` answers, per file, whether it is in the database. Each file is queried in fragments of `fragment_duration_in_seconds`, as with `query --fragmented`. It is a match when the best match has at least `has_min_match_count` (20) matching fingerprints, or `--threshold n`. Output is one JSON line per file. When the matched identifier is the path of an audio file on this machine, the line includes that file's tags, read with `ffprobe` (no tags if `ffprobe` isn't installed). `--format text` prints one plain line per file instead, without tags.
+
+```bash
+olaf has recording.mp3
+{"query_path":"/rec/recording.mp3","match":true,"match_count":172,"threshold":20,"fragments_matched":1,"fragments_total":1,
+ "reference":{"path":"/music/11266.mp3","match_identifier":488372097,"query_offset":0.000,"reference_start":70.864,"reference_stop":88.232,
+              "tags":{"title":"Politik/Affektif - position 3","artist":"SAMi",...}}}
+olaf has --format text unknown.mp3
+/rec/unknown.mp3: no match (best match_count 0 < 20)
+```
+
+`olaf rest has [url] ...` does the same through a REST endpoint, with the same output (see below).
+
 ### Database stats
 
 To get statistics on the database use `stats`. It prints information on the b-tree structure backing the storage.
@@ -305,6 +320,46 @@ To get statistics on the database use `stats`. It prints information on the b-tr
 ```bash
 olaf stats
 ```
+
+### REST API and load balancer
+
+`olaf rest serve` serves the database over HTTP, by default on `127.0.0.1:8920`. Audio goes in the request body, in any format `ffmpeg` can read. Parameters go in the query string and are named like the CLI options:
+
+```bash
+olaf rest serve [--port n] &
+curl --data-binary @song.mp3 'localhost:8920/api/store?identifier=song'   # also: &force
+curl --data-binary @fragment.mp3 'localhost:8920/api/query'               # also: ?identifier=label&no_identity_match&fragmented
+curl localhost:8920/api/stats
+curl localhost:8920/api/healthz
+```
+
+`olaf rest serve-lb` offers the same API on port 8921, but it answers from the `olaf rest serve` instances listed in `rest_lb_backends`. These can run locally or on other machines, each with its own database. A store goes to one backend, chosen at random or, with `"rest_lb_store_strategy": "hash"`, by identifier. With `hash`, storing the same audio again is skipped instead of being indexed twice. A backend that cannot be reached is skipped for stores. Query, stats and health go to all backends at once.
+
+```json
+{ "rest_host": "0.0.0.0", "rest_lb_backends": ["http://10.0.0.1:8920", "http://10.0.0.2:8920"] }
+```
+
+Every response has the same shape, even when a single database answers. `results` has one entry per database (`endpoint` is `local`, or the backend's URL). `summary` combines them:
+
+- query: all matches, best first, tagged with their endpoint
+- stats: totals over all databases
+- store: where the audio was stored
+- health: `ok`, `degraded` or `down`
+
+```json
+{ "ok": true, "endpoint_count": 1, "endpoints_ok": 1,
+  "results": [ { "endpoint": "local", "ok": true, "status": 200, "data": { "queries": [ { "query_path": "upload", "matches": [...] } ] } } ],
+  "summary": { "match_count": 1, "matches": [ { "endpoint": "local", "match_count": 104, "path": "song", ... } ] } }
+```
+
+`olaf rest store`, `olaf rest query` and `olaf rest has` do the same work through a REST endpoint instead of the local database. They take the arguments of `olaf store`, `olaf query` and `olaf has` and print the same records and result rows, so scripts don't need to change. The endpoint is the URL given as the first argument, or else `rest_endpoint` from the config (default `http://127.0.0.1:8920`). The client talks to that one endpoint. To use several databases, point it at an `olaf rest serve-lb`, which combines their results and returns at most `max_results` matches per query, as one database would.
+
+```bash
+olaf rest store http://10.0.0.5:8921 --threads 4 songs/*.mp3
+olaf rest query --fragmented recording.mp3        # uses rest_endpoint
+```
+
+A failed endpoint has `error` instead of `data`. A rejected request, such as a missing `identifier`, gets an HTTP 4xx status, no results and a top-level `error`. A server owns its port: when another program already listens on it, `olaf rest serve` stops with "already in use". The API has no authentication, so set `rest_host` to `0.0.0.0` only on a trusted network. The other `rest_` settings are uploads up to `rest_max_body_mb` (512 MB) and at most `rest_workers` (4) stores or queries processed at the same time.
 
 
 
@@ -316,7 +371,7 @@ The configuration includes the location of the database and cache folders, the a
 
 To print the configuration in use, and which file it came from, use `olaf config`.
 
-The `microphone` command uses two more settings: `microphone_input_format` (the `ffmpeg` input format) and `microphone_device` (the device passed to `ffmpeg -i`). Their defaults depend on the platform: `avfoundation` / `:default` on macOS and `alsa` / `default` on Linux.
+The `olaf rest serve` commands use the `rest_` settings described [above](#rest-api-and-load-balancer). The `microphone` command uses two more settings: `microphone_input_format` (the `ffmpeg` input format) and `microphone_device` (the device passed to `ffmpeg -i`). Their defaults depend on the platform: `avfoundation` / `:default` on macOS and `alsa` / `default` on Linux.
 
 ## Testing, Evaluating and Benchmarking Olaf
 

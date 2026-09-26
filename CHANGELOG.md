@@ -2,6 +2,19 @@
 
 All notable changes to Olaf. The release notes on GitHub are taken from the section of the released version.
 
+## [Unreleased]
+
+### Added
+
+- `olaf rest serve`: a REST API over the local database, with `POST /api/store`, `POST /api/query`, `GET /api/stats` and `GET /api/healthz`. Audio is sent as the request body and parameters in the query string.
+- `olaf rest serve-lb`: a load balancer with the same API over several `olaf rest serve` instances, for horizontal scaling. It stores on one backend (random, or by identifier hash) and queries all of them.
+- Every response lists one result per database plus a combined summary, even when there is only one database.
+- `olaf rest store` / `olaf rest query`: store and query through one REST endpoint, with the arguments and output of `olaf store` / `olaf query`. The endpoint is a URL argument or `rest_endpoint`. Through an `olaf rest serve-lb` the output matches that of a single database holding everything, capped at `max_results` matches per query.
+- `olaf has` / `olaf rest has`: whether each file is indexed. It runs a fragmented query and reports a match when the best `match_count` reaches `has_min_match_count` or `--threshold`. Output is JSON (with `ffprobe` tags of the matched file, when available) or `--format text`.
+- `olaf rest serve` / `serve-lb` own their port: when the port is already in use they stop with an error (exit status 1) instead of sharing it. A stopped server's port can be taken again right away.
+- New settings `has_min_match_count`, `rest_endpoint`, `rest_host`, `rest_port`, `rest_max_body_mb`, `rest_workers`, `rest_lb_port`, `rest_lb_backends` and `rest_lb_store_strategy`. `--port` overrides the port.
+- The HTTP code lives in `cli/rest/` (Zig module `olaf_rest`, std only) and is linked into the CLI.
+
 ## [3.1.1] - 2026-09-24
 
 ### Fixed

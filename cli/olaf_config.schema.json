@@ -55,6 +55,68 @@
         ".wma"
       ]
     },
+    "rest_host": {
+      "type": "string",
+      "description": "IP address `olaf rest serve` and `olaf rest serve-lb` listen on. The API has no authentication: use 0.0.0.0 only on a trusted network.",
+      "default": "127.0.0.1"
+    },
+    "rest_port": {
+      "type": "integer",
+      "description": "Port of `olaf rest serve` (override with --port).",
+      "minimum": 1,
+      "default": 8920,
+      "maximum": 65535
+    },
+    "rest_max_body_mb": {
+      "type": "integer",
+      "description": "Largest audio upload accepted by /api/store and /api/query, in MB.",
+      "minimum": 1,
+      "default": 512,
+      "maximum": 4096
+    },
+    "rest_workers": {
+      "type": "integer",
+      "description": "How many store/query requests `olaf rest serve` processes at the same time; others wait.",
+      "minimum": 1,
+      "default": 4
+    },
+    "rest_lb_port": {
+      "type": "integer",
+      "description": "Port of `olaf rest serve-lb` (override with --port).",
+      "minimum": 1,
+      "default": 8921,
+      "maximum": 65535
+    },
+    "rest_lb_backends": {
+      "type": "array",
+      "description": "Base URLs of the `olaf rest serve` (or `olaf rest serve-lb`) instances behind `olaf rest serve-lb`.",
+      "items": {
+        "type": "string"
+      },
+      "default": [
+        "http://127.0.0.1:8920"
+      ]
+    },
+    "rest_lb_store_strategy": {
+      "type": "string",
+      "description": "How `olaf rest serve-lb` picks the backend for a store: `random`, or `hash` (the same backend for the same identifier, so duplicates are skipped).",
+      "enum": [
+        "random",
+        "hash"
+      ],
+      "default": "random"
+    },
+    "rest_endpoint": {
+      "type": "string",
+      "description": "URL of the `olaf rest serve` or `olaf rest serve-lb` instance that `olaf rest store` and `olaf rest query` talk to when no URL is given.",
+      "default": "http://127.0.0.1:8920"
+    },
+    "has_min_match_count": {
+      "type": "integer",
+      "description": "`olaf has` / `olaf rest has`: the best match of a file needs at least this match_count to count as a match (override with --threshold).",
+      "minimum": 1,
+      "default": 20
+    },
     "microphone_input_format": {
       "type": "string",
       "description": "ffmpeg input format of the microphone (the `-f` option). Default depends on the platform: avfoundation on macOS, alsa on Linux, dshow elsewhere."
