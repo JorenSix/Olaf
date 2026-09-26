@@ -30,9 +30,14 @@
 	</div>
 
 	<div id="log" class="log"><div>Press &ldquo;Start listening&rdquo; to begin audio fingerprinting.</div></div>
+
+	<p class="lead" style="margin: 1.5em 0 0">See what Olaf extracts: the <a href="spectrogram.html">spectrogram demo</a>
+	shows the spectrogram with the event points that make up the fingerprints.</p>
 </main>
 
-<script>
+<script type="module">
+	import { createOlafNode } from "./js/olaf.js";
+
 	var audioContext = null;
 	var microphoneStream = null;
 	var reference_query_time_delta = 0;
@@ -111,17 +116,17 @@
 	}
 
 	function startAudio() {
-		navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000 }, video: false }).then(stream => {
+		// Voice processing (echo cancellation, noise suppression, gain control)
+		// distorts the spectral peaks Olaf fingerprints: switch it off.
+		const constraints = { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+		navigator.mediaDevices.getUserMedia({ audio: constraints, video: false }).then(stream => {
 			microphoneStream = stream;
 			audioContext = new AudioContext();
 			const microphone = audioContext.createMediaStreamSource(stream);
 
-			log("audio context at " + audioContext.sampleRate + "Hz (requested 16kHz)");
+			log("audio context at " + audioContext.sampleRate + "Hz, resampled to 16kHz");
 
-			audioContext.audioWorklet.addModule("js/olaf_processor.js").then(() => {
-				const olafWorkletNode = new AudioWorkletNode(audioContext, "olaf-processor",
-					{ numberOfOutputs: 0, numberOfInputs: 1 });
-
+			createOlafNode(audioContext).then((olafWorkletNode) => {
 				microphone.connect(olafWorkletNode);
 
 				olafWorkletNode.port.onmessage = (event) => {

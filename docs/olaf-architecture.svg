@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="690" viewBox="0 0 1200 690" role="img" aria-labelledby="title description">
+  <title id="title">Olaf components</title>
+  <desc id="description">ESP32, browser WebAssembly, the Python wrapper, and the Zig CLI use the portable C core. The REST API is provided by the Zig application, which uses ffmpeg as an audio-decoding subprocess and calls the public C API through @cImport. The core turns audio into fingerprints to store or match. ESP32 and WASM use an in-memory index; desktop builds use LMDB.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 Z" fill="#63758b"/>
+    </marker>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; fill: #172b45; text-anchor: middle; }
+      .heading { font-size: 25px; font-weight: 700; }
+      .detail { font-size: 18px; fill: #53657b; }
+      .card { fill: #fff; stroke: #cdd8e4; stroke-width: 1.5; }
+      .link { fill: none; stroke: #63758b; stroke-width: 2; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1200" height="690" fill="#fff"/>
+
+  <!-- The REST API and CLI are two interfaces to the Zig application. -->
+  <rect x="900" y="20" width="270" height="304" rx="16" fill="#edf2ff" stroke="#d4def4"/>
+  <text x="1035" y="51" class="detail">Zig application</text>
+  <rect x="920" y="68" width="230" height="72" rx="10" class="card"/>
+  <text x="1035" y="99" class="heading">REST API</text>
+  <text x="1035" y="124" class="detail">HTTP / JSON</text>
+  <rect x="920" y="158" width="230" height="76" rx="10" class="card"/>
+  <text x="1035" y="191" class="heading">CLI</text>
+  <text x="1035" y="217" class="detail">Terminal commands</text>
+
+  <rect x="920" y="250" width="230" height="56" rx="10" fill="#fff" stroke="#cdd8e4" stroke-dasharray="4 3"/>
+  <text x="1035" y="274" font-size="20" font-weight="700">ffmpeg</text>
+  <text x="1035" y="295" font-size="15" fill="#53657b">Audio decoding · subprocess</text>
+
+  <rect x="30" y="158" width="260" height="96" rx="12" class="card"/>
+  <text x="160" y="197" class="heading">ESP32</text>
+  <text x="160" y="229" class="detail">On-device recognition</text>
+  <rect x="320" y="158" width="260" height="96" rx="12" class="card"/>
+  <text x="450" y="197" class="heading">WASM</text>
+  <text x="450" y="229" class="detail">Browser recognition</text>
+  <rect x="610" y="158" width="260" height="96" rx="12" class="card"/>
+  <text x="740" y="197" class="heading">Python wrapper</text>
+  <text x="740" y="229" class="detail">Python applications</text>
+
+  <path d="M 160 254 V 398" class="link"/>
+  <path d="M 450 254 V 398" class="link"/>
+  <path d="M 740 254 V 398" class="link"/>
+  <path d="M 1035 324 V 398" class="link"/>
+
+  <rect x="45" y="347" width="230" height="29" fill="#fff"/>
+  <text x="160" y="368" font-size="17" fill="#53657b">Native C calls · linked core</text>
+  <rect x="327" y="347" width="246" height="29" fill="#fff"/>
+  <text x="450" y="368" font-size="17" fill="#53657b">JavaScript → WASM exports</text>
+  <rect x="618" y="347" width="244" height="29" fill="#fff"/>
+  <text x="740" y="368" font-size="17" fill="#53657b">CFFI → C shared library</text>
+  <rect x="919" y="347" width="232" height="29" fill="#fff"/>
+  <text x="1035" y="368" font-size="17" fill="#53657b">@cImport · direct C API</text>
+
+  <g transform="translate(0 70)">
+  <rect x="30" y="330" width="1140" height="140" rx="16" fill="#eaf5f1" stroke="#95bfaf" stroke-width="1.5"/>
+  <text x="151" y="390" class="heading">C core</text>
+  <text x="151" y="422" class="detail">Portable C11</text>
+  <rect x="285" y="365" width="205" height="70" rx="10" fill="#fff"/>
+  <text x="387" y="408" class="heading">Audio</text>
+  <path d="M 506 400 H 562" class="link"/>
+  <rect x="580" y="365" width="235" height="70" rx="10" fill="#fff"/>
+  <text x="697" y="408" class="heading">Fingerprints</text>
+  <path d="M 831 400 H 887" class="link"/>
+  <rect x="905" y="365" width="235" height="70" rx="10" fill="#fff"/>
+  <text x="1022" y="408" class="heading">Store / match</text>
+
+  <path d="M 305 470 V 518" class="link"/>
+  <path d="M 885 470 V 518" class="link"/>
+  <rect x="30" y="520" width="550" height="80" rx="12" fill="#fff" stroke="#95bfaf" stroke-width="1.5"/>
+  <text x="305" y="553" class="heading">In-memory index</text>
+  <text x="305" y="581" class="detail">ESP32 · WASM</text>
+  <rect x="610" y="520" width="560" height="80" rx="12" fill="#fff" stroke="#b6c8ef" stroke-width="1.5"/>
+  <text x="890" y="553" class="heading">LMDB</text>
+  <text x="890" y="581" class="detail">Desktop · persistent storage</text>
+  </g>
+</svg>

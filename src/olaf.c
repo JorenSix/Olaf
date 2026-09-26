@@ -36,7 +36,7 @@
  * fingerprints are stored in a high-performance key-value-store: LMDB. LMDB offers an a B+-tree based persistent 
  * storage ideal for small keys and values with low storage overhead.
  * 
- * Olaf works in the browser. Via Emscripten Olaf can be compiled to WASM. This makes it relatively 
+ * Olaf works in the browser. Via Zig Olaf can be compiled to WASM. This makes it relatively 
  * straightforward to combine the capabilities of the Web Audio API and Olaf to create browser based audio 
  * fingerprinting applications.
  * 

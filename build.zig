@@ -8,18 +8,14 @@ pub fn build(b: *std.Build) void {
 
     const build_core = b.option(bool, "core", "Build the Olaf core and not the CLI interface  (default: false)") orelse false;
 
-    if (target.result.cpu.arch == .wasm32) {
-        const lib = b.addExecutable(.{
-            .name = "olaf_core",
-            .root_module = b.createModule(.{
-                .target = target,
-                .optimize = optimize,
-            }),
-        });
+    // The browser module (wasm/js/olaf.wasm), used by the demos in wasm/.
+    const web = webModule(b);
+    const update_web = b.addUpdateSourceFiles();
+    update_web.addCopyFileToSource(web.getEmittedBin(), "wasm/js/olaf.wasm");
+    b.step("web", "Build the browser WebAssembly module into wasm/js/olaf.wasm").dependOn(&update_web.step);
 
-        addCoreSources(lib, b, &cflags, false, false); // false = no LMDB sources
-        lib.root_module.link_libc = true;
-        b.installArtifact(lib);
+    if (target.result.cpu.arch == .wasm32) {
+        b.installArtifact(web);
     } else {
 
         // if only build core c library olaf_core for linking from other languages
@@ -144,6 +140,10 @@ pub fn build(b: *std.Build) void {
             "cli/olaf_cli_has.zig",
         };
 
+        // The functional tests run the browser module in node.
+        const web_options = b.addOptions();
+        web_options.addOptionPath("wasm", web.getEmittedBin());
+
         // REST server, envelope and load balancer (std only, no C core).
         const rest_tests = b.addTest(.{ .root_module = restModule(b, target, optimize) });
         test_step.dependOn(&b.addRunArtifact(rest_tests).step);
@@ -161,6 +161,7 @@ pub fn build(b: *std.Build) void {
             tests.root_module.addIncludePath(b.path("src"));
             tests.root_module.addIncludePath(b.path("tests"));
             tests.root_module.addImport("olaf_rest", restModule(b, target, optimize));
+            tests.root_module.addOptions("web_test_options", web_options);
             tests.root_module.addCSourceFile(.{ .file = b.path("tests/olaf_config_parity.c"), .flags = &cflags });
             addCoreSources(tests, b, &cflags, true, false);
             tests.root_module.link_libc = true;
@@ -185,6 +186,43 @@ fn restModule(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.bui
         // listenExclusive uses the libc socket calls (POSIX).
         .link_libc = true,
     });
+}
+
+/// The browser module: a WASI reactor with the in-memory database. It exports
+/// olaf_fingerprint_match, malloc and free; the match callback is imported
+/// from JavaScript (see wasm/js/olaf_processor.js).
+fn webModule(b: *std.Build) *std.Build.Step.Compile {
+    const web = b.addExecutable(.{
+        .name = "olaf",
+        .root_module = b.createModule(.{
+            .target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .wasi }),
+            .optimize = .ReleaseSmall,
+            .link_libc = true,
+            .strip = true,
+        }),
+    });
+    web.entry = .disabled;
+    web.wasi_exec_model = .reactor;
+    web.root_module.export_symbol_names = &.{ "malloc", "free" };
+    web.root_module.addCSourceFiles(.{
+        .files = &.{
+            "src/olaf_wasm.c",
+            "src/pffft.c",
+            "src/hash-table.c",
+            "src/queue.c",
+            "src/olaf_deque.c",
+            "src/olaf_max_filter_perceptual_van_herk.c",
+            "src/olaf_ep_extractor.c",
+            "src/olaf_fp_extractor.c",
+            "src/olaf_db_mem.c",
+            "src/olaf_db_id.c",
+            "src/olaf_fp_db_writer_mem.c",
+            "src/olaf_fp_matcher.c",
+            "src/olaf_config.c",
+        },
+        .flags = &.{ "-Wall", "-Wextra", "-Werror=return-type", "-std=gnu11" },
+    });
+    return web;
 }
 
 /// Add core Olaf C source files to an executable

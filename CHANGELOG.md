@@ -2,6 +2,25 @@
 
 All notable changes to Olaf. The release notes on GitHub are taken from the section of the released version.
 
+## [Unreleased]
+
+### Added
+
+- `wasm/spectrogram.html`: a browser demo that draws Olaf's own spectra of the resampled audio (WebGL) with the event points on the block and frequency bin they were found in. It plays the microphone, the test query or a local file. `basic.html` stays the simple demo.
+- `node wasm/olaf_wasm_test.mjs` runs the browser module in node: the test query must match, noise must not, and every event point must lie on its spectral peak. `zig build test` runs it (skipped without node, ffmpeg or the dataset).
+- An architecture diagram of the Olaf components in the README.
+
+### Changed
+
+- The browser module is built with Zig (`zig build web`, or `make web`) into `wasm/js/olaf.wasm` (about 75KB, checked in). Emscripten is no longer used.
+- The worklet is a plain ES module (`wasm/js/olaf_processor.js`) that imports libsamplerate-js 2.1.2 (`libsamplerate.worklet.js`, vendored once instead of three copies) and a shared loader (`olaf_wasm.js`). `wasm/js/olaf.js` creates the worklet node for the demo pages.
+- The demos are served from the repository root with `python3 -m http.server`; `wasm/cors_server.py` is removed. The microphone demos switch off echo cancellation, noise suppression and automatic gain control.
+
+### Fixed
+
+- `make web` failed to link with current Emscripten (`--bind`); it now calls `zig build web`.
+- `src/olaf_wasm.c` read the configuration before it was initialized on the first call, and passed the matched name as a pointer instead of a string.
+
 ## [3.2.0] - 2026-09-26
 
 ### Added

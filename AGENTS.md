@@ -21,7 +21,7 @@ The project uses **two build systems**:
 make                    # Build default version with LMDB
 make install            # Install to /usr/local/bin
 make mem                # Build memory-only version (for embedded/testing)
-make web                # Build WebAssembly version (requires emcc)
+make web                # Build the browser WebAssembly module (zig build web)
 make lib                # Build shared library (libolaf.so) for Python wrapper
 make test               # Build and run the C unit tests
 make clean              # Clean build artifacts
@@ -34,7 +34,7 @@ zig build -Dcore=true                # Build core C library only
 zig build -Doptimize=ReleaseSmall   # Optimized build
 zig build run -- [args]              # Build and run with arguments
 zig build -Dtarget=x86_64-windows-gnu  # Cross-compile for Windows
-zig build -Dtarget=wasm32-wasi-musl    # Build for WebAssembly
+zig build web                        # Build the browser module into wasm/js/olaf.wasm
 ```
 
 **When modifying build logic**: The Zig build is the modern approach and should be preferred for new features.
@@ -77,7 +77,8 @@ Three implementations exist depending on target platform:
   - Used for ESP32 and similar microcontrollers with limited resources
 
 - **WASM** (`olaf_wasm.c`): Similar to memory version, runs in browsers
-  - Compiled with Emscripten (`make web`) or Zig
+  - Built with `zig build web` as a WASI reactor (`wasm/js/olaf.wasm`); it exports `olaf_fingerprint_match` and imports the match callback from JavaScript
+  - `wasm/js/olaf_wasm.js` loads it (shared by the AudioWorklet `olaf_processor.js` and the node test `wasm/olaf_wasm_test.mjs`); `wasm/js/olaf.js` creates the worklet node. Demos: `wasm/basic.html` (matching), `wasm/spectrogram.html` (WebGL spectrogram of Olaf's own spectra with event points, `wasm/js/olaf_spectrogram.js`), `wasm/test.html` (automated)
   - Integrates with Web Audio API for microphone/file input
   - Fingerprints pre-compiled into WASM module
 
@@ -143,8 +144,9 @@ The Zig test suite (`build.zig` test step) runs:
 - `tests/olaf_functional_tests.zig`: the real `olaf` binary in an isolated HOME, one test per command/behaviour, via a `Fixture` helper; plus the output snapshot `tests/golden/output_snapshot.txt` (skipped outside the environment it was generated in; regenerate with `OLAF_UPDATE_GOLDEN=1 zig build test`)
 - `cli/olaf_cli_session.zig`, `cli/olaf_cli_threading.zig` (and the modules they import): unit tests of the CLI layer, e.g. config/schema consistency and store equivalence
 - `tests/dataset_download.zig`: downloads the test dataset
+- the functional tests also run the browser module (built by the `web` step) in node via `wasm/olaf_wasm_test.mjs`
 
-Tests automatically skip when dependencies (ffmpeg, test files) are unavailable.
+Tests automatically skip when dependencies (ffmpeg, node, test files) are unavailable.
 
 ### C Unit Tests
 ```bash
@@ -214,9 +216,8 @@ Zig makes cross-compilation trivial:
 - Linux: `zig build -Dtarget=x86_64-linux-gnu`
 - macOS ARM: `zig build -Dtarget=aarch64-macos.11.0.0-none`
 - macOS x86: `zig build -Dtarget=x86_64-macos-gnu`
-- WebAssembly: `zig build -Dtarget=wasm32-wasi-musl`
+- WebAssembly (browser module): `zig build web` (or `-Dtarget=wasm32-wasi-musl`)
 
-Traditional make + emscripten for web: `make web`
 
 ### Docker
 
@@ -282,8 +283,8 @@ The C code uses OOP-inspired patterns:
 - **ffmpeg**: External tool for audio decode/resample (not linked, invoked as subprocess)
 - **Python 3**: For evaluation/benchmark scripts (stdlib only, desktop only)
 - **Ruby**: Only for the remaining un-ported eval scripts (`olaf_vs_panako.rb`, `olaf_memory_use.rb`); being phased out
-- **Emscripten**: For WebAssembly builds (`make web`)
-- **libsamplerate-js**: Audio resampling for browser version (MIT/BSD license)
+- **libsamplerate-js**: Audio resampling for browser version (MIT/BSD license), vendored as `wasm/js/libsamplerate.worklet.js`
+- **Node.js**: Optional, runs the browser module test (`wasm/olaf_wasm_test.mjs`)
 
 ## Patent Notice
 

@@ -26,7 +26,6 @@ olaf_cffi*
 
 docs/api/*
 
-wasm/js/olaf_processor.js
 
 zig-pkg/
 .zig-cache/

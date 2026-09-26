@@ -33,7 +33,9 @@
 	<div id="results" class="log"><div>Run a test to see results.</div></div>
 </main>
 
-<script>
+<script type="module">
+	import { createOlafNode } from "./js/olaf.js";
+
 	// State the test harness (chrome devtools MCP) reads via evaluate_script.
 	window.__olaf_results = [];
 	window.__olaf_done = false;
@@ -72,9 +74,7 @@
 		updateStats();
 
 		const ctx = new AudioContext();
-		await ctx.audioWorklet.addModule("js/olaf_processor.js");
-
-		const olafNode = new AudioWorkletNode(ctx, "olaf-processor", { numberOfOutputs: 0, numberOfInputs: 1 });
+		const olafNode = await createOlafNode(ctx);
 		olafNode.onprocessorerror = (e) => {
 			const detail = e && e.message ? e.message : String(e);
 			window.__olaf_error = "processor error: " + detail;

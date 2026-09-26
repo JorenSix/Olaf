@@ -2922,3 +2922,31 @@ test "functional: rest serve owns its port" {
     }
     return error.ServerDidNotRestart;
 }
+
+test "functional: browser wasm module matches its reference in node" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    const wasm = @import("web_test_options").wasm;
+    const query = "dataset/queries/1051039_34s-54s.mp3";
+
+    Io.Dir.cwd().access(io, query, .{}) catch {
+        std.debug.print("\nSkipping: {s} not found\n", .{query});
+        return error.SkipZigTest;
+    };
+    for ([_][2][]const u8{ .{ "node", "--version" }, .{ "ffmpeg", "-version" } }) |probe_argv| {
+        const probe = std.process.run(allocator, io, .{ .argv = &probe_argv }) catch {
+            std.debug.print("\nSkipping: {s} not available on PATH\n", .{probe_argv[0]});
+            return error.SkipZigTest;
+        };
+        allocator.free(probe.stdout);
+        allocator.free(probe.stderr);
+    }
+
+    const r = try std.process.run(allocator, io, .{ .argv = &.{ "node", "wasm/olaf_wasm_test.mjs", wasm, query } });
+    defer allocator.free(r.stdout);
+    defer allocator.free(r.stderr);
+    if (r.term != .exited or r.term.exited != 0) {
+        std.debug.print("\n{s}{s}\n", .{ r.stdout, r.stderr });
+        return error.WasmTestFailed;
+    }
+}

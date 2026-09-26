@@ -1,0 +1,203 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Olaf spectrogram</title>
+	<link rel="stylesheet" href="olaf_demo.css">
+	<style>
+		main { max-width: 1200px; }
+		.figure { position: relative; height: calc(512px + 26px); margin-bottom: 0.8em; }
+		.figure canvas { position: absolute; top: 0; }
+		#spectrogram { left: 48px; width: calc(100% - 48px); height: 512px; border: none; }
+		#overlay { left: 0; width: 100%; height: 100%; pointer-events: none; }
+		.legend { color: var(--muted); font-size: 0.85em; margin: 0 0 1.5em 48px; line-height: 1.5; }
+		.legend .ep { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #e60000; vertical-align: middle; }
+		label.button { background: #e5e7eb; color: var(--text); border-radius: 8px; padding: 0.7em 1.4em; cursor: pointer; }
+		label.button:hover { background: #d1d5db; }
+		label.button input { display: none; }
+		select { font-size: 0.95em; padding: 0.3em; }
+		.stat .value { font-size: 1.3em; }
+		.log { height: 7em; }
+		nav { font-size: 0.9em; margin-bottom: 1em; }
+	</style>
+</head>
+<body>
+<main>
+	<nav><a href="basic.html">&larr; simple demo</a></nav>
+	<h1>Olaf spectrogram</h1>
+	<p class="lead">The spectrogram is computed by Olaf itself, in WebAssembly, from the 16&nbsp;kHz resampled
+	audio: exactly the spectra Olaf extracts event points from. The red dots are these event points, drawn on
+	the block and frequency bin they were found in. Pairs of event points become the fingerprints that are
+	matched against the reference compiled into the module.</p>
+
+	<div class="controls">
+		<button id="mic">Microphone</button>
+		<button id="query" class="secondary">Play test query</button>
+		<label class="button">Play file&hellip;<input type="file" id="file" accept="audio/*"></label>
+		<button id="stop" class="secondary">Stop</button>
+		<label>Zoom <select id="zoom">
+			<option value="1">1 px/block</option>
+			<option value="2" selected>2 px/block</option>
+			<option value="3">3 px/block</option>
+			<option value="4">4 px/block</option>
+		</select></label>
+		<span class="badge" id="badge"><span class="dot"></span><span id="badge_text">idle</span></span>
+	</div>
+
+	<div class="figure">
+		<canvas id="spectrogram"></canvas>
+		<canvas id="overlay"></canvas>
+	</div>
+	<p class="legend" id="legend">Start a source to see the spectrogram.</p>
+
+	<div class="panel">
+		<div class="stat"><div class="label">Time</div><div class="value"><span id="time">0.00</span>s</div></div>
+		<div class="stat"><div class="label">Event points</div><div class="value" id="eps">0</div></div>
+		<div class="stat"><div class="label">Match</div><div class="value" id="match">&ndash;</div></div>
+	</div>
+
+	<div id="log" class="log"></div>
+</main>
+
+<script type="module">
+	import { createOlafNode } from "./js/olaf.js";
+	import { OlafSpectrogram } from "./js/olaf_spectrogram.js";
+
+	// State an automated check (chrome devtools MCP) reads via evaluate_script
+	window.__olaf_matches = [];
+	window.__olaf_done = false;
+
+	const $ = (id) => document.getElementById(id);
+	const logEl = $("log");
+	function log(message, cls) {
+		const line = document.createElement("div");
+		line.textContent = message;
+		if (cls) line.className = cls;
+		logEl.appendChild(line);
+		logEl.scrollTop = logEl.scrollHeight;
+	}
+	function setBadge(state, text) {
+		$("badge").className = "badge" + (state ? " " + state : "");
+		$("badge_text").textContent = text;
+	}
+
+	let spectrogram;
+	try {
+		spectrogram = new OlafSpectrogram($("spectrogram"), $("overlay"), { zoom: 2 });
+		window.__olaf_alignment = spectrogram.alignment;
+	} catch (err) {
+		log(String(err), "err");
+	}
+	$("zoom").addEventListener("change", (e) => { spectrogram.zoom = Number(e.target.value); });
+
+	let audioContext = null;
+	let microphoneStream = null;
+	let eventPointCount = 0;
+
+	function describeGrid(grid) {
+		const blockMs = 1000 * grid.stepSize / grid.sampleRate;
+		$("legend").innerHTML =
+			`Columns: one audio block every ${grid.stepSize} samples (${blockMs} ms), fft of ${grid.blockSize} samples at ${grid.sampleRate} Hz. ` +
+			`Rows: fft bins of ${grid.sampleRate / grid.blockSize} Hz. <span class="ep"></span> event point, ` +
+			`found ${grid.epLatencyBlocks} blocks (${grid.epLatencyBlocks * blockMs} ms) after its block.`;
+	}
+
+	async function stop() {
+		if (microphoneStream) microphoneStream.getTracks().forEach((track) => track.stop());
+		microphoneStream = null;
+		if (audioContext) await audioContext.close();
+		audioContext = null;
+		setBadge("", "idle");
+	}
+
+	// Starts a new stream: connect(audioContext, olafNode) wires the source
+	async function start(label, connect) {
+		await stop();
+		audioContext = new AudioContext();
+		const context = audioContext;
+		spectrogram.reset();
+		window.__olaf_alignment = spectrogram.alignment;
+		window.__olaf_matches = [];
+		window.__olaf_done = false;
+		eventPointCount = 0;
+		$("eps").textContent = "0";
+		$("match").textContent = "–";
+
+		const olafNode = await createOlafNode(context, { visualize: true });
+		olafNode.port.onmessage = (event) => {
+			const data = event.data;
+			if (data.type === "status") {
+				log("[worklet] " + (data.error || data.message), data.error ? "err" : undefined);
+			} else if (data.type === "grid") {
+				spectrogram.setGrid(data);
+				describeGrid(data);
+			} else if (data.type === "spectrum") {
+				spectrogram.add(data);
+				eventPointCount += data.eventPoints.length;
+				$("eps").textContent = eventPointCount;
+				if (data.count > 0 && spectrogram.grid) {
+					const g = spectrogram.grid;
+					$("time").textContent = (spectrogram.latestBlock * g.stepSize / g.sampleRate).toFixed(2);
+				}
+			} else if (data.query_time_start > 0) {
+				window.__olaf_matches.push(data);
+				$("match").textContent = data.match_name + " @ " + data.reference_time_start.toFixed(1) + "s";
+				setBadge("match", "match found");
+				log(`match ${data.match_name}: query ${data.query_time_start.toFixed(2)}-${data.query_time_stop.toFixed(2)}s ` +
+					`= reference ${data.reference_time_start.toFixed(2)}-${data.reference_time_stop.toFixed(2)}s (${data.match_count} fingerprints)`, "ok");
+			}
+		};
+		await connect(context, olafNode);
+		setBadge("listening", label);
+		log(`${label} (audio context at ${context.sampleRate} Hz, resampled to 16 kHz)`);
+	}
+
+	async function playBuffer(label, encoded) {
+		await start(label, async (context, olafNode) => {
+			const buffer = await context.decodeAudioData(encoded);
+			const source = context.createBufferSource();
+			source.buffer = buffer;
+			source.connect(olafNode);
+			source.connect(context.destination);
+			source.onended = () => {
+				if (audioContext !== context) return;
+				window.__olaf_done = true;
+				setBadge("", "finished");
+				log(`finished: ${eventPointCount} event points, ${window.__olaf_matches.length} match reports, ` +
+					`alignment ${spectrogram.alignment.checked - spectrogram.alignment.mismatches}/${spectrogram.alignment.checked} event points on their spectral peak`);
+			};
+			source.start();
+		});
+	}
+
+	const guard = (fn) => () => fn().catch((err) => { log(String(err), "err"); setBadge("", "idle"); });
+
+	$("mic").addEventListener("click", guard(async () => {
+		// Voice processing distorts the spectral peaks Olaf fingerprints: switch it off
+		const constraints = { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+		const stream = await navigator.mediaDevices.getUserMedia({ audio: constraints, video: false });
+		await start("listening…", async (context, olafNode) => {
+			microphoneStream = stream;
+			context.createMediaStreamSource(stream).connect(olafNode);
+		});
+	}));
+
+	$("query").addEventListener("click", guard(async () => {
+		const response = await fetch("/dataset/queries/1051039_34s-54s.mp3");
+		if (!response.ok) throw new Error("fetching the test query failed: " + response.status + " (serve the repository root, run `zig build test` to download the dataset)");
+		await playBuffer("playing test query…", await response.arrayBuffer());
+	}));
+
+	$("file").addEventListener("change", guard(async () => {
+		const file = $("file").files[0];
+		if (file) await playBuffer("playing " + file.name + "…", await file.arrayBuffer());
+	}));
+
+	$("stop").addEventListener("click", guard(async () => {
+		await stop();
+		log("stopped");
+	}));
+</script>
+</body>
+</html>

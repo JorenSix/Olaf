@@ -45,10 +45,13 @@ There seem to be no lightweight acoustic fingerprinting libraries that are strai
 
 Olaf, being written in portable C, also targets **traditional computers**. There, the efficiency of Olaf makes it run fast. On embedded devices reference fingerprints are stored in memory. On traditional computers fingerprints are stored in a high-performance key-value-store: LMDB. LMDB offers a B+-tree based persistent storage ideal for small keys and values with low storage overhead.
 
-Olaf works in **the browser**. Via Emscripten Olaf can be compiled to [WASM](https://en.wikipedia.org/wiki/WebAssembly). This makes it relatively straightforward to combine the capabilities of the [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) and Olaf to create browser based audio fingerprinting applications.
+Olaf works in **the browser**. Via Zig Olaf can be compiled to [WASM](https://en.wikipedia.org/wiki/WebAssembly). This makes it relatively straightforward to combine the capabilities of the [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) and Olaf to create browser based audio fingerprinting applications.
 
 ![Olaf in the browser](./docs/olaf_in_browser.png)
 *Olaf running in a browser*
+
+![Olaf components](./docs/olaf-architecture.svg)
+*Olaf components: the ESP32, browser (WASM), Python and Zig CLI/REST front ends all use the same portable C core, with an in-memory index on ESP32 and WASM and LMDB on desktop*
 
 Olaf was featured on [hackaday](https://hackaday.com/2020/08/30/olaf-lets-an-esp32-listen-to-the-music/). There is also a small discussion about Olaf on [Hacker News](https://news.ycombinator.com/item?id=24292817).
 
@@ -74,7 +77,7 @@ sudo make install
 
 By default, a directory named `.olaf` is created in the current user home directory. The command line binary is installed to `/usr/local/bin/olaf`, which is assumed to be on the user's path.
 
-The Makefile additionally contains `gcc` based targets (C11 standard) for special purposes: `make compile_core` builds the standalone C core binary `bin/olaf_core`, `make lib` builds the shared library used by the python wrapper, `make mem` builds the in-memory version `bin/olaf_mem` used to generate embedded fingerprint headers and `make web` builds the emscripten WebAssembly version. Note that `zig build` compiles the C core with stricter flags (`-Wextra -Werror=return-type -fPIC`) than the gcc targets (`-W -Wall -pedantic`).
+The Makefile additionally contains `gcc` based targets (C11 standard) for special purposes: `make compile_core` builds the standalone C core binary `bin/olaf_core`, `make lib` builds the shared library used by the python wrapper, `make mem` builds the in-memory version `bin/olaf_mem` used to generate embedded fingerprint headers and `make web` builds the browser WebAssembly module (via `zig build web`). Note that `zig build` compiles the C core with stricter flags (`-Wextra -Werror=return-type -fPIC`) than the gcc targets (`-W -Wall -pedantic`).
 
 ### Compilation with Zig
 
@@ -94,11 +97,11 @@ zig build -Dtarget=x86_64-windows-gnu -Doptimize=ReleaseSmall
 file zig-out/bin/olaf.exe # PE32+ executable (console) x86-64, for MS Windows
 ```
 
-Zig also supports WebAssembly as a target platform as an alternative to Emscripten. The `build.zig` file includes a conditional to build the memory db for WASM. To get a WASM binary call the following:
+Zig also supports WebAssembly as a target platform. The browser module, with the memory db, is built with `zig build web` (see [Olaf in the browser](#olaf-in-the-browser)). Passing a WebAssembly target installs the same module:
 
 ```bash
-zig build -Dtarget=wasm32-wasi-musl -Doptimize=ReleaseSmall
-file zig-out/bin/olaf_core.wasm #WebAssembly (wasm) binary module version 0x1 (MVP)
+zig build -Dtarget=wasm32-wasi-musl
+file zig-out/bin/olaf.wasm #WebAssembly (wasm) binary module version 0x1 (MVP)
 ```
 
 
@@ -129,16 +132,19 @@ docker compose run --rm olaf olaf stats
 
 ## Olaf in the browser
 
-To compile Olaf to WASM the `emcc` compiler from Emcripten is used. Make sure [Emscripten is correctly installed](https://emscripten.org/docs/getting_started/downloads.html) and run the following:
+Zig compiles Olaf to a small (about 75KB) WebAssembly module, `wasm/js/olaf.wasm`, without extra tooling. The module runs in an [AudioWorklet](https://developer.mozilla.org/en-US/docs/Web/API/AudioWorklet) which resamples the audio to 16kHz with [libsamplerate-js](https://github.com/aolsenjazz/libsamplerate-js) and reports matches to the page. A prebuilt module is included; to rebuild it and try the demos:
 
 ```bash
-make web
-
-python3 -m http.server --directory wasm #start a web browser
-open "http://localhost:8000/spectrogram.html" #open the url in standard browser
+zig build web                        # writes wasm/js/olaf.wasm
+python3 -m http.server               # serve the repository root
+open "http://localhost:8000/wasm/basic.html"       # match microphone input
+open "http://localhost:8000/wasm/spectrogram.html" # spectrogram with event points
+open "http://localhost:8000/wasm/test.html"        # automated test with a query from the test dataset
 ```
 
-Note that the web version does not use a key value store but a list of hashes stored in a header-file. See below for more info.
+The spectrogram demo shows what Olaf extracts: its own spectra of the resampled audio, drawn with WebGL, with the event points on the time block and frequency bin they were found in. It plays the microphone, the test query or a local audio file.
+
+`node wasm/olaf_wasm_test.mjs` runs the module outside the browser; `zig build test` includes it. Note that the web version does not use a key value store but a list of hashes stored in a header-file (`src/olaf_fp_ref_mem.h`). See below for more info.
 
 ## Embedded Olaf
 
