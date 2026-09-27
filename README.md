@@ -213,7 +213,9 @@ The `audio_item` can be:
 1. An audio file: `olaf store audio.mp3`, if the audio file contains multiple channels they are mixed to a mono.
 2. A video file. The **first audio stream** is extracted from the video container and used as input: `olaf store video.mkv`
 3. A folder name: Olaf attempts to **recursively** find all audio files within the folder. It does this with a limited allowlist of known audio file name extensions. `olaf store /home/user/Music`
-4. A text file: The text file should contain a list of file names. The following commands recursively finds all mp3 within the current directory and subsequently stores them in the reference database.
+4. A text file: The text file should contain a list of file names. 
+
+The following commands recursively finds all mp3 within the current directory and subsequently stores them in the reference database.
 
 ```bash
 find . -name "*.mp3" > list.txt
