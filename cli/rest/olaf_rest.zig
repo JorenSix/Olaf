@@ -27,6 +27,9 @@ pub const Backend = api.Backend;
 pub const Params = params.Params;
 pub const ServeOptions = server.Options;
 pub const serve = server.serve;
+pub const ListenAddress = server.ListenAddress;
+pub const parseListen = server.parseListen;
+pub const clientUrl = server.clientUrl;
 pub const LbBackend = lb.LbBackend;
 pub const StoreStrategy = lb.StoreStrategy;
 

@@ -55,17 +55,10 @@
         ".wma"
       ]
     },
-    "rest_host": {
+    "rest_listen": {
       "type": "string",
-      "description": "IP address `olaf rest serve` and `olaf rest serve-lb` listen on. The API has no authentication: use 0.0.0.0 only on a trusted network.",
-      "default": "127.0.0.1"
-    },
-    "rest_port": {
-      "type": "integer",
-      "description": "Port of `olaf rest serve` (override with --port).",
-      "minimum": 1,
-      "default": 8920,
-      "maximum": 65535
+      "description": "Address `olaf rest serve` listens on, and that `olaf rest store`, `query` and `has` talk to when no URL is given: `host:port`, or a port alone for 127.0.0.1 (override with --listen). The API has no authentication: use 0.0.0.0 only on a trusted network.",
+      "default": "127.0.0.1:8920"
     },
     "rest_max_body_mb": {
       "type": "integer",
@@ -80,12 +73,10 @@
       "minimum": 1,
       "default": 4
     },
-    "rest_lb_port": {
-      "type": "integer",
-      "description": "Port of `olaf rest serve-lb` (override with --port).",
-      "minimum": 1,
-      "default": 8921,
-      "maximum": 65535
+    "rest_lb_listen": {
+      "type": "string",
+      "description": "Address `olaf rest serve-lb` listens on: `host:port`, or a port alone for 127.0.0.1 (override with --listen).",
+      "default": "127.0.0.1:9920"
     },
     "rest_lb_backends": {
       "type": "array",
@@ -94,6 +85,7 @@
         "type": "string"
       },
       "default": [
+        "http://127.0.0.1:8921",
         "http://127.0.0.1:8920"
       ]
     },
@@ -105,11 +97,6 @@
         "hash"
       ],
       "default": "random"
-    },
-    "rest_endpoint": {
-      "type": "string",
-      "description": "URL of the `olaf rest serve` or `olaf rest serve-lb` instance that `olaf rest store` and `olaf rest query` talk to when no URL is given.",
-      "default": "http://127.0.0.1:8920"
     },
     "has_min_match_count": {
       "type": "integer",

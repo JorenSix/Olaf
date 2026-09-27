@@ -331,20 +331,20 @@ olaf stats
 
 ### REST API and load balancer
 
-`olaf rest serve` serves the database over HTTP, by default on `127.0.0.1:8920`. Audio goes in the request body, in any format `ffmpeg` can read. Parameters go in the query string and are named like the CLI options:
+`olaf rest serve` serves the database over HTTP, on the `rest_listen` address (default `127.0.0.1:8920`). `--listen` overrides it with `host:port` or a port alone, which listens on `127.0.0.1`: `--listen 0.0.0.0:8920` makes the API reachable from other machines. Audio goes in the request body, in any format `ffmpeg` can read. Parameters go in the query string and are named like the CLI options:
 
 ```bash
-olaf rest serve [--port n] &
+olaf rest serve [--listen host:port|port] &
 curl --data-binary @song.mp3 'localhost:8920/api/store?identifier=song'   # also: &force
 curl --data-binary @fragment.mp3 'localhost:8920/api/query'               # also: ?identifier=label&no_identity_match&fragmented
 curl localhost:8920/api/stats
 curl localhost:8920/api/healthz
 ```
 
-`olaf rest serve-lb` offers the same API on port 8921, but it answers from the `olaf rest serve` instances listed in `rest_lb_backends`. These can run locally or on other machines, each with its own database. A store goes to one backend, chosen at random or, with `"rest_lb_store_strategy": "hash"`, by identifier. With `hash`, storing the same audio again is skipped instead of being indexed twice. A backend that cannot be reached is skipped for stores. Query, stats and health go to all backends at once.
+`olaf rest serve-lb` offers the same API on `rest_lb_listen` (default `127.0.0.1:9920`), but it answers from the `olaf rest serve` instances listed in `rest_lb_backends`. These can run locally or on other machines, each with its own database. A store goes to one backend, chosen at random or, with `"rest_lb_store_strategy": "hash"`, by identifier. With `hash`, storing the same audio again is skipped instead of being indexed twice. A backend that cannot be reached is skipped for stores. Query, stats and health go to all backends at once. The default backends are `http://127.0.0.1:8921` and `http://127.0.0.1:8920`: start a second server with `olaf rest serve --listen 8921` (and its own `db_folder`), or list your own backends:
 
 ```json
-{ "rest_host": "0.0.0.0", "rest_lb_backends": ["http://10.0.0.1:8920", "http://10.0.0.2:8920"] }
+{ "rest_lb_listen": "0.0.0.0:9920", "rest_lb_backends": ["http://10.0.0.1:8920", "http://10.0.0.2:8920"] }
 ```
 
 Every response has the same shape, even when a single database answers. `results` has one entry per database (`endpoint` is `local`, or the backend's URL). `summary` combines them:
@@ -360,14 +360,14 @@ Every response has the same shape, even when a single database answers. `results
   "summary": { "match_count": 1, "matches": [ { "endpoint": "local", "match_count": 104, "path": "song", ... } ] } }
 ```
 
-`olaf rest store`, `olaf rest query` and `olaf rest has` do the same work through a REST endpoint instead of the local database. They take the arguments of `olaf store`, `olaf query` and `olaf has` and print the same records and result rows, so scripts don't need to change. The endpoint is the URL given as the first argument, or else `rest_endpoint` from the config (default `http://127.0.0.1:8920`). The client talks to that one endpoint. To use several databases, point it at an `olaf rest serve-lb`, which combines their results and returns at most `max_results` matches per query, as one database would.
+`olaf rest store`, `olaf rest query` and `olaf rest has` do the same work through a REST endpoint instead of the local database. They take the arguments of `olaf store`, `olaf query` and `olaf has` and print the same records and result rows, so scripts don't need to change. The endpoint is the URL given as the first argument, or else the `olaf rest serve` on `rest_listen` (default `http://127.0.0.1:8920`; a `0.0.0.0` address is reached on `127.0.0.1`). The client talks to that one endpoint. To use several databases, point it at an `olaf rest serve-lb`, which combines their results and returns at most `max_results` matches per query, as one database would.
 
 ```bash
-olaf rest store http://10.0.0.5:8921 --threads 4 songs/*.mp3
-olaf rest query --fragmented recording.mp3        # uses rest_endpoint
+olaf rest store http://10.0.0.5:9920 --threads 4 songs/*.mp3
+olaf rest query --fragmented recording.mp3        # uses rest_listen
 ```
 
-A failed endpoint has `error` instead of `data`. A rejected request, such as a missing `identifier`, gets an HTTP 4xx status, no results and a top-level `error`. A server owns its port: when another program already listens on it, `olaf rest serve` stops with "already in use". The API has no authentication, so set `rest_host` to `0.0.0.0` only on a trusted network. The other `rest_` settings are uploads up to `rest_max_body_mb` (512 MB) and at most `rest_workers` (4) stores or queries processed at the same time.
+A failed endpoint has `error` instead of `data`. A rejected request, such as a missing `identifier`, gets an HTTP 4xx status, no results and a top-level `error`. A server owns its port: when another program already listens on it, `olaf rest serve` stops with "already in use". The API has no authentication, so listen on `0.0.0.0` only on a trusted network. The other `rest_` settings are uploads up to `rest_max_body_mb` (512 MB) and at most `rest_workers` (4) stores or queries processed at the same time.
 
 
 

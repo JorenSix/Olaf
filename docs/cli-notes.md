@@ -65,11 +65,11 @@ Extracts and stores audio fingerprints into an index.
     - `--with-ids`: Stores audio files with user-provided identifiers.
 
 #### `rest serve`
-Serves the REST API for the local database on `rest_host:rest_port` (default `127.0.0.1:8920`).
-- **Usage:** `olaf rest serve [--port n]`
+Serves the REST API for the local database on `rest_listen` (default `127.0.0.1:8920`).
+- **Usage:** `olaf rest serve [--listen host:port|port]`
 - **Endpoints:** `POST /api/store?identifier=id[&force]`, `POST /api/query[?identifier=label&no_identity_match&fragmented]` (audio as the request body), `GET /api/stats`, `GET /api/healthz`.
 - **Options:**
-    - `--port n`: Listens on port `n` instead of `rest_port`.
+    - `--listen host:port|port`: Listens there instead of on `rest_listen`, e.g. `0.0.0.0:8920`. A port alone listens on `127.0.0.1`.
 
 #### `has`
 Checks whether audio is in the database: a fragmented query per file. It is a match when the best `match_count` reaches `has_min_match_count` (default 20). Output is one JSON line per file, with the `ffprobe` tags of the matched file when its identifier is an existing absolute path, or one text line with `--format text`.
@@ -84,13 +84,13 @@ Store or query through one REST endpoint (`olaf rest serve` or `olaf rest serve-
 - **Usage:**
     - `olaf rest store [url] [--threads n] [-f] [--format <human|csv|json>] [audio_file...] | --with-ids [audio_file audio_identifier]...`
     - `olaf rest query [url] [--threads n] [--fragmented] [--no-identity-match] [--format <csv|json>] [audio_file...] | --with-ids ...`
-- **Endpoint:** `url` (`http://` or `https://`), or config `rest_endpoint`. Only one endpoint: to combine databases, use an `olaf rest serve-lb` URL.
+- **Endpoint:** `url` (`http://` or `https://`), or the `olaf rest serve` on config `rest_listen` (`0.0.0.0` is reached on `127.0.0.1`). Only one endpoint: to combine databases, use an `olaf rest serve-lb` URL.
 
 #### `rest serve-lb`
-Serves the same API on `rest_host:rest_lb_port` (default `127.0.0.1:8921`), answered by the `olaf rest serve` instances in `rest_lb_backends`. A store goes to one backend (`rest_lb_store_strategy`: `random` or `hash`). Query, stats and health go to all backends, and their results are combined in one response.
-- **Usage:** `olaf rest serve-lb [--port n]`
+Serves the same API on `rest_lb_listen` (default `127.0.0.1:9920`), answered by the `olaf rest serve` instances in `rest_lb_backends`. A store goes to one backend (`rest_lb_store_strategy`: `random` or `hash`). Query, stats and health go to all backends, and their results are combined in one response.
+- **Usage:** `olaf rest serve-lb [--listen host:port|port]`
 - **Options:**
-    - `--port n`: Listens on port `n` instead of `rest_lb_port`.
+    - `--listen host:port|port`: Listens there instead of on `rest_lb_listen`. A port alone listens on `127.0.0.1`.
 
 #### `config`
 Displays the current configuration in use.

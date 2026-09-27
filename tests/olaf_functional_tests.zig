@@ -869,6 +869,12 @@ test "functional: usage errors exit with status 2" {
     try env.expectExit(&.{ "store", "--verbose", ref_abs }, 2);
     // '-f' after a --with-ids file used to become its identifier.
     try env.expectExit(&.{ "store", "--with-ids", ref_abs, "-f" }, 2);
+    // --listen takes host:port or a port; --port is gone.
+    try env.expectExit(&.{ "rest", "serve", "--listen", "nonsense" }, 2);
+    try env.expectExit(&.{ "rest", "serve", "--listen", "0" }, 2);
+    try env.expectExit(&.{ "rest", "serve-lb", "--listen", "localhost:8920" }, 2);
+    try env.expectExit(&.{ "rest", "serve", "--listen" }, 2);
+    try env.expectExit(&.{ "rest", "serve", "--port", "8920" }, 2);
     try env.expectExit(&.{"--help"}, 0);
 }
 
@@ -2188,13 +2194,19 @@ const RestServer = struct {
     io: Io,
     port: u16,
 
-    /// Start `olaf <command> --port <free port>` and wait until it answers.
+    /// Start `olaf <command> --listen <free port>` and wait until it answers.
     fn start(fx: *Fixture, command: []const u8) !RestServer {
+        return startOn(fx, command, "");
+    }
+
+    /// Start `olaf <command> --listen <host_prefix><free port>`, e.g. with
+    /// "0.0.0.0:", and wait until it answers on 127.0.0.1.
+    fn startOn(fx: *Fixture, command: []const u8, host_prefix: []const u8) !RestServer {
         const port = try freePort(fx.io);
-        var port_buf: [8]u8 = undefined;
-        const port_str = try std.fmt.bufPrint(&port_buf, "{d}", .{port});
+        var listen_buf: [64]u8 = undefined;
+        const listen = try std.fmt.bufPrint(&listen_buf, "{s}{d}", .{ host_prefix, port });
         var child = try std.process.spawn(fx.io, .{
-            .argv = &.{ fx.bin, "rest", command, "--port", port_str },
+            .argv = &.{ fx.bin, "rest", command, "--listen", listen },
             .environ_map = &fx.env_map,
             .stdin = .ignore,
             .stdout = .ignore,
@@ -2559,8 +2571,9 @@ test "functional: rest store and rest query through serve-lb print what a single
     var lb = try RestServer.start(&balancer, "serve-lb");
     defer lb.stop();
 
-    // The client finds the endpoint in its config (no URL argument).
-    const client_config = try std.fmt.allocPrint(allocator, "{{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"rest_endpoint\":\"http://127.0.0.1:{d}\"}}", .{lb.port});
+    // The client finds the endpoint in its config (no URL argument): the
+    // server on rest_listen, here the wildcard address, reached on loopback.
+    const client_config = try std.fmt.allocPrint(allocator, "{{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"rest_listen\":\"0.0.0.0:{d}\"}}", .{lb.port});
     defer allocator.free(client_config);
     try client.writeConfig(client_config);
 
@@ -2876,6 +2889,20 @@ test "functional: has finds indexed audio with its tags, locally and through res
     try testing.expect(np.get("reference").?.object.get("tags").? == .null);
 }
 
+test "functional: rest serve listens on host:port" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    var env = try Fixture.init(allocator, io, "rest_listen_any");
+    defer env.deinit();
+
+    // The wildcard address: reachable on loopback (and on every interface).
+    var server = try RestServer.startOn(&env, "serve", "0.0.0.0:");
+    defer server.stop();
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    _ = try server.get(arena_state.allocator(), "/api/healthz");
+}
+
 test "functional: rest serve owns its port" {
     const allocator = testing.allocator;
     const io = testing.io;
@@ -2891,7 +2918,7 @@ test "functional: rest serve owns its port" {
 
     // A second server on the same port is refused, not silently sharing it.
     for ([_][]const u8{ "serve", "serve-lb" }) |command| {
-        const r = try second_env.run(&.{ "rest", command, "--port", port }, 1);
+        const r = try second_env.run(&.{ "rest", command, "--listen", port }, 1);
         defer r.deinit();
         testing.expect(std.mem.indexOf(u8, r.stderr, "already in use") != null) catch |e| {
             std.debug.print("\nolaf rest {s} on a busy port: {s}\n", .{ command, r.stderr });
@@ -2907,7 +2934,7 @@ test "functional: rest serve owns its port" {
     // Stopped, the port can be taken again at once (SO_REUSEADDR).
     first.stop();
     var child = try std.process.spawn(io, .{
-        .argv = &.{ second_env.bin, "rest", "serve", "--port", port },
+        .argv = &.{ second_env.bin, "rest", "serve", "--listen", port },
         .environ_map = &second_env.env_map,
         .stdin = .ignore,
         .stdout = .ignore,

@@ -5,7 +5,7 @@ const types = @import("../olaf_cli_types.zig");
 
 pub const CommandInfo = struct {
     pub const name = "rest store";
-    pub const description = "Store audio through an olaf rest serve (or serve-lb) endpoint, printing what 'olaf store' prints.\n\t\turl\t The endpoint, e.g. http://127.0.0.1:8920 (default: config rest_endpoint).\n\t\t--threads n\t The number of files sent at the same time.\n\t\t-f, --force\t Re-store audio that is already indexed.\n\t\t--format <human|csv|json>\t Store record format (default: human).";
+    pub const description = "Store audio through an olaf rest serve (or serve-lb) endpoint, printing what 'olaf store' prints.\n\t\turl\t The endpoint, e.g. http://127.0.0.1:8920 (default: the olaf rest serve on config rest_listen).\n\t\t--threads n\t The number of files sent at the same time.\n\t\t-f, --force\t Re-store audio that is already indexed.\n\t\t--format <human|csv|json>\t Store record format (default: human).";
     pub const help = "[url] [--threads n] [-f] [--format <human|csv|json>] [audio_file...] | --with-ids [[audio_file audio_identifier]...]";
     pub const needs_audio_files = true;
     pub const accepts_endpoint = true;
@@ -14,7 +14,8 @@ pub const CommandInfo = struct {
 
 pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
     const config = args.config.?;
-    const url = try olaf_cli_rest_client.endpointUrl(args, config);
+    const url = try olaf_cli_rest_client.endpointUrl(allocator, args, config);
+    defer allocator.free(url);
     // One CSV header before any record, as `olaf store` prints it.
     if (args.storeFormat() == .csv) {
         try std.Io.File.stderr().writeStreamingAll(args.io, olaf_cli_output.store_csv_header);

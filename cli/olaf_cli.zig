@@ -1,5 +1,6 @@
 const std = @import("std");
 const Io = std.Io;
+const rest = @import("olaf_rest");
 
 const types = @import("olaf_cli_types.zig");
 const olaf_cli_config = @import("olaf_cli_config.zig");
@@ -283,14 +284,14 @@ fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *c
                 print("Expected an argument for '--format': 'olaf query --format json file.mp3'\n", .{});
                 return error.Usage;
             }
-        } else if (std.mem.eql(u8, arg, "--port")) {
-            try allow(cmd, .port, arg);
-            const port_arg = if (i + 1 < args_list.len) args_list[i + 1] else "";
-            args.port = std.fmt.parseInt(u16, port_arg, 10) catch 0;
-            if (args.port == 0) {
-                print("'--port' expects a port number (1-65535), got '{s}'\n", .{port_arg});
+        } else if (std.mem.eql(u8, arg, "--listen")) {
+            try allow(cmd, .listen, arg);
+            const listen_arg = if (i + 1 < args_list.len) args_list[i + 1] else "";
+            if (rest.parseListen(listen_arg) == null) {
+                print("'--listen' expects host:port or a port (e.g. 0.0.0.0:8920 or 8920), got '{s}'\n", .{listen_arg});
                 return error.Usage;
             }
+            args.listen = listen_arg;
             i += 1;
         } else if (std.mem.eql(u8, arg, "--threshold")) {
             try allow(cmd, .threshold, arg);

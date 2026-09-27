@@ -37,13 +37,23 @@ pub const Job = struct {
     has_format: olaf_cli_has.Format = .json,
 };
 
-/// The endpoint URL: the command's URL argument, else rest_endpoint.
-pub fn endpointUrl(args: *const types.Args, config: *const Config) ![]const u8 {
-    const url = args.endpoint orelse config.rest_endpoint;
-    return rest.lb.normalizeUrl(url) orelse {
-        std.log.err("'{s}' is not an http:// or https:// URL{s}", .{ url, if (args.endpoint == null) " (config 'rest_endpoint')" else "" });
+/// The endpoint URL: the command's URL argument, else the `olaf rest serve`
+/// listening on rest_listen. The caller frees it.
+pub fn endpointUrl(allocator: std.mem.Allocator, args: *const types.Args, config: *const Config) ![]const u8 {
+    const url = if (args.endpoint) |endpoint| try allocator.dupe(u8, endpoint) else blk: {
+        const address = rest.parseListen(config.rest_listen) orelse {
+            std.log.err("config: 'rest_listen' must be host:port or a port (e.g. 127.0.0.1:8920 or 8920), got \"{s}\"", .{config.rest_listen});
+            return error.InvalidConfigValue;
+        };
+        break :blk try rest.clientUrl(allocator, address);
+    };
+    errdefer allocator.free(url);
+    const normalized = rest.lb.normalizeUrl(url) orelse {
+        std.log.err("'{s}' is not an http:// or https:// URL", .{url});
         return error.InvalidConfigValue;
     };
+    // normalizeUrl only trims trailing slashes: shrink the allocation to it.
+    return allocator.realloc(url, normalized.len);
 }
 
 /// Store or query every file through the endpoint, like `olaf store` /

@@ -5,7 +5,7 @@ const types = @import("../olaf_cli_types.zig");
 
 pub const CommandInfo = struct {
     pub const name = "rest query";
-    pub const description = "Query through an olaf rest serve (or serve-lb) endpoint, printing what 'olaf query' prints.\n\t\turl\t The endpoint, e.g. http://127.0.0.1:8920 (default: config rest_endpoint).\n\t\t--threads n\t The number of files sent at the same time.\n\t\t--fragmented\t Match fragments of the endpoint's fragment_duration_in_seconds.\n\t\t--no-identity-match\t Identity matches are not reported.\n\t\t--format <csv|json>\t Output format (default: csv).";
+    pub const description = "Query through an olaf rest serve (or serve-lb) endpoint, printing what 'olaf query' prints.\n\t\turl\t The endpoint, e.g. http://127.0.0.1:8920 (default: the olaf rest serve on config rest_listen).\n\t\t--threads n\t The number of files sent at the same time.\n\t\t--fragmented\t Match fragments of the endpoint's fragment_duration_in_seconds.\n\t\t--no-identity-match\t Identity matches are not reported.\n\t\t--format <csv|json>\t Output format (default: csv).";
     pub const help = "[url] [--fragmented] [--threads n] [--format <csv|json>] [audio_file...] | --with-ids [[audio_file audio_identifier]...]";
     pub const needs_audio_files = true;
     pub const accepts_endpoint = true;
@@ -18,10 +18,12 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
         return error.Usage;
     }
     const config = args.config.?;
+    const url = try olaf_cli_rest_client.endpointUrl(allocator, args, config);
+    defer allocator.free(url);
     try olaf_cli_rest_client.run(allocator, args.audio_files.items, args.threads, .{
         .io = args.io,
         .config = config,
-        .url = try olaf_cli_rest_client.endpointUrl(args, config),
+        .url = url,
         .action = .query,
         .store_format = args.storeFormat(),
         .query_format = args.queryFormat(),

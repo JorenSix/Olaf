@@ -24,6 +24,44 @@ pub const Options = struct {
     max_matches: ?usize = null,
 };
 
+/// Where a server listens: an IP address (v4 or v6, without brackets) and a port.
+pub const ListenAddress = struct {
+    host: []const u8,
+    port: u16,
+};
+
+/// Parse a listen address: "host:port" ("0.0.0.0:8920", "[::1]:8920") or
+/// only a port ("8920"), which listens on 127.0.0.1. Null when invalid.
+pub fn parseListen(text: []const u8) ?ListenAddress {
+    const colon = std.mem.lastIndexOfScalar(u8, text, ':') orelse
+        return .{ .host = "127.0.0.1", .port = parsePort(text) orelse return null };
+    var host = text[0..colon];
+    if (host.len >= 2 and host[0] == '[' and host[host.len - 1] == ']') host = host[1 .. host.len - 1];
+    const port = parsePort(text[colon + 1 ..]) orelse return null;
+    _ = Io.net.IpAddress.parse(host, port) catch return null;
+    return .{ .host = host, .port = port };
+}
+
+fn parsePort(text: []const u8) ?u16 {
+    for (text) |ch| if (!std.ascii.isDigit(ch)) return null;
+    const port = std.fmt.parseInt(u16, text, 10) catch return null;
+    return if (port == 0) null else port;
+}
+
+/// The URL a client on this machine reaches a server listening on `address`
+/// at: a wildcard address (0.0.0.0, ::) is reached on the loopback address.
+pub fn clientUrl(allocator: std.mem.Allocator, address: ListenAddress) ![]u8 {
+    const is_v6 = std.mem.indexOfScalar(u8, address.host, ':') != null;
+    const host = if (std.mem.eql(u8, address.host, "0.0.0.0"))
+        "127.0.0.1"
+    else if (is_v6 and std.mem.eql(u8, address.host, "::"))
+        "::1"
+    else
+        address.host;
+    if (is_v6) return std.fmt.allocPrint(allocator, "http://[{s}]:{d}", .{ host, address.port });
+    return std.fmt.allocPrint(allocator, "http://{s}:{d}", .{ host, address.port });
+}
+
 const json_headers = [_]http.Header{.{ .name = "content-type", .value = "application/json" }};
 
 /// Listen on `opts.host:opts.port` and serve until the process is stopped.
@@ -120,6 +158,42 @@ pub fn listenExclusive(io: Io, address: Io.net.IpAddress) !Io.net.Server {
         bound.setPort(port);
     }
     return .{ .socket = .{ .handle = fd, .address = bound }, .options = {} };
+}
+
+test "parseListen accepts host:port or a port" {
+    const expectEqual = std.testing.expectEqual;
+    const expectEqualStrings = std.testing.expectEqualStrings;
+    const port_only = parseListen("1234").?;
+    try expectEqualStrings("127.0.0.1", port_only.host);
+    try expectEqual(@as(u16, 1234), port_only.port);
+    const any = parseListen("0.0.0.0:1224").?;
+    try expectEqualStrings("0.0.0.0", any.host);
+    try expectEqual(@as(u16, 1224), any.port);
+    const v6 = parseListen("[::1]:8920").?;
+    try expectEqualStrings("::1", v6.host);
+    try expectEqual(@as(u16, 8920), v6.port);
+    for ([_][]const u8{ "", "0", "70000", "-1", "+80", "host:", ":80", "abc", "localhost:80", "1.2.3:80", "127.0.0.1:0", "127.0.0.1:x" }) |bad| {
+        std.testing.expect(parseListen(bad) == null) catch |err| {
+            std.debug.print("parseListen accepted '{s}'\n", .{bad});
+            return err;
+        };
+    }
+}
+
+test "clientUrl reaches a wildcard address on loopback" {
+    const allocator = std.testing.allocator;
+    const cases = [_][2][]const u8{
+        .{ "127.0.0.1:8920", "http://127.0.0.1:8920" },
+        .{ "0.0.0.0:1224", "http://127.0.0.1:1224" },
+        .{ "10.0.0.5:8920", "http://10.0.0.5:8920" },
+        .{ "[::]:8920", "http://[::1]:8920" },
+        .{ "[::1]:8920", "http://[::1]:8920" },
+    };
+    for (cases) |case| {
+        const url = try clientUrl(allocator, parseListen(case[0]).?);
+        defer allocator.free(url);
+        try std.testing.expectEqualStrings(case[1], url);
+    }
 }
 
 test "listenExclusive owns its port" {
