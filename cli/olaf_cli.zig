@@ -293,6 +293,15 @@ fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *c
             }
             args.listen = listen_arg;
             i += 1;
+        } else if (std.mem.eql(u8, arg, "-n")) {
+            try allow(cmd, .instances, arg);
+            const value = if (i + 1 < args_list.len) args_list[i + 1] else "";
+            args.instances = std.fmt.parseInt(u16, value, 10) catch 0;
+            if (args.instances == 0) {
+                print("'-n' expects the number of instances (at least 1), got '{s}'\n", .{value});
+                return error.Usage;
+            }
+            i += 1;
         } else if (std.mem.eql(u8, arg, "--threshold")) {
             try allow(cmd, .threshold, arg);
             const value = if (i + 1 < args_list.len) args_list[i + 1] else "";

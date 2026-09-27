@@ -60,6 +60,11 @@
       "description": "Address `olaf rest serve` listens on, and that `olaf rest store`, `query` and `has` talk to when no URL is given: `host:port`, or a port alone for 127.0.0.1 (override with --listen). The API has no authentication: use 0.0.0.0 only on a trusted network.",
       "default": "127.0.0.1:8920"
     },
+    "rest_append_db_path_with_addr": {
+      "type": "boolean",
+      "description": "`olaf rest serve` keeps its database in a subfolder of db_folder named after its address (`127-0-0-1_8920/`), so several instances on one machine (`olaf rest serve -n 3`) each have their own. False: it serves db_folder itself, the database of the local commands.",
+      "default": true
+    },
     "rest_max_body_mb": {
       "type": "integer",
       "description": "Largest audio upload accepted by /api/store and /api/query, in MB.",

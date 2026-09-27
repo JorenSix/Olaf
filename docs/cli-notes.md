@@ -65,11 +65,12 @@ Extracts and stores audio fingerprints into an index.
     - `--with-ids`: Stores audio files with user-provided identifiers.
 
 #### `rest serve`
-Serves the REST API for the local database on `rest_listen` (default `127.0.0.1:8920`).
-- **Usage:** `olaf rest serve [--listen host:port|port]`
+Serves the REST API on `rest_listen` (default `127.0.0.1:8920`). The database is `db_folder/<host>_<port>/` (e.g. `127-0-0-1_8920/`), or `db_folder` itself with `"rest_append_db_path_with_addr": false`.
+- **Usage:** `olaf rest serve [--listen host:port|port] [-n count]`
 - **Endpoints:** `POST /api/store?identifier=id[&force]`, `POST /api/query[?identifier=label&no_identity_match&fragmented]` (audio as the request body), `GET /api/stats`, `GET /api/healthz`.
 - **Options:**
     - `--listen host:port|port`: Listens there instead of on `rest_listen`, e.g. `0.0.0.0:8920`. A port alone listens on `127.0.0.1`.
+    - `-n count`: Serves `count` instances in one process, on consecutive ports from the listen port, each with its own database: backends for `olaf rest serve-lb`. Needs `rest_append_db_path_with_addr`.
 
 #### `has`
 Checks whether audio is in the database: a fragmented query per file. It is a match when the best `match_count` reaches `has_min_match_count` (default 20). Output is one JSON line per file, with the `ffprobe` tags of the matched file when its identifier is an existing absolute path, or one text line with `--format text`.

@@ -176,3 +176,30 @@ const Upload = struct {
         Io.Dir.cwd().deleteFile(self.io, self.path) catch {};
     }
 };
+
+/// The database folder of the instance listening on `address`:
+/// db_folder/<host>_<port>/, dots and colons of the host as dashes
+/// ("/tmp/mydb/" -> "/tmp/mydb/127-0-0-1_8920/"). Zero-terminated for the C core.
+pub fn addrDbFolder(allocator: std.mem.Allocator, db_folder: []const u8, address: rest.ListenAddress) ![:0]u8 {
+    const host = try allocator.dupe(u8, address.host);
+    defer allocator.free(host);
+    for (host) |*ch| if (ch.* == '.' or ch.* == ':') {
+        ch.* = '-';
+    };
+    const sep: []const u8 = if (db_folder.len == 0 or db_folder[db_folder.len - 1] == '/') "" else "/";
+    return std.fmt.allocPrintSentinel(allocator, "{s}{s}{s}_{d}/", .{ db_folder, sep, host, address.port }, 0);
+}
+
+test "addrDbFolder names the folder after the address" {
+    const a = std.testing.allocator;
+    const cases = [_]struct { []const u8, rest.ListenAddress, []const u8 }{
+        .{ "/tmp/mydb/", .{ .host = "127.0.0.1", .port = 8920 }, "/tmp/mydb/127-0-0-1_8920/" },
+        .{ "/tmp/mydb", .{ .host = "0.0.0.0", .port = 1224 }, "/tmp/mydb/0-0-0-0_1224/" },
+        .{ "/tmp/mydb/", .{ .host = "::1", .port = 8920 }, "/tmp/mydb/--1_8920/" },
+    };
+    for (cases) |case| {
+        const folder = try addrDbFolder(a, case[0], case[1]);
+        defer a.free(folder);
+        try std.testing.expectEqualStrings(case[2], folder);
+    }
+}

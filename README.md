@@ -331,20 +331,37 @@ olaf stats
 
 ### REST API and load balancer
 
-`olaf rest serve` serves the database over HTTP, on the `rest_listen` address (default `127.0.0.1:8920`). `--listen` overrides it with `host:port` or a port alone, which listens on `127.0.0.1`: `--listen 0.0.0.0:8920` makes the API reachable from other machines. Audio goes in the request body, in any format `ffmpeg` can read. Parameters go in the query string and are named like the CLI options:
+`olaf rest serve` serves the database over HTTP, on the `rest_listen` address (default `127.0.0.1:8920`). `--listen` overrides it with `host:port` or a port alone, which listens on `127.0.0.1`: `--listen 0.0.0.0:8920` makes the API reachable from other machines. The server keeps its database in a subfolder of `db_folder` named after its address, e.g. `~/.olaf/db/127-0-0-1_8920/`, so servers on one machine never share a database. Set `"rest_append_db_path_with_addr": false` to serve `db_folder` itself, the database that the local `olaf store` fills. Audio goes in the request body, in any format `ffmpeg` can read. Parameters go in the query string and are named like the CLI options:
 
 ```bash
-olaf rest serve [--listen host:port|port] &
+olaf rest serve [--listen host:port|port] [-n count] &
 curl --data-binary @song.mp3 'localhost:8920/api/store?identifier=song'   # also: &force
 curl --data-binary @fragment.mp3 'localhost:8920/api/query'               # also: ?identifier=label&no_identity_match&fragmented
 curl localhost:8920/api/stats
 curl localhost:8920/api/healthz
 ```
 
-`olaf rest serve-lb` offers the same API on `rest_lb_listen` (default `127.0.0.1:9920`), but it answers from the `olaf rest serve` instances listed in `rest_lb_backends`. These can run locally or on other machines, each with its own database. A store goes to one backend, chosen at random or, with `"rest_lb_store_strategy": "hash"`, by identifier. With `hash`, storing the same audio again is skipped instead of being indexed twice. A backend that cannot be reached is skipped for stores. Query, stats and health go to all backends at once. The default backends are `http://127.0.0.1:8921` and `http://127.0.0.1:8920`: start a second server with `olaf rest serve --listen 8921` (and its own `db_folder`), or list your own backends:
+`olaf rest serve-lb` offers the same API on `rest_lb_listen` (default `127.0.0.1:9920`), but it answers from the `olaf rest serve` instances listed in `rest_lb_backends`. These can run locally or on other machines, each with its own database. A store goes to one backend, chosen at random or, with `"rest_lb_store_strategy": "hash"`, by identifier. With `hash`, storing the same audio again is skipped instead of being indexed twice. A backend that cannot be reached is skipped for stores. Query, stats and health go to all backends at once. `olaf rest serve -n 2` starts two servers in one process, on consecutive ports (8920 and 8921), each with its own database. These are the default `rest_lb_backends`, so the following is a working setup on one machine:
+
+```bash
+olaf rest serve -n 2 &     # prints the rest_lb_backends for its instances
+olaf rest serve-lb &       # on 127.0.0.1:9920, checks every backend at startup
+olaf rest store http://127.0.0.1:9920 --threads 4 songs/*.mp3
+```
+
+Backends on other machines are listed the same way:
 
 ```json
 { "rest_lb_listen": "0.0.0.0:9920", "rest_lb_backends": ["http://10.0.0.1:8920", "http://10.0.0.2:8920"] }
+```
+
+Each answered request is logged with what the databases answered. A backend that fails gets a warning line of its own:
+
+```
+info(olaf_rest): POST /api/store identifier=song.mp3 2.1 MB -> 200 in 364 ms: stored on http://127.0.0.1:8921 (internal_id 2438215205)
+info(olaf_rest): POST /api/query 314 KB -> 200 in 99 ms: 2/2 endpoints ok, 39 matches, best song.mp3 (match_count 93) on http://127.0.0.1:8921
+info(olaf_rest): GET /api/healthz -> 200 in 1 ms: 1/2 endpoints ok
+warning(olaf_rest): http://127.0.0.1:8920: 502 backend unreachable: ConnectionRefused
 ```
 
 Every response has the same shape, even when a single database answers. `results` has one entry per database (`endpoint` is `local`, or the backend's URL). `summary` combines them:

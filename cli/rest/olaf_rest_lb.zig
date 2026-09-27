@@ -99,6 +99,31 @@ pub const LbBackend = struct {
     }
 };
 
+/// Ask every backend's /api/healthz at once: per backend null when it
+/// answered healthy, else why not ("backend unreachable: ConnectionRefused").
+pub fn probe(arena: std.mem.Allocator, io: Io, backends: []const []const u8) ![]?[]const u8 {
+    const problems = try arena.alloc(?[]const u8, backends.len);
+    const Task = struct {
+        fn run(a: std.mem.Allocator, t_io: Io, base: []const u8, slot: *?[]const u8) void {
+            const f = forward(a, t_io, base, .{ .endpoint = .health, .params = .{}, .raw_query = "", .body = "" }) catch {
+                slot.* = "out of memory";
+                return;
+            };
+            slot.* = null;
+            for (f.results) |r| if (r.err) |e| {
+                slot.* = e;
+                break;
+            };
+        }
+    };
+    var group: Io.Group = .init;
+    for (backends, problems) |base, *slot| {
+        group.concurrent(io, Task.run, .{ arena, io, base, slot }) catch Task.run(arena, io, base, slot);
+    }
+    group.await(io) catch {};
+    return problems;
+}
+
 const Forwarded = struct {
     results: []api.Result,
     /// The backend could not be reached (connection refused, reset, ...).

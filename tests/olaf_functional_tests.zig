@@ -875,6 +875,9 @@ test "functional: usage errors exit with status 2" {
     try env.expectExit(&.{ "rest", "serve-lb", "--listen", "localhost:8920" }, 2);
     try env.expectExit(&.{ "rest", "serve", "--listen" }, 2);
     try env.expectExit(&.{ "rest", "serve", "--port", "8920" }, 2);
+    try env.expectExit(&.{ "rest", "serve", "-n", "0" }, 2);
+    try env.expectExit(&.{ "rest", "serve", "-n", "two" }, 2);
+    try env.expectExit(&.{ "rest", "serve-lb", "-n", "2" }, 2);
     try env.expectExit(&.{"--help"}, 0);
 }
 
@@ -2812,6 +2815,8 @@ test "functional: has finds indexed audio with its tags, locally and through res
 
     const store_args = try std.mem.concat(arena, []const u8, &.{ &.{"store"}, refs });
     try local.ok(store_args);
+    // The node serves the database its local `olaf store` filled.
+    try node.writeConfig("{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"rest_append_db_path_with_addr\":false}");
     try node.ok(store_args);
 
     // Local: JSON by default.
@@ -2901,6 +2906,79 @@ test "functional: rest serve listens on host:port" {
     var arena_state = std.heap.ArenaAllocator.init(allocator);
     defer arena_state.deinit();
     _ = try server.get(arena_state.allocator(), "/api/healthz");
+}
+
+test "functional: rest serve -n serves instances with their own database" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_only);
+    var env = try Fixture.init(allocator, io, "rest_instances");
+    defer env.deinit();
+
+    // Two free ports in a row: -n 2 takes the one after --listen as well.
+    const first = try freeConsecutivePorts(io, 2);
+    var listen_buf: [8]u8 = undefined;
+    const listen = try std.fmt.bufPrint(&listen_buf, "{d}", .{first});
+    var child = try std.process.spawn(io, .{
+        .argv = &.{ env.bin, "rest", "serve", "-n", "2", "--listen", listen },
+        .environ_map = &env.env_map,
+        .stdin = .ignore,
+        .stdout = .ignore,
+        .stderr = .ignore,
+    });
+    var a = RestServer{ .child = child, .io = io, .port = first };
+    defer a.stop();
+    child = undefined;
+    var b = RestServer{ .child = undefined, .io = io, .port = first + 1 };
+
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    for ([_]*RestServer{ &a, &b }) |server| {
+        for (0..200) |_| {
+            if (server.get(arena, "/api/healthz")) |_| break else |_| {}
+            try io.sleep(.fromMilliseconds(50), .awake);
+        } else return error.ServerDidNotStart;
+    }
+
+    // A store on the first instance is in its database only.
+    const stored = try a.post(arena, "/api/store?identifier=ref", env.ref);
+    try testing.expectEqual(@as(u16, 200), stored.status);
+    const songs = struct {
+        fn of(server: *RestServer, ar: std.mem.Allocator) !i64 {
+            const r = try server.get(ar, "/api/stats");
+            return jsonPath(r.body, &.{ "summary", "song_count" }).integer;
+        }
+    };
+    try testing.expectEqual(@as(i64, 1), try songs.of(&a, arena));
+    try testing.expectEqual(@as(i64, 0), try songs.of(&b, arena));
+
+    // Each in db_folder/<host>_<port>/.
+    for ([_]u16{ first, first + 1 }) |port| {
+        const folder = try std.fmt.allocPrint(arena, "{s}/.olaf/db/127-0-0-1_{d}/data.mdb", .{ env.home, port });
+        try Io.Dir.cwd().access(io, folder, .{});
+    }
+
+    // Without a folder per address the instances would share a database.
+    try env.writeConfig("{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"rest_append_db_path_with_addr\":false}");
+    const shared = try env.run(&.{ "rest", "serve", "-n", "2", "--listen", listen }, 1);
+    defer shared.deinit();
+    try testing.expect(std.mem.indexOf(u8, shared.stderr, "rest_append_db_path_with_addr") != null);
+}
+
+/// The first of `n` consecutive ports that are free now.
+fn freeConsecutivePorts(io: Io, n: u16) !u16 {
+    attempt: for (0..50) |_| {
+        const first = try freePort(io);
+        if (@as(u32, first) + n > 65535) continue;
+        for (1..n) |k| {
+            const address = try Io.net.IpAddress.parse("127.0.0.1", first + @as(u16, @intCast(k)));
+            var l = address.listen(io, .{}) catch continue :attempt;
+            l.deinit(io);
+        }
+        return first;
+    }
+    return error.NoFreePorts;
 }
 
 test "functional: rest serve owns its port" {

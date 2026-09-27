@@ -71,6 +71,9 @@ pub const Config = struct {
     // REST API (`olaf rest serve`) and load balancer (`olaf rest serve-lb`)
     // Listen addresses: "host:port", or a port alone for 127.0.0.1.
     rest_listen: []const u8 = "127.0.0.1:8920",
+    // `olaf rest serve` keeps its database in db_folder/<host>_<port>/
+    // (127-0-0-1_8920/), so instances on one machine do not share one.
+    rest_append_db_path_with_addr: bool = true,
     rest_max_body_mb: u32 = 512,
     rest_workers: u32 = 4,
     rest_lb_listen: []const u8 = "127.0.0.1:9920",

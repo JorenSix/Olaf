@@ -14,6 +14,7 @@
   "allowed_audio_file_extensions": [".m4a", ".wav", ".mp4", ".wv", ".ape", ".ogg", ".mp3", ".raw", ".flac", ".wma"],
 
   "rest_listen": "127.0.0.1:8920",
+  "rest_append_db_path_with_addr": true,
   "rest_max_body_mb": 512,
   "rest_workers": 4,
   "rest_lb_listen": "127.0.0.1:9920",

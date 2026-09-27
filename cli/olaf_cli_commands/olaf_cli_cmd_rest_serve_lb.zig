@@ -32,7 +32,14 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             std.log.err("config: 'rest_lb_backends' entry \"{s}\" is not an http:// or https:// URL", .{url});
             return error.InvalidConfigValue;
         };
-        std.debug.print("backend: {s}\n", .{b.*});
+    }
+    // Informational: an unreachable backend is still used once it is up.
+    {
+        var arena_state = std.heap.ArenaAllocator.init(allocator);
+        defer arena_state.deinit();
+        const problems = try rest.lb.probe(arena_state.allocator(), args.io, backends);
+        std.debug.print("olaf rest serve-lb: {d} backend{s}, store strategy {s}\n", .{ backends.len, if (backends.len == 1) "" else "s", @tagName(strategy) });
+        for (backends, problems) |b, problem| std.debug.print("  {s}: {s}\n", .{ b, problem orelse "ok" });
     }
 
     var lb = rest.LbBackend.init(args.io, backends, strategy);

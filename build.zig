@@ -137,6 +137,7 @@ pub fn build(b: *std.Build) void {
             "cli/olaf_cli_session.zig",
             "cli/olaf_cli_threading.zig",
             "cli/olaf_cli_rest_client.zig",
+            "cli/olaf_cli_rest_backend.zig",
             "cli/olaf_cli_has.zig",
         };
 

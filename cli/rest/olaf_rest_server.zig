@@ -22,6 +22,9 @@ pub const Options = struct {
     /// Query summaries keep at most this many matches per query (the
     /// config's max_results), so combined databases answer like one.
     max_matches: ?usize = null,
+    /// Starts every request log line, e.g. "[127.0.0.1:8921] " when one
+    /// process serves several instances; empty for one.
+    log_label: []const u8 = "",
 };
 
 /// Where a server listens: an IP address (v4 or v6, without brackets) and a port.
@@ -66,20 +69,49 @@ const json_headers = [_]http.Header{.{ .name = "content-type", .value = "applica
 
 /// Listen on `opts.host:opts.port` and serve until the process is stopped.
 pub fn serve(gpa: std.mem.Allocator, io: Io, backend: api.Backend, opts: Options) !void {
+    var listener = try bind(io, opts);
+    defer listener.deinit(io);
+    run(gpa, io, backend, opts, &listener);
+}
+
+/// Serve `backends[i]` with `opts[i]`, all in this process until it is
+/// stopped. Every address is bound first: a busy port fails before any
+/// instance serves.
+pub fn serveAll(gpa: std.mem.Allocator, io: Io, backends: []const api.Backend, opts: []const Options) !void {
+    std.debug.assert(backends.len == opts.len);
+    const listeners = try gpa.alloc(Io.net.Server, opts.len);
+    defer gpa.free(listeners);
+    var bound: usize = 0;
+    defer for (listeners[0..bound]) |*l| l.deinit(io);
+    for (opts, listeners) |o, *l| {
+        l.* = try bind(io, o);
+        bound += 1;
+    }
+    var group: Io.Group = .init;
+    defer group.cancel(io);
+    for (backends, opts, listeners) |b, o, *l| try group.concurrent(io, run, .{ gpa, io, b, o, l });
+    try group.await(io);
+}
+
+/// Listen on `opts.host:opts.port`, with a clear message when that fails.
+pub fn bind(io: Io, opts: Options) !Io.net.Server {
     const address = Io.net.IpAddress.parse(opts.host, opts.port) catch {
         log.err("'{s}' is not an IP address to listen on (e.g. 127.0.0.1 or 0.0.0.0)", .{opts.host});
         return error.InvalidConfigValue;
     };
-    var listener = listenExclusive(io, address) catch |err| {
+    const listener = listenExclusive(io, address) catch |err| {
         switch (err) {
             error.AddressInUse => log.err("port {d} on {s} is already in use (is another olaf rest serve running?)", .{ opts.port, opts.host }),
             else => log.err("cannot listen on {s}:{d}: {}", .{ opts.host, opts.port, err }),
         }
         return error.ListenFailed;
     };
-    defer listener.deinit(io);
     std.debug.print("{s} listening on http://{s}:{d}\n", .{ opts.name, opts.host, opts.port });
+    return listener;
+}
 
+/// Accept connections on `listener` until canceled.
+fn run(gpa: std.mem.Allocator, io: Io, backend: api.Backend, opts: Options, listener: *Io.net.Server) void {
     // Finished connection tasks release their resources; the group only
     // holds the running ones.
     var group: Io.Group = .init;
@@ -196,6 +228,76 @@ test "clientUrl reaches a wildcard address on loopback" {
     }
 }
 
+/// The log line of a request answered with `results`, each given as the
+/// endpoint and its data JSON (null: failed, unreachable).
+fn testLogLine(arena: std.mem.Allocator, endpoint: api.Endpoint, identifier: ?[]const u8, body_bytes: usize, results: []const struct { []const u8, ?[]const u8 }) ![]const u8 {
+    const list = try arena.alloc(api.Result, results.len);
+    for (results, list) |r, *out| {
+        out.* = if (r[1]) |data|
+            .{ .endpoint = r[0], .status = 200, .data = try std.json.parseFromSliceLeaky(std.json.Value, arena, data, envelope.parse_options) }
+        else
+            .failure(r[0], 502, "backend unreachable: ConnectionRefused");
+    }
+    var line: Io.Writer.Allocating = .init(arena);
+    try formatRequestLog(&line.writer, .{
+        .method = if (endpoint.takesAudio()) "POST" else "GET",
+        .path = try std.fmt.allocPrint(arena, "/api/{s}", .{endpoint.path()}),
+        .identifier = identifier,
+        .body_bytes = body_bytes,
+        .status = envelope.status(list),
+        .ms = 41,
+        .endpoint = endpoint,
+        .results = list,
+        .summary = try envelope.summary(arena, endpoint, list, .{}),
+    });
+    return line.written();
+}
+
+test "formatRequestLog says what the endpoints answered" {
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const a = "http://127.0.0.1:8920";
+    const b = "http://127.0.0.1:8921";
+    const expectEqualStrings = std.testing.expectEqualStrings;
+
+    try expectEqualStrings(
+        "POST /api/store identifier=song 3.0 MB -> 200 in 41 ms: stored on local (internal_id 7)",
+        try testLogLine(arena, .store, "song", 3 * 1024 * 1024, &.{.{ "local", "{\"action\":\"store\",\"internal_id\":7}" }}),
+    );
+    try expectEqualStrings(
+        "POST /api/store identifier=song 2 KB -> 200 in 41 ms: 1/2 endpoints ok, skipped (already stored) on http://127.0.0.1:8921 (internal_id 7)",
+        try testLogLine(arena, .store, "song", 1500, &.{ .{ a, null }, .{ b, "{\"action\":\"skip\",\"internal_id\":7}" } }),
+    );
+    try expectEqualStrings(
+        "POST /api/query 1 KB -> 200 in 41 ms: 2/2 endpoints ok, 2 matches, best y (match_count 12) on http://127.0.0.1:8921",
+        try testLogLine(arena, .query, null, 1024, &.{
+            .{ a, "{\"queries\":[{\"query_offset\":0.000,\"matches\":[{\"match_count\":7,\"path\":\"x\"}]}]}" },
+            .{ b, "{\"queries\":[{\"query_offset\":0.000,\"matches\":[{\"match_count\":12,\"path\":\"y\"}]}]}" },
+        }),
+    );
+    try expectEqualStrings(
+        "POST /api/query 1 KB -> 200 in 41 ms: 0 matches",
+        try testLogLine(arena, .query, null, 1024, &.{.{ "local", "{\"queries\":[{\"query_offset\":0.000,\"matches\":[]}]}" }}),
+    );
+    try expectEqualStrings(
+        "GET /api/stats -> 200 in 41 ms: 2/2 endpoints ok, 3 songs",
+        try testLogLine(arena, .stats, null, 0, &.{ .{ a, "{\"song_count\":1}" }, .{ b, "{\"song_count\":2}" } }),
+    );
+    try expectEqualStrings(
+        "GET /api/healthz -> 200 in 41 ms: 1/2 endpoints ok",
+        try testLogLine(arena, .health, null, 0, &.{ .{ a, "{\"status\":\"ok\"}" }, .{ b, null } }),
+    );
+    try expectEqualStrings(
+        "GET /api/healthz -> 200 in 41 ms: ok",
+        try testLogLine(arena, .health, null, 0, &.{.{ "local", "{\"status\":\"ok\"}" }}),
+    );
+    try expectEqualStrings(
+        "GET /api/healthz -> 502 in 41 ms: failed",
+        try testLogLine(arena, .health, null, 0, &.{.{ a, null }}),
+    );
+}
+
 test "listenExclusive owns its port" {
     const io = std.testing.io;
     const any = try Io.net.IpAddress.parse("127.0.0.1", 0);
@@ -281,8 +383,94 @@ fn handle(gpa: std.mem.Allocator, io: Io, backend: api.Backend, opts: Options, r
     const keep = try respond(request, arena, opts, status, true, .{ .results = .{ endpoint, results } });
 
     const ms = start.durationTo(Io.Clock.awake.now(io)).toMilliseconds();
-    log.info("{s} {s} {d} ({d} ms)", .{ @tagName(method), path, @intFromEnum(status), ms });
+    var line: Io.Writer.Allocating = .init(arena);
+    try formatRequestLog(&line.writer, .{
+        .label = opts.log_label,
+        .method = @tagName(method),
+        .path = path,
+        .identifier = p.identifier,
+        .body_bytes = body.len,
+        .status = @intFromEnum(status),
+        .ms = ms,
+        .endpoint = endpoint,
+        .results = results,
+        .summary = try envelope.summary(arena, endpoint, results, .{ .max_matches = opts.max_matches }),
+    });
+    log.info("{s}", .{line.written()});
+    for (results) |r| if (r.err) |e| log.warn("{s}{s}: {d} {s}", .{ opts.log_label, r.endpoint, r.status, e });
     return keep;
+}
+
+/// What one answered request is logged with.
+pub const RequestLog = struct {
+    label: []const u8 = "",
+    method: []const u8,
+    path: []const u8,
+    identifier: ?[]const u8 = null,
+    body_bytes: usize = 0,
+    status: u16,
+    ms: i64,
+    endpoint: api.Endpoint,
+    results: []const api.Result,
+    /// The response's summary (`envelope.summary`).
+    summary: std.json.Value,
+};
+
+/// One line per request: what was asked and what the endpoints answered,
+/// e.g. "POST /api/store identifier=song 3.1 MB -> 200 in 41 ms: stored on
+/// http://127.0.0.1:8921 (internal_id 7)".
+pub fn formatRequestLog(w: *Io.Writer, e: RequestLog) !void {
+    try w.print("{s}{s} {s}", .{ e.label, e.method, e.path });
+    if (e.identifier) |id| try w.print(" identifier={s}", .{id});
+    if (e.body_bytes >= 1024 * 1024) {
+        try w.print(" {d:.1} MB", .{@as(f64, @floatFromInt(e.body_bytes)) / (1024 * 1024)});
+    } else if (e.body_bytes > 0) {
+        try w.print(" {d} KB", .{(e.body_bytes + 1023) / 1024});
+    }
+    try w.print(" -> {d} in {d} ms", .{ e.status, e.ms });
+
+    var n_ok: usize = 0;
+    for (e.results) |r| n_ok += @intFromBool(r.ok());
+    if (n_ok == 0) return w.writeAll(": failed");
+    try w.writeAll(": ");
+    // Counts only when there is more than one endpoint, or a failure.
+    const counts = e.results.len > 1 or n_ok < e.results.len;
+    if (counts) try w.print("{d}/{d} endpoints ok", .{ n_ok, e.results.len });
+
+    const s = e.summary;
+    switch (e.endpoint) {
+        .store => {
+            if (counts) try w.writeAll(", ");
+            const action = stringField(s, "action") orelse "stored";
+            try w.print("{s} on {s}", .{ if (std.mem.eql(u8, action, "skip")) "skipped (already stored)" else "stored", stringField(s, "endpoint") orelse "?" });
+            if (fieldOf(s, "internal_id")) |v| if (envelope.number(v)) |id| try w.print(" (internal_id {d})", .{@as(u64, @intFromFloat(id))});
+        },
+        .query => {
+            if (counts) try w.writeAll(", ");
+            const matches = fieldOf(s, "matches");
+            const n: usize = if (matches) |m| (if (m == .array) m.array.items.len else 0) else 0;
+            try w.print("{d} match{s}", .{ n, if (n == 1) "" else "es" });
+            if (n > 0) {
+                const best = matches.?.array.items[0];
+                try w.print(", best {s} (match_count {d})", .{ stringField(best, "path") orelse "?", @as(u64, @intFromFloat(envelope.number(fieldOf(best, "match_count")) orelse 0)) });
+                if (e.results.len > 1) try w.print(" on {s}", .{stringField(best, "endpoint") orelse "?"});
+            }
+        },
+        .stats => {
+            if (counts) try w.writeAll(", ");
+            try w.print("{d} songs", .{@as(u64, @intFromFloat(envelope.number(fieldOf(s, "song_count")) orelse 0))});
+        },
+        .health => if (!counts) try w.writeAll(stringField(s, "status") orelse "ok"),
+    }
+}
+
+fn fieldOf(v: std.json.Value, name: []const u8) ?std.json.Value {
+    return if (v == .object) v.object.get(name) else null;
+}
+
+fn stringField(v: std.json.Value, name: []const u8) ?[]const u8 {
+    const f = fieldOf(v, name) orelse return null;
+    return if (f == .string) f.string else null;
 }
 
 const Content = union(enum) {
@@ -305,7 +493,7 @@ fn respond(request: *http.Server.Request, arena: std.mem.Allocator, opts: Option
 /// announced body up to the size limit is drained first so the client does
 /// not see a reset mid-upload; any other body closes the connection.
 fn reject(request: *http.Server.Request, arena: std.mem.Allocator, opts: Options, status: http.Status, message: []const u8) !bool {
-    log.info("{s} {s}: {d} {s}", .{ @tagName(request.head.method), request.head.target, @intFromEnum(status), message });
+    log.info("{s}{s} {s} -> {d}: {s}", .{ opts.log_label, @tagName(request.head.method), request.head.target, @intFromEnum(status), message });
     var keep_alive = true;
     if (request.head.expect != null) {
         request.head.expect = null;
