@@ -6,7 +6,6 @@ const std = @import("std");
 const builtin = @import("builtin");
 const Io = std.Io;
 const http = std.http;
-const log = std.log.scoped(.olaf_rest);
 
 const api = @import("olaf_rest_api.zig");
 const params = @import("olaf_rest_params.zig");
@@ -25,6 +24,38 @@ pub const Options = struct {
     /// Starts every request log line, e.g. "[127.0.0.1:8921] " when one
     /// process serves several instances; empty for one.
     log_label: []const u8 = "",
+    /// The log scope of every line: olaf_rest (serve) or olaf_rest_lb (serve-lb).
+    scope: LogScope = .olaf_rest,
+
+    fn log(o: Options) Log {
+        return .{ .scope = o.scope };
+    }
+};
+
+pub const LogScope = enum { olaf_rest, olaf_rest_lb };
+
+/// std.log scoped by a runtime `LogScope`.
+const Log = struct {
+    scope: LogScope,
+
+    fn info(self: Log, comptime fmt: []const u8, args: anytype) void {
+        switch (self.scope) {
+            .olaf_rest => std.log.scoped(.olaf_rest).info(fmt, args),
+            .olaf_rest_lb => std.log.scoped(.olaf_rest_lb).info(fmt, args),
+        }
+    }
+    fn warn(self: Log, comptime fmt: []const u8, args: anytype) void {
+        switch (self.scope) {
+            .olaf_rest => std.log.scoped(.olaf_rest).warn(fmt, args),
+            .olaf_rest_lb => std.log.scoped(.olaf_rest_lb).warn(fmt, args),
+        }
+    }
+    fn err(self: Log, comptime fmt: []const u8, args: anytype) void {
+        switch (self.scope) {
+            .olaf_rest => std.log.scoped(.olaf_rest).err(fmt, args),
+            .olaf_rest_lb => std.log.scoped(.olaf_rest_lb).err(fmt, args),
+        }
+    }
 };
 
 /// Where a server listens: an IP address (v4 or v6, without brackets) and a port.
@@ -96,17 +127,17 @@ pub fn serveAll(gpa: std.mem.Allocator, io: Io, backends: []const api.Backend, o
 /// Listen on `opts.host:opts.port`, with a clear message when that fails.
 pub fn bind(io: Io, opts: Options) !Io.net.Server {
     const address = Io.net.IpAddress.parse(opts.host, opts.port) catch {
-        log.err("'{s}' is not an IP address to listen on (e.g. 127.0.0.1 or 0.0.0.0)", .{opts.host});
+        opts.log().err("'{s}' is not an IP address to listen on (e.g. 127.0.0.1 or 0.0.0.0)", .{opts.host});
         return error.InvalidConfigValue;
     };
     const listener = listenExclusive(io, address) catch |err| {
         switch (err) {
-            error.AddressInUse => log.err("port {d} on {s} is already in use (is another olaf rest serve running?)", .{ opts.port, opts.host }),
-            else => log.err("cannot listen on {s}:{d}: {}", .{ opts.host, opts.port, err }),
+            error.AddressInUse => opts.log().err("port {d} on {s} is already in use (is another olaf rest serve running?)", .{ opts.port, opts.host }),
+            else => opts.log().err("cannot listen on {s}:{d}: {}", .{ opts.host, opts.port, err }),
         }
         return error.ListenFailed;
     };
-    std.debug.print("{s} listening on http://{s}:{d}\n", .{ opts.name, opts.host, opts.port });
+    opts.log().info("{s}{s} listening on http://{s}:{d}", .{ opts.log_label, opts.name, opts.host, opts.port });
     return listener;
 }
 
@@ -122,7 +153,7 @@ fn run(gpa: std.mem.Allocator, io: Io, backend: api.Backend, opts: Options, list
             error.ConnectionAborted => continue,
             else => {
                 // e.g. out of file descriptors: back off instead of spinning.
-                log.warn("accept failed: {}", .{err});
+                opts.log().warn("accept failed: {}", .{err});
                 io.sleep(.fromMilliseconds(100), .awake) catch return;
                 continue;
             },
@@ -325,7 +356,7 @@ fn connection(gpa: std.mem.Allocator, io: Io, backend: api.Backend, opts: Option
     while (true) {
         var request = server.receiveHead() catch return; // closed, or not HTTP
         const keep_alive = handle(gpa, io, backend, opts, &request) catch |err| {
-            log.warn("request failed: {}", .{err});
+            opts.log().warn("request failed: {}", .{err});
             return;
         };
         if (!keep_alive) return;
@@ -396,8 +427,8 @@ fn handle(gpa: std.mem.Allocator, io: Io, backend: api.Backend, opts: Options, r
         .results = results,
         .summary = try envelope.summary(arena, endpoint, results, .{ .max_matches = opts.max_matches }),
     });
-    log.info("{s}", .{line.written()});
-    for (results) |r| if (r.err) |e| log.warn("{s}{s}: {d} {s}", .{ opts.log_label, r.endpoint, r.status, e });
+    opts.log().info("{s}", .{line.written()});
+    for (results) |r| if (r.err) |e| opts.log().warn("{s}{s}: {d} {s}", .{ opts.log_label, r.endpoint, r.status, e });
     return keep;
 }
 
@@ -493,7 +524,7 @@ fn respond(request: *http.Server.Request, arena: std.mem.Allocator, opts: Option
 /// announced body up to the size limit is drained first so the client does
 /// not see a reset mid-upload; any other body closes the connection.
 fn reject(request: *http.Server.Request, arena: std.mem.Allocator, opts: Options, status: http.Status, message: []const u8) !bool {
-    log.info("{s}{s} {s} -> {d}: {s}", .{ opts.log_label, @tagName(request.head.method), request.head.target, @intFromEnum(status), message });
+    opts.log().info("{s}{s} {s} -> {d}: {s}", .{ opts.log_label, @tagName(request.head.method), request.head.target, @intFromEnum(status), message });
     var keep_alive = true;
     if (request.head.expect != null) {
         request.head.expect = null;

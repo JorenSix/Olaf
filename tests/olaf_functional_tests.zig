@@ -3002,6 +3002,26 @@ test "functional: rest serve owns its port" {
             std.debug.print("\nolaf rest {s} on a busy port: {s}\n", .{ command, r.stderr });
             return e;
         };
+        // One log chain per server: serve logs as olaf_rest, serve-lb as
+        // olaf_rest_lb (also its backend check), never mixed.
+        const lb = std.mem.eql(u8, command, "serve-lb");
+        const own: []const u8 = if (lb) "(olaf_rest_lb): " else "(olaf_rest): ";
+        const other: []const u8 = if (lb) "(olaf_rest): " else "(olaf_rest_lb): ";
+        testing.expect(std.mem.indexOf(u8, r.stderr, own) != null and std.mem.indexOf(u8, r.stderr, other) == null) catch |e| {
+            std.debug.print("\nolaf rest {s} log scopes: {s}\n", .{ command, r.stderr });
+            return e;
+        };
+        if (lb) {
+            try testing.expect(std.mem.indexOf(u8, r.stderr, "(olaf_rest_lb): backend http://127.0.0.1:") != null);
+        } else {
+            // The database it serves: db_folder + <host>_<port>/.
+            const database = try std.fmt.allocPrint(allocator, "info(olaf_rest): database: {s}/.olaf/db/127-0-0-1_{s}/ (db_folder ", .{ second_env.home, port });
+            defer allocator.free(database);
+            testing.expect(std.mem.indexOf(u8, r.stderr, database) != null) catch |e| {
+                std.debug.print("\nexpected '{s}' in: {s}\n", .{ database, r.stderr });
+                return e;
+            };
+        }
     }
     var arena_state = std.heap.ArenaAllocator.init(allocator);
     defer arena_state.deinit();

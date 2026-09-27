@@ -355,13 +355,19 @@ Backends on other machines are listed the same way:
 { "rest_lb_listen": "0.0.0.0:9920", "rest_lb_backends": ["http://10.0.0.1:8920", "http://10.0.0.2:8920"] }
 ```
 
-Each answered request is logged with what the databases answered. A backend that fails gets a warning line of its own:
+Everything is logged through one chain: `olaf rest serve` as `olaf_rest`, starting with the database it serves, and `olaf rest serve-lb` as `olaf_rest_lb`, starting with a check of every backend. Each answered request is logged with what the databases answered. A backend that fails gets a warning line of its own:
 
 ```
-info(olaf_rest): POST /api/store identifier=song.mp3 2.1 MB -> 200 in 364 ms: stored on http://127.0.0.1:8921 (internal_id 2438215205)
-info(olaf_rest): POST /api/query 314 KB -> 200 in 99 ms: 2/2 endpoints ok, 39 matches, best song.mp3 (match_count 93) on http://127.0.0.1:8921
-info(olaf_rest): GET /api/healthz -> 200 in 1 ms: 1/2 endpoints ok
-warning(olaf_rest): http://127.0.0.1:8920: 502 backend unreachable: ConnectionRefused
+info(olaf_rest): database: /home/me/.olaf/db/127-0-0-1_8920/ (db_folder /home/me/.olaf/db/ + 127-0-0-1_8920/, rest_append_db_path_with_addr)
+info(olaf_rest): olaf rest serve listening on http://127.0.0.1:8920
+
+info(olaf_rest_lb): 2 backends, store strategy random
+info(olaf_rest_lb): backend http://127.0.0.1:8921: ok
+warning(olaf_rest_lb): backend http://127.0.0.1:8920: backend unreachable: ConnectionRefused
+info(olaf_rest_lb): olaf rest serve-lb listening on http://127.0.0.1:9920
+info(olaf_rest_lb): POST /api/store identifier=song.mp3 2.1 MB -> 200 in 364 ms: stored on http://127.0.0.1:8921 (internal_id 2438215205)
+info(olaf_rest_lb): POST /api/query 314 KB -> 200 in 99 ms: 1/2 endpoints ok, 39 matches, best song.mp3 (match_count 93) on http://127.0.0.1:8921
+warning(olaf_rest_lb): http://127.0.0.1:8920: 502 backend unreachable: ConnectionRefused
 ```
 
 Every response has the same shape, even when a single database answers. `results` has one entry per database (`endpoint` is `local`, or the backend's URL). `summary` combines them:
