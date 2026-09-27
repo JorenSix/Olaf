@@ -2,6 +2,25 @@
 
 All notable changes to Olaf. The release notes on GitHub are taken from the section of the released version.
 
+## [3.2.2] - 2026-09-27
+
+### Added
+
+- `olaf rest serve --listen host:port` (or a port alone, on `127.0.0.1`), so `--listen 0.0.0.0:8920` serves other machines. The same for `olaf rest serve-lb`.
+- `olaf rest serve -n count`: serves count instances in one process, on consecutive ports, each with its own database, and prints the `rest_lb_backends` to use. `-n 2` matches the default backends of `serve-lb`.
+- `rest_append_db_path_with_addr` (default `true`): `olaf rest serve` keeps its database in `db_folder/<host>_<port>/` (e.g. `127-0-0-1_8920/`), so servers on one machine never share a database. `false` serves `db_folder` itself.
+- Informative request logs: the identifier and upload size, where audio was stored or skipped, how many endpoints answered, the number of matches and the best one. A failed backend gets a warning line of its own.
+- `olaf rest serve-lb` checks the health of every backend at startup. `olaf rest serve` logs the database it serves.
+- The browser spectrogram demo has a logarithmic frequency axis option.
+
+### Changed
+
+- The REST settings are one address per server: `rest_listen` (`127.0.0.1:8920`) and `rest_lb_listen` (`127.0.0.1:9920`) replace `rest_host`, `rest_port` and `rest_lb_port`. The default `rest_lb_backends` are `127.0.0.1:8921` and `127.0.0.1:8920`.
+- `--port` is replaced by `--listen`.
+- `rest_endpoint` is removed: `olaf rest store`, `query` and `has` default to the `olaf rest serve` on `rest_listen`.
+- Startup messages go through the log like the request lines; `olaf rest serve-lb` logs with the `olaf_rest_lb` scope, `olaf rest serve` with `olaf_rest`.
+- By default `olaf rest serve` now serves `db_folder/<host>_<port>/` instead of `db_folder`: set `rest_append_db_path_with_addr` to `false` to serve an existing database.
+
 ## [3.2.1] - 2026-09-26
 
 ### Added
