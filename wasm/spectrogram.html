@@ -42,6 +42,7 @@
 			<option value="3">3 px/block</option>
 			<option value="4">4 px/block</option>
 		</select></label>
+		<label><input type="checkbox" id="logscale"> Log frequency</label>
 		<span class="badge" id="badge"><span class="dot"></span><span id="badge_text">idle</span></span>
 	</div>
 
@@ -84,12 +85,13 @@
 
 	let spectrogram;
 	try {
-		spectrogram = new OlafSpectrogram($("spectrogram"), $("overlay"), { zoom: 2 });
+		spectrogram = new OlafSpectrogram($("spectrogram"), $("overlay"), { zoom: 2, logFrequency: $("logscale").checked });
 		window.__olaf_alignment = spectrogram.alignment;
 	} catch (err) {
 		log(String(err), "err");
 	}
 	$("zoom").addEventListener("change", (e) => { spectrogram.zoom = Number(e.target.value); });
+	$("logscale").addEventListener("change", (e) => { spectrogram.logFrequency = e.target.checked; });
 
 	let audioContext = null;
 	let microphoneStream = null;

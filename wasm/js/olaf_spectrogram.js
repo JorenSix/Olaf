@@ -3,10 +3,14 @@
 // grid: a column is one audio block (stepSize samples), a row one fft bin
 // (sampleRate / blockSize Hz). The WebGL shader and the overlay use the same
 // mapping, so an event point (timeIndex, frequencyBin) is drawn at the centre
-// of the texel with that column and row.
+// of the texel with that column and row. The frequency axis is linear or,
+// with logFrequency, logarithmic from bin LOG_MIN_BIN (bin 0 is DC) upwards.
 
 // Number of audio blocks kept (2048 blocks of 16ms is about 33s)
 const RING = 2048;
+
+// Lowest bin coordinate shown on the logarithmic frequency axis
+const LOG_MIN_BIN = 1;
 
 const VERTEX_SHADER = `#version 300 es
 in vec2 position;
@@ -22,12 +26,16 @@ uniform float head;         // block coordinate of the right edge
 uniform float pxPerBlock;
 uniform int latestBlock;
 uniform int bins;
+uniform bool logFrequency;
+uniform float minBin;       // lowest bin coordinate of the logarithmic axis
 uniform float minDb;
 uniform float maxDb;
 out vec4 color;
 void main() {
 	int block = int(floor(head - (size.x - gl_FragCoord.x) / pxPerBlock));
-	int bin = int(floor(gl_FragCoord.y / size.y * float(bins)));
+	float f = gl_FragCoord.y / size.y;
+	float binCoordinate = logFrequency ? minBin * pow(float(bins) / minBin, f) : f * float(bins);
+	int bin = min(int(floor(binCoordinate)), bins - 1);
 	if (block < 0 || block > latestBlock || block <= latestBlock - ${RING}) {
 		color = vec4(1.0);
 		return;
@@ -41,12 +49,13 @@ void main() {
 export class OlafSpectrogram {
 	// glCanvas covers the plot area, overlayCanvas the plot area plus the
 	// axis margins (left, bottom), both in CSS pixels.
-	constructor(glCanvas, overlayCanvas, { left = 48, bottom = 26, zoom = 2, rangeDb = 50 } = {}) {
+	constructor(glCanvas, overlayCanvas, { left = 48, bottom = 26, zoom = 2, rangeDb = 50, logFrequency = false } = {}) {
 		this.glCanvas = glCanvas;
 		this.overlay = overlayCanvas;
 		this.margin = { left, bottom };
 		this.zoom = zoom;
 		this.rangeDb = rangeDb;
+		this.logFrequency = logFrequency;
 		this.grid = null;
 
 		const gl = glCanvas.getContext("webgl2", { antialias: false });
@@ -54,7 +63,7 @@ export class OlafSpectrogram {
 		this.gl = gl;
 		this.program = this.createProgram();
 		this.uniforms = {};
-		for (const name of ["magnitudes", "size", "head", "pxPerBlock", "latestBlock", "bins", "minDb", "maxDb"]) {
+		for (const name of ["magnitudes", "size", "head", "pxPerBlock", "latestBlock", "bins", "logFrequency", "minBin", "minDb", "maxDb"]) {
 			this.uniforms[name] = gl.getUniformLocation(this.program, name);
 		}
 		const buffer = gl.createBuffer();
@@ -177,7 +186,9 @@ export class OlafSpectrogram {
 		return this.glCanvas.width - (this.head - blockCoordinate) * this.zoom * this.dpr;
 	}
 	binToY(binCoordinate) {
-		return this.glCanvas.height - binCoordinate * this.glCanvas.height / this.bins;
+		const height = this.glCanvas.height;
+		if (!this.logFrequency) return height - binCoordinate * height / this.bins;
+		return height - height * Math.log(binCoordinate / LOG_MIN_BIN) / Math.log(this.bins / LOG_MIN_BIN);
 	}
 
 	// Scroll at the audio rate, never past the newest block
@@ -212,6 +223,8 @@ export class OlafSpectrogram {
 			gl.uniform1f(u.pxPerBlock, this.zoom * this.dpr);
 			gl.uniform1i(u.latestBlock, this.latestBlock);
 			gl.uniform1i(u.bins, this.bins);
+			gl.uniform1i(u.logFrequency, this.logFrequency ? 1 : 0);
+			gl.uniform1f(u.minBin, LOG_MIN_BIN);
 			gl.uniform1f(u.maxDb, this.maxDb);
 			gl.uniform1f(u.minDb, this.maxDb - this.rangeDb);
 			gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -258,7 +271,20 @@ export class OlafSpectrogram {
 
 		ctx.textAlign = "right";
 		ctx.textBaseline = "middle";
-		for (let hz = 0; hz <= sampleRate / 2; hz += 1000) {
+		const nyquist = sampleRate / 2;
+		let ticks = [];
+		if (this.logFrequency) {
+			for (let decade = 10; decade < nyquist; decade *= 10) {
+				for (const m of [1, 2, 5]) {
+					const hz = m * decade;
+					if (hz * binsPerHz + 0.5 > LOG_MIN_BIN && hz < nyquist) ticks.push(hz);
+				}
+			}
+			ticks.push(nyquist);
+		} else {
+			for (let hz = 0; hz <= nyquist; hz += 1000) ticks.push(hz);
+		}
+		for (const hz of ticks) {
 			const y = Math.min(height - dpr / 2, Math.max(dpr / 2, this.binToY(hz * binsPerHz + 0.5)));
 			ctx.beginPath();
 			ctx.moveTo(-5 * dpr, y);
@@ -266,7 +292,7 @@ export class OlafSpectrogram {
 			ctx.stroke();
 			// keep the labels at the plot edges inside the canvas
 			ctx.textBaseline = y < 6 * dpr ? "top" : y > height - 6 * dpr ? "bottom" : "middle";
-			ctx.fillText(hz === 0 ? "0" : hz / 1000 + "k", -7 * dpr, y);
+			ctx.fillText(hz < 1000 ? String(hz) : hz / 1000 + "k", -7 * dpr, y);
 		}
 		ctx.save();
 		ctx.translate(-36 * dpr, height / 2);
