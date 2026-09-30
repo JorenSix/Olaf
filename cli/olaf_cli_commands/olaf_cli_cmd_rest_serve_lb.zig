@@ -5,7 +5,10 @@ const log = std.log.scoped(.olaf_rest_lb);
 
 pub const CommandInfo = struct {
     pub const name = "rest serve-lb";
-    pub const description = "Serve the REST API on rest_lb_listen (default 127.0.0.1:9920), answered by the\n\t\t`olaf rest serve` instances in rest_lb_backends: a store goes to one of them (rest_lb_store_strategy),\n\t\tquery, stats and health to all, with the results of every instance in one response.\n\t\t--listen host:port|port\t Listen there instead of rest_lb_listen (a port alone: 127.0.0.1).";
+    pub const description = "Serve the REST API on rest_lb_listen (default 127.0.0.1:9920), answered by the `olaf rest serve` instances in rest_lb_backends: a store goes to one of them (rest_lb_store_strategy); query, stats and health go to all, with the results of every instance in one response.";
+    pub const options = &[_]types.Option{
+        .{ .name = "--listen host:port|port", .text = "Listen there instead of rest_lb_listen (a port alone: 127.0.0.1)." },
+    };
     pub const help = "[--listen host:port|port]";
     pub const needs_audio_files = false;
     pub const flags = &[_]types.Flag{.listen};

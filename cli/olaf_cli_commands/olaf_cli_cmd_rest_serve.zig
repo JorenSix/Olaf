@@ -11,7 +11,11 @@ const log = std.log.scoped(.olaf_rest);
 
 pub const CommandInfo = struct {
     pub const name = "rest serve";
-    pub const description = "Serve the REST API for this database on rest_listen (default 127.0.0.1:8920):\n\t\tPOST /api/store?identifier=id, POST /api/query, GET /api/stats, GET /api/healthz.\n\t\tThe database is db_folder/<host>_<port>/ (rest_append_db_path_with_addr).\n\t\t--listen host:port|port\t Listen there instead of rest_listen (a port alone: 127.0.0.1).\n\t\t-n count\t Serve count instances, on consecutive ports, each with its own database (backends for serve-lb).";
+    pub const description = "Serve the REST API for this database on rest_listen (default 127.0.0.1:8920): POST /api/store?identifier=id, POST /api/query, GET /api/stats, GET /api/healthz.\nThe database is db_folder/<host>_<port>/ (rest_append_db_path_with_addr).";
+    pub const options = &[_]types.Option{
+        .{ .name = "--listen host:port|port", .text = "Listen there instead of rest_listen (a port alone: 127.0.0.1)." },
+        .{ .name = "-n count", .text = "Serve count instances, on consecutive ports, each with its own database (backends for serve-lb)." },
+    };
     pub const help = "[--listen host:port|port] [-n count]";
     pub const needs_audio_files = false;
     pub const flags = &[_]types.Flag{ .listen, .instances };

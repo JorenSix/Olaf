@@ -5,7 +5,13 @@ const types = @import("../olaf_cli_types.zig");
 
 pub const CommandInfo = struct {
     pub const name = "rest store";
-    pub const description = "Store audio through an olaf rest serve (or serve-lb) endpoint, printing what 'olaf store' prints.\n\t\turl\t The endpoint, e.g. http://127.0.0.1:8920 (default: the olaf rest serve on config rest_listen).\n\t\t--threads n\t The number of files sent at the same time.\n\t\t-f, --force\t Re-store audio that is already indexed.\n\t\t--format <human|csv|json>\t Store record format (default: human).";
+    pub const description = "Store audio through an olaf rest serve (or serve-lb) endpoint, printing what 'olaf store' prints.";
+    pub const options = &[_]types.Option{
+        .{ .name = "url", .text = "The endpoint, e.g. http://127.0.0.1:8920 (default: the olaf rest serve on config rest_listen)." },
+        .{ .name = "--threads n", .text = "The number of files sent at the same time." },
+        .{ .name = "-f, --force", .text = "Re-store audio that is already indexed." },
+        .{ .name = "--format <human|csv|json>", .text = "Store record format (default: human)." },
+    };
     pub const help = "[url] [--threads n] [-f] [--format <human|csv|json>] [audio_file...] | --with-ids [[audio_file audio_identifier]...]";
     pub const needs_audio_files = true;
     pub const accepts_endpoint = true;

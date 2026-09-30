@@ -11,7 +11,14 @@ const print = olaf_cli_util.print;
 
 pub const CommandInfo = struct {
     pub const name = "dedup";
-    pub const description = "Find duplicate audio content in a folder. Each file is stored, then queried against the index with self-matches filtered out.\n\t\t--threads n\t The number of threads to use (store and query steps).\n\t\t--format <human|csv|json>\t Store records on stderr as with store; query results as csv (human) or json.\n\t\t-f, --force\t Re-store files that are already indexed.\n\t\t--fragmented\t Chop queries into fragments of fragment_duration_in_seconds (default 30s) and match each fragment.\n\t\t--skip-store\t Skip the store step (use when the index already contains the folder).";
+    pub const description = "Find duplicate audio content in a folder. Each file is stored, then queried against the index with self-matches filtered out.";
+    pub const options = &[_]types.Option{
+        .{ .name = "-f, --force", .text = "Re-store files that are already indexed." },
+        .{ .name = "--fragmented", .text = "Chop queries into fragments of fragment_duration_in_seconds (default 30s) and match each fragment." },
+        .{ .name = "--threads n", .text = "The number of threads to use (store and query steps)." },
+        .{ .name = "--skip-store", .text = "Skip the store step (use when the index already contains the folder)." },
+        .{ .name = "--format <human|csv|json>", .text = "Store records on stderr as with store; query results as csv (human) or json." },
+    };
     pub const help = "[-f] [--fragmented] [--threads n] [--skip-store] [--format <human|csv|json>] audio_files...";
     pub const needs_audio_files = true;
     pub const flags = &[_]types.Flag{ .threads, .fragmented, .skip_store, .format, .force, .with_ids };

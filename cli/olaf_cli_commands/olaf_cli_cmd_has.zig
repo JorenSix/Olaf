@@ -5,7 +5,12 @@ const types = @import("../olaf_cli_types.zig");
 
 pub const CommandInfo = struct {
     pub const name = "has";
-    pub const description = "Check whether audio is in the database: a fragmented query per file, a match when the best match_count\n\t\treaches has_min_match_count (default 20). JSON by default, with the ffprobe tags of the matched file.\n\t\t--threshold n\t The match_count needed for a match.\n\t\t--threads n\t The number of threads to use.\n\t\t--format <json|text>\t Output format (default: json).";
+    pub const description = "Check whether audio is in the database: a fragmented query per file, a match when the best match_count reaches has_min_match_count (default 20). JSON by default, with the ffprobe tags of the matched file.";
+    pub const options = &[_]types.Option{
+        .{ .name = "--threshold n", .text = "The match_count needed for a match." },
+        .{ .name = "--threads n", .text = "The number of threads to use." },
+        .{ .name = "--format <json|text>", .text = "Output format (default: json)." },
+    };
     pub const help = "[--threshold n] [--threads n] [--format <json|text>] [audio_file...] | --with-ids [[audio_file audio_identifier]...]";
     pub const needs_audio_files = true;
     pub const flags = &[_]types.Flag{ .threads, .with_ids, .format, .threshold };

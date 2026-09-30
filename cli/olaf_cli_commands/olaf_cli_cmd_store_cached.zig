@@ -10,7 +10,10 @@ const Io = std.Io;
 
 pub const CommandInfo = struct {
     pub const name = "store_cached";
-    pub const description = "Stores fingerprints cached in text files into the database.\n\tAfter caching fingerprints with 'olaf cache audio_files...' use store_cached to index them.\n\tAlready indexed files are skipped (skip_duplicates); -f stores them anyway.";
+    pub const description = "Stores fingerprints cached in text files into the database. After caching fingerprints with 'olaf cache audio_files...' use store_cached to index them.";
+    pub const options = &[_]types.Option{
+        .{ .name = "-f, --force", .text = "Store files that are already indexed (skip_duplicates skips them by default)." },
+    };
     pub const help = "[-f]";
     pub const needs_audio_files = false;
     pub const flags = &[_]types.Flag{ .force };

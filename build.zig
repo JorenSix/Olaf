@@ -139,6 +139,7 @@ pub fn build(b: *std.Build) void {
             "cli/olaf_cli_rest_client.zig",
             "cli/olaf_cli_rest_backend.zig",
             "cli/olaf_cli_has.zig",
+            "cli/olaf_cli_help.zig",
             "cli/ui/olaf_ui.zig",
         };
 

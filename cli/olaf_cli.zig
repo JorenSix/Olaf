@@ -7,6 +7,7 @@ const olaf_cli_config = @import("olaf_cli_config.zig");
 const olaf_cli_util = @import("olaf_cli_util.zig");
 const olaf_cli_output = @import("olaf_cli_output.zig");
 const olaf_cli_threading = @import("olaf_cli_threading.zig");
+const olaf_cli_help = @import("olaf_cli_help.zig");
 
 // Import command modules
 const cmd_query = @import("olaf_cli_commands/olaf_cli_cmd_query.zig");
@@ -38,7 +39,9 @@ pub const UsageError = error{Usage};
 const Command = struct {
     name: []const u8,
     description: []const u8,
+    /// The usage synopsis after "olaf <name> ".
     help: []const u8,
+    options: []const types.Option,
     needs_audio_files: bool,
     flags: []const types.Flag,
     /// An http(s):// argument is the endpoint URL (`Args.endpoint`).
@@ -50,13 +53,15 @@ const Command = struct {
 };
 
 /// A command module exports `CommandInfo` (name, description, help,
-/// needs_audio_files, flags, optionally accepts_endpoint) and `execute`, and
+/// needs_audio_files, flags, optionally options and accepts_endpoint) and
+/// `execute`, and
 /// optionally `subcommands` (a tuple of command modules).
 fn command(comptime m: type) Command {
     return .{
         .name = m.CommandInfo.name,
         .description = m.CommandInfo.description,
         .help = m.CommandInfo.help,
+        .options = if (@hasDecl(m.CommandInfo, "options")) m.CommandInfo.options else &.{},
         .needs_audio_files = m.CommandInfo.needs_audio_files,
         .flags = m.CommandInfo.flags,
         .accepts_endpoint = @hasDecl(m.CommandInfo, "accepts_endpoint") and m.CommandInfo.accepts_endpoint,
@@ -88,15 +93,41 @@ const commands = [_]Command{
 };
 
 fn printCommandList() void {
-    print("The following commands are valid:\n", .{});
+    var buf: [4096]u8 = undefined;
+    var stdout = Io.File.stdout().writerStreaming(olaf_cli_util.defaultIo(), &buf);
+    const w = &stdout.interface;
+    const width = olaf_cli_help.terminalWidth();
+    w.writeAll("The following commands are valid:\n") catch {};
     for (commands) |cmd| {
-        print("\n{s}\t{s}\n", .{ cmd.name, cmd.description });
-        print("\tolaf {s} {s}\n", .{ cmd.name, cmd.help });
-        for (cmd.subcommands) |sub| {
-            print("\n{s}\t{s}\n", .{ sub.name, sub.description });
-            print("\tolaf {s} {s}\n", .{ sub.name, sub.help });
-        }
+        writeCommand(w, cmd, width);
+        for (cmd.subcommands) |sub| writeCommand(w, sub, width);
     }
+    w.flush() catch {};
+}
+
+fn writeCommand(w: *Io.Writer, cmd: Command, width: usize) void {
+    w.writeByte('\n') catch {};
+    olaf_cli_help.writeCommand(w, .{
+        .name = cmd.name,
+        .description = cmd.description,
+        .usage = cmd.help,
+        .options = cmd.options,
+    }, width) catch {};
+}
+
+/// "olaf <name> <usage>" for a usage error, wrapped to the terminal; a
+/// command group lists the usage of each subcommand below its own.
+fn printUsage(cmd: Command) void {
+    var buf: [4096]u8 = undefined;
+    var stdout = Io.File.stdout().writerStreaming(olaf_cli_util.defaultIo(), &buf);
+    const w = &stdout.interface;
+    const width = olaf_cli_help.terminalWidth();
+    olaf_cli_help.writeUsage(w, cmd.name, cmd.help, 0, width) catch {};
+    for (cmd.subcommands) |sub| {
+        w.writeAll("  ") catch {};
+        olaf_cli_help.writeUsage(w, sub.name, sub.help, 2, width) catch {};
+    }
+    w.flush() catch {};
 }
 
 fn printHelp(io: Io) !void {
@@ -216,8 +247,7 @@ fn run(init: std.process.Init) !void {
         } else {
             // A command group: it needs one of its subcommands.
             if (rest_args.len > 0) print("Unknown 'olaf {s}' subcommand '{s}'.\n", .{ top.name, rest_args[0] });
-            print("olaf {s} {s}\n", .{ top.name, top.help });
-            for (top.subcommands) |sub| print("\tolaf {s} {s}\n", .{ sub.name, sub.help });
+            printUsage(top);
             return error.Usage;
         };
         rest_args = rest_args[1..];
@@ -228,7 +258,7 @@ fn run(init: std.process.Init) !void {
 
     if (cmd.needs_audio_files and args.audio_files.items.len == 0) {
         print("This command needs audio files, none are found.\n", .{});
-        print("olaf {s} {s}\n", .{ cmd.name, cmd.help });
+        printUsage(cmd);
         return error.Usage;
     }
     try cmd.func(allocator, &args);
@@ -326,7 +356,8 @@ fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *c
         } else {
             // Not an option: an audio file (or an unknown option).
             if (arg.len > 1 and arg[0] == '-') {
-                print("Unknown option '{s}' for 'olaf {s}'.\nolaf {s} {s}\n", .{ arg, cmd.name, cmd.name, cmd.help });
+                print("Unknown option '{s}' for 'olaf {s}'.\n", .{ arg, cmd.name });
+                printUsage(cmd);
                 return error.Usage;
             }
             if (!cmd.needs_audio_files) {
@@ -351,6 +382,7 @@ fn parseArgs(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, config: *c
 /// Reject an option the command does not support.
 fn allow(cmd: Command, flag: types.Flag, arg: []const u8) !void {
     if (std.mem.indexOfScalar(types.Flag, cmd.flags, flag) != null) return;
-    print("'{s}' is not an option of 'olaf {s}'.\nolaf {s} {s}\n", .{ arg, cmd.name, cmd.name, cmd.help });
+    print("'{s}' is not an option of 'olaf {s}'.\n", .{ arg, cmd.name });
+    printUsage(cmd);
     return error.Usage;
 }

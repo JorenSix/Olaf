@@ -3,6 +3,9 @@ const olaf_cli_util = @import("olaf_cli_util.zig");
 const olaf_cli_config = @import("olaf_cli_config.zig");
 const olaf_cli_output = @import("olaf_cli_output.zig");
 
+/// A documented option of a command (`CommandInfo.options`).
+pub const Option = @import("olaf_cli_help.zig").Option;
+
 /// Command-line options. Each command lists the ones it supports in
 /// `CommandInfo.flags`; any other option is a usage error.
 pub const Flag = enum { threads, no_identity_match, with_ids, fragmented, skip_store, format, force, verbose, listen, instances, threshold };

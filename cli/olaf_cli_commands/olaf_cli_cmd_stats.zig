@@ -4,7 +4,10 @@ const types = @import("../olaf_cli_types.zig");
 
 pub const CommandInfo = struct {
     pub const name = "stats";
-    pub const description = "Print database summary statistics. Include the per-file table with --verbose or config verbose=true.";
+    pub const description = "Print database summary statistics.";
+    pub const options = &[_]types.Option{
+        .{ .name = "--verbose", .text = "Include the per-file table (also with config verbose=true)." },
+    };
     pub const help = "[--verbose]";
     pub const needs_audio_files = false;
     pub const flags = &[_]types.Flag{.verbose};

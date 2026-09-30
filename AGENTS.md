@@ -188,7 +188,7 @@ cat result_output.csv | python3 eval/olaf_result_utils.py sort
 ### When Adding New Commands
 
 1. Create new file in `cli/olaf_cli_commands/olaf_cli_cmd_[name].zig`
-2. Export `CommandInfo` struct with name, description, help, and needs_audio_files
+2. Export `CommandInfo` struct with name, description (plain prose), help (the usage synopsis), options (`types.Option` name/text pairs for the help table), flags and needs_audio_files; `olaf help` wraps it all to the terminal width (`cli/olaf_cli_help.zig`)
 3. Implement `execute(allocator: std.mem.Allocator, args: *types.Args) !void`
 4. Register in `cli/olaf_cli.zig` commands array
 

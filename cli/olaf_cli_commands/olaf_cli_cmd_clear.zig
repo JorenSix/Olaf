@@ -5,17 +5,11 @@ const types = @import("../olaf_cli_types.zig");
 
 pub const CommandInfo = struct {
     pub const name = "clear";
-    pub const description = "Delete the database and/or cached fingerprints.";
-    pub const help =
-        \\Deletes the database files (data.mdb, lock.mdb) and cached
-        \\fingerprints (*.tdb, *.meta) after confirmation. Other files
-        \\in those folders are left alone.
-        \\Use -f or --force to skip confirmation prompts.
-        \\
-        \\Examples:
-        \\  olaf clear              # Interactive deletion with prompts
-        \\  olaf clear -f           # Force deletion without prompts
-    ;
+    pub const description = "Delete the database and/or cached fingerprints. Deletes the database files (data.mdb, lock.mdb) and cached fingerprints (*.tdb, *.meta) after confirmation. Other files in those folders are left alone.";
+    pub const help = "[-f]";
+    pub const options = &[_]types.Option{
+        .{ .name = "-f, --force", .text = "Delete without confirmation prompts." },
+    };
     pub const needs_audio_files = false;
     pub const flags = &[_]types.Flag{ .force };
 };

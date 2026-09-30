@@ -5,7 +5,14 @@ const types = @import("../olaf_cli_types.zig");
 
 pub const CommandInfo = struct {
     pub const name = "rest query";
-    pub const description = "Query through an olaf rest serve (or serve-lb) endpoint, printing what 'olaf query' prints.\n\t\turl\t The endpoint, e.g. http://127.0.0.1:8920 (default: the olaf rest serve on config rest_listen).\n\t\t--threads n\t The number of files sent at the same time.\n\t\t--fragmented\t Match fragments of the endpoint's fragment_duration_in_seconds.\n\t\t--no-identity-match\t Identity matches are not reported.\n\t\t--format <csv|json>\t Output format (default: csv).";
+    pub const description = "Query through an olaf rest serve (or serve-lb) endpoint, printing what 'olaf query' prints.";
+    pub const options = &[_]types.Option{
+        .{ .name = "url", .text = "The endpoint, e.g. http://127.0.0.1:8920 (default: the olaf rest serve on config rest_listen)." },
+        .{ .name = "--fragmented", .text = "Match fragments of the endpoint's fragment_duration_in_seconds." },
+        .{ .name = "--threads n", .text = "The number of files sent at the same time." },
+        .{ .name = "--no-identity-match", .text = "Identity matches are not reported." },
+        .{ .name = "--format <csv|json>", .text = "Output format (default: csv)." },
+    };
     pub const help = "[url] [--fragmented] [--threads n] [--format <csv|json>] [audio_file...] | --with-ids [[audio_file audio_identifier]...]";
     pub const needs_audio_files = true;
     pub const accepts_endpoint = true;

@@ -10,7 +10,11 @@ const print = olaf_cli_util.print;
 
 pub const CommandInfo = struct {
     pub const name = "to_wav";
-    pub const description = "Converts audio to single channel wav, written next to the input as <name>.wav.\n\t-f, --force\t Convert again when the output file already exists.\n\t--threads n\t The number of threads to use.";
+    pub const description = "Converts audio to single channel wav, written next to the input as <name>.wav.";
+    pub const options = &[_]types.Option{
+        .{ .name = "-f, --force", .text = "Convert again when the output file already exists." },
+        .{ .name = "--threads n", .text = "The number of threads to use." },
+    };
     pub const help = "[-f] [--threads n] audio_files...";
     pub const needs_audio_files = true;
     pub const flags = &[_]types.Flag{ .threads, .force };
