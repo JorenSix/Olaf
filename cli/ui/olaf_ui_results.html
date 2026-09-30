@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%221%22 y=%225%22 width=%222%22 height=%226%22 rx=%221%22 fill=%22%231f9d55%22/%3E%3Crect x=%225%22 y=%222%22 width=%222%22 height=%2212%22 rx=%221%22 fill=%22%231f9d55%22/%3E%3Crect x=%229%22 y=%224%22 width=%222%22 height=%228%22 rx=%221%22 fill=%22%232f6fde%22/%3E%3Crect x=%2213%22 y=%226%22 width=%222%22 height=%224%22 rx=%221%22 fill=%22%232f6fde%22/%3E%3C/svg%3E">
+<title>Olaf matches</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #5d6677;
+    --line: #d9dde5; --track: #e8ebf0; --accent: #2f6fde; --on-accent: #ffffff; --accent-soft: #e6eefc;
+    --green: #1f9d55; --green-soft: #d8f3e3; --query: #7b8699; --error: #c0392b; --error-soft: #fbe9e7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --panel: #1b2029; --text: #e6e9ef; --muted: #9aa3b2;
+      --line: #2c3340; --track: #262c37; --accent: #6b9cff; --on-accent: #0d1526; --accent-soft: #1f2a40;
+      --green: #3ecf7a; --green-soft: #173726; --query: #8792a6; --error: #ff7b6b; --error-soft: #3a1f1c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  h1 { font-size: 1.3rem; margin: 0; overflow-wrap: anywhere; }
+  .meta { color: var(--muted); font-size: .9rem; }
+  a.button, button {
+    font: inherit; font-weight: 600; border-radius: 8px; padding: 8px 16px; cursor: pointer;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--text);
+  }
+  a.button.primary, button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, a.button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .error { background: var(--error-soft); border-color: var(--error); color: var(--error); }
+  .empty { color: var(--muted); }
+
+  /* Player */
+  .player h2, .matches h2 { font-size: 1rem; margin: 0 0 12px; }
+  .now { font-weight: 600; overflow-wrap: anywhere; }
+  .lanes { position: relative; margin: 12px 0 6px; cursor: pointer; user-select: none; }
+  .lane { display: grid; grid-template-columns: 72px 1fr; align-items: center; gap: 8px; margin: 6px 0; }
+  .lane-label { font-size: .8rem; color: var(--muted); text-align: right; }
+  .bar { position: relative; height: 26px; background: var(--track); border-radius: 6px; overflow: hidden; }
+  .fill { position: absolute; top: 0; bottom: 0; }
+  .fill.query { left: 0; right: 0; background: var(--query); opacity: .35; }
+  .fill.audio { background: var(--accent); opacity: .3; }
+  .fill.verified { background: var(--green); min-width: 3px; }
+  .playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text); pointer-events: none; left: 80px; }
+  .axis { display: grid; grid-template-columns: 72px 1fr; gap: 8px; font-size: .75rem; color: var(--muted); }
+  .axis div:last-child { display: flex; justify-content: space-between; }
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 12px; }
+  .time { font-variant-numeric: tabular-nums; min-width: 110px; }
+  .fader { display: flex; align-items: center; gap: 8px; flex: 1 1 320px; }
+  .fader input { flex: 1; accent-color: var(--accent); }
+  .fader span { font-size: .85rem; color: var(--muted); white-space: nowrap; }
+  .presets { display: flex; gap: 6px; }
+  .presets button { padding: 4px 10px; font-size: .8rem; font-weight: 500; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .8rem; color: var(--muted); margin-top: 10px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+
+  /* Matches */
+  .match {
+    display: grid; grid-template-columns: 84px 1fr; gap: 14px; align-items: start;
+    padding: 12px; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px;
+    cursor: pointer; background: var(--panel);
+  }
+  .match:hover { border-color: var(--accent); }
+  .match.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .count {
+    text-align: center; border-radius: 10px; padding: 8px 4px; background: var(--green-soft); color: var(--green);
+  }
+  .count b { display: block; font-size: 1.7rem; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .count small { font-size: .7rem; text-transform: uppercase; letter-spacing: .04em; }
+  .rank { font-size: .75rem; color: var(--muted); }
+  .title { font-weight: 600; overflow-wrap: anywhere; }
+  .dir { font-size: .8rem; color: var(--muted); overflow-wrap: anywhere; }
+  .facts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .82rem; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .facts span { color: var(--muted); }
+  .facts b { font-weight: 600; color: var(--text); }
+  .strength { height: 4px; background: var(--track); border-radius: 2px; margin-top: 8px; overflow: hidden; }
+  .strength div { height: 100%; background: var(--green); }
+  .mini { position: relative; height: 10px; background: var(--track); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  .warn { font-size: .8rem; color: var(--error); margin-top: 6px; }
+  @media (max-width: 560px) {
+    .match { grid-template-columns: 64px 1fr; }
+    .count b { font-size: 1.3rem; }
+    .lane, .axis { grid-template-columns: 52px 1fr; }
+  }
+</style>
+</head>
+<body>
+<main id="app">
+  <header>
+    <div>
+      <h1 id="title">Olaf matches</h1>
+      <div class="meta" id="meta"></div>
+    </div>
+    <a class="button primary" href="/ui">New query</a>
+  </header>
+  <div id="content"></div>
+</main>
+<script id="olaf-data" type="application/json">"__OLAF_DATA__"</script>
+<script>
+(() => {
+  'use strict';
+  const data = JSON.parse(document.getElementById('olaf-data').textContent);
+  const $ = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+  const num = v => (v === undefined || v === null) ? 0 : Number(v);
+  const fmt = s => {
+    s = Math.max(0, s);
+    const m = Math.floor(s / 60);
+    return m + ':' + (s - m * 60).toFixed(1).padStart(4, '0');
+  };
+  const content = document.getElementById('content');
+
+  if (typeof data !== 'object' || data === null) {
+    content.append($('div', 'panel error', 'This page was not rendered by olaf rest serve.'));
+    return;
+  }
+  if (data.error) {
+    content.append($('div', 'panel error', 'Query failed: ' + data.error));
+    return;
+  }
+
+  const q = data.query;
+  const D = num(q.duration);
+  const matches = data.matches || [];
+  document.title = 'Olaf: ' + q.name;
+  document.getElementById('title').textContent = q.name;
+  document.getElementById('meta').textContent =
+    fmt(D) + ' · ' + num(q.query_fingerprints) + ' fingerprints · searched in ' +
+    num(q.search_time_seconds).toFixed(3) + ' s · ' + matches.length + (matches.length === 1 ? ' match' : ' matches');
+
+  if (!matches.length) {
+    content.append($('div', 'panel empty', 'No match found for this query.'));
+    return;
+  }
+
+  const pct = t => (D > 0 ? Math.min(100, Math.max(0, t / D * 100)) : 0) + '%';
+  const span = (el, from, to) => { el.style.left = pct(from); el.style.width = 'calc(' + pct(to) + ' - ' + pct(from) + ')'; return el; };
+  const baseName = p => p.split(/[\\/]/).pop();
+  const dirName = p => { const i = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\')); return i > 0 ? p.slice(0, i) : ''; };
+
+  // ---- Player ----------------------------------------------------------
+  const player = $('section', 'panel player');
+  player.append($('h2', '', 'Listen: the query and the selected match, aligned from the start of the query'));
+  const now = $('div', 'now');
+  player.append(now);
+
+  const lanes = $('div', 'lanes');
+  const laneQ = $('div', 'lane'), barQ = $('div', 'bar');
+  laneQ.append($('div', 'lane-label', 'Query'), barQ);
+  barQ.append($('div', 'fill query'));
+  const laneM = $('div', 'lane'), barM = $('div', 'bar');
+  laneM.append($('div', 'lane-label', 'Match'), barM);
+  const verifiedQ = $('div', 'fill verified'), audioM = $('div', 'fill audio'), verifiedM = $('div', 'fill verified');
+  barQ.append(verifiedQ);
+  barM.append(audioM, verifiedM);
+  const head = $('div', 'playhead');
+  lanes.append(laneQ, laneM, head);
+  player.append(lanes);
+  const axis = $('div', 'axis'), ticks = $('div');
+  ticks.append($('span', '', fmt(0)), $('span', '', fmt(D / 2)), $('span', '', fmt(D)));
+  axis.append($('div'), ticks);
+  player.append(axis);
+
+  const controls = $('div', 'controls');
+  const play = $('button', 'primary', '▶ Play');
+  const time = $('span', 'time', fmt(0) + ' / ' + fmt(D));
+  const fader = $('label', 'fader');
+  const slider = $('input');
+  Object.assign(slider, { type: 'range', min: -100, max: 100, value: 0, step: 1 });
+  slider.setAttribute('aria-label', 'Crossfade between the original query and the match');
+  fader.append($('span', '', 'Original'), slider, $('span', '', 'Match'));
+  const presets = $('div', 'presets');
+  [['Original only', -100], ['Both', 0], ['Match only', 100]].forEach(([label, v]) => {
+    const b = $('button', '', label);
+    b.addEventListener('click', () => { slider.value = v; applyGains(); });
+    presets.append(b);
+  });
+  controls.append(play, time, fader, presets);
+  player.append(controls);
+  const legend = $('div', 'legend');
+  legend.innerHTML = '<span><i style="background:var(--green)"></i>verified matching part</span>' +
+    '<span><i style="background:var(--accent);opacity:.3"></i>reference audio in the clip</span>' +
+    '<span>Click the lanes to seek, space to play or pause.</span>';
+  player.append(legend);
+  content.append(player);
+
+  // ---- Match list -------------------------------------------------------
+  const list = $('section', 'matches');
+  list.append($('h2', '', matches.length + (matches.length === 1 ? ' match' : ' matches') + ', strongest first (match count = aligned fingerprints)'));
+  const top = Math.max(...matches.map(m => num(m.match_count)), 1);
+  const cards = matches.map((m, i) => {
+    const card = $('article', 'match');
+    card.tabIndex = 0;
+    const count = $('div', 'count');
+    count.append($('b', '', String(num(m.match_count))), $('small', '', 'match count'));
+    const body = $('div');
+    body.append($('div', 'rank', '#' + (i + 1) + ' · identifier ' + m.match_identifier));
+    body.append($('div', 'title', baseName(m.path || '?')));
+    body.append($('div', 'dir', dirName(m.path || '')));
+    const facts = $('div', 'facts');
+    const fact = (k, v) => { const s = $('span', '', k + ' '); s.append($('b', '', v)); facts.append(s); };
+    fact('query', fmt(num(m.query_start)) + '–' + fmt(num(m.query_stop)));
+    fact('reference', fmt(num(m.reference_start)) + '–' + fmt(num(m.reference_stop)));
+    fact('query 0:00 is reference', (num(m.offset) < 0 ? '−' : '') + fmt(Math.abs(num(m.offset))));
+    body.append(facts);
+    const strength = $('div', 'strength'), sfill = $('div');
+    sfill.style.width = (num(m.match_count) / top * 100) + '%';
+    strength.append(sfill);
+    body.append(strength);
+    const mini = $('div', 'mini');
+    mini.append(span($('div', 'fill verified'), num(m.query_start), num(m.query_stop)));
+    body.append(mini);
+    if (!m.audio) body.append($('div', 'warn', m.audio_error || 'No audio for this match.'));
+    card.append(count, body);
+    card.addEventListener('click', () => select(i));
+    card.addEventListener('keydown', e => { if (e.key === 'Enter') select(i); });
+    list.append(card);
+    return card;
+  });
+  content.append(list);
+
+  // ---- Audio ------------------------------------------------------------
+  let ctx = null, gainQ = null, gainM = null;
+  let queryBuf = null;
+  const matchBufs = new Map();
+  let selected = 0, sources = [], playing = false, t0 = 0, pos0 = 0, pausedAt = 0, raf = 0;
+
+  function decode(b64) {
+    const bin = atob(b64), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return ctx.decodeAudioData(bytes.buffer);
+  }
+  function ensureContext() {
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    gainQ = ctx.createGain(); gainM = ctx.createGain();
+    gainQ.connect(ctx.destination); gainM.connect(ctx.destination);
+    applyGains();
+  }
+  // Equal-power crossfade; each side keeps its own stereo image.
+  function applyGains() {
+    if (!ctx) return;
+    const x = (Number(slider.value) / 100 + 1) * Math.PI / 4;
+    gainQ.gain.setTargetAtTime(Math.cos(x), ctx.currentTime, 0.02);
+    gainM.gain.setTargetAtTime(Math.sin(x), ctx.currentTime, 0.02);
+  }
+  slider.addEventListener('input', applyGains);
+
+  async function buffers() {
+    ensureContext();
+    if (!queryBuf && data.query_audio) queryBuf = await decode(data.query_audio);
+    const m = matches[selected];
+    if (m.audio && !matchBufs.has(selected)) matchBufs.set(selected, await decode(m.audio));
+    return { q: queryBuf, m: matchBufs.get(selected) || null, lead: num(m.lead) };
+  }
+  const position = () => playing ? Math.min(D, pos0 + ctx.currentTime - t0) : pausedAt;
+
+  function stopSources() {
+    sources.forEach(s => { try { s.stop(); } catch (_) {} s.disconnect(); });
+    sources = [];
+  }
+  async function start(pos) {
+    play.disabled = true;
+    let b;
+    try { b = await buffers(); } catch (e) { play.disabled = false; now.textContent = 'Cannot decode the audio: ' + e; return; }
+    await ctx.resume();
+    stopSources();
+    t0 = ctx.currentTime + 0.05; pos0 = pos;
+    if (b.q && pos < b.q.duration) {
+      const s = ctx.createBufferSource(); s.buffer = b.q; s.connect(gainQ); s.start(t0, pos); sources.push(s);
+    }
+    if (b.m) {
+      const s = ctx.createBufferSource(); s.buffer = b.m; s.connect(gainM);
+      if (pos < b.lead) { s.start(t0 + b.lead - pos, 0); sources.push(s); }
+      else if (pos - b.lead < b.m.duration) { s.start(t0, pos - b.lead); sources.push(s); }
+    }
+    playing = true; play.disabled = false; play.textContent = '❚❚ Pause';
+    cancelAnimationFrame(raf); tick();
+  }
+  function pause() {
+    pausedAt = position(); playing = false; stopSources();
+    play.textContent = '▶ Play'; cancelAnimationFrame(raf); draw();
+  }
+  function tick() {
+    draw();
+    if (!playing) return;
+    if (position() >= D) { pause(); pausedAt = 0; draw(); return; }
+    raf = requestAnimationFrame(tick);
+  }
+  function draw() {
+    const p = position();
+    time.textContent = fmt(p) + ' / ' + fmt(D);
+    const bar = barQ.getBoundingClientRect(), box = lanes.getBoundingClientRect();
+    head.style.left = (bar.left - box.left + (D > 0 ? p / D : 0) * bar.width) + 'px';
+  }
+  play.addEventListener('click', () => playing ? pause() : start(pausedAt >= D ? 0 : pausedAt));
+  lanes.addEventListener('click', e => {
+    const bar = barQ.getBoundingClientRect();
+    const p = Math.min(D, Math.max(0, (e.clientX - bar.left) / bar.width * D));
+    if (playing) start(p); else { pausedAt = p; draw(); }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.code !== 'Space' || e.target.closest('button, a, input')) return;
+    e.preventDefault(); play.click();
+  });
+  window.addEventListener('resize', draw);
+
+  function select(i) {
+    selected = i;
+    cards.forEach((c, k) => c.classList.toggle('selected', k === i));
+    const m = matches[i];
+    now.textContent = '#' + (i + 1) + ' · match count ' + num(m.match_count) + ' · ' + baseName(m.path || '?');
+    span(verifiedQ, num(m.query_start), num(m.query_stop));
+    span(verifiedM, num(m.query_start), num(m.query_stop));
+    // The reference audio in the clip: from `lead` for the rest of the query.
+    if (m.audio) span(audioM, num(m.lead), D); else span(audioM, 0, 0);
+    if (playing) start(position()); else draw();
+  }
+  select(0);
+})();
+</script>
+</body>
+</html>

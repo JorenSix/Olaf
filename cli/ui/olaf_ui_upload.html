@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%221%22 y=%225%22 width=%222%22 height=%226%22 rx=%221%22 fill=%22%231f9d55%22/%3E%3Crect x=%225%22 y=%222%22 width=%222%22 height=%2212%22 rx=%221%22 fill=%22%231f9d55%22/%3E%3Crect x=%229%22 y=%224%22 width=%222%22 height=%228%22 rx=%221%22 fill=%22%232f6fde%22/%3E%3Crect x=%2213%22 y=%226%22 width=%222%22 height=%224%22 rx=%221%22 fill=%22%232f6fde%22/%3E%3C/svg%3E">
+<title>Olaf query</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #5d6677;
+    --line: #d9dde5; --accent: #2f6fde; --on-accent: #ffffff; --accent-soft: #e6eefc; --green: #1f9d55;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --panel: #1b2029; --text: #e6e9ef; --muted: #9aa3b2;
+      --line: #2c3340; --accent: #6b9cff; --on-accent: #0d1526; --accent-soft: #1f2a40; --green: #3ecf7a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  main { width: 100%; max-width: 640px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; color: var(--muted); }
+  form { margin: 0; }
+  .drop {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    padding: 48px 24px; text-align: center; background: var(--panel);
+    border: 2px dashed var(--line); border-radius: 14px; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .drop .icon { width: 48px; height: 48px; color: var(--accent); }
+  .drop strong { font-size: 1.1rem; }
+  .drop span { color: var(--muted); font-size: .9rem; }
+  button {
+    font: inherit; font-weight: 600; color: var(--on-accent); background: var(--accent);
+    border: 0; border-radius: 8px; padding: 10px 20px; cursor: pointer;
+  }
+  button:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 2px; }
+  input[type=file] { display: none; }
+  .busy { display: none; align-items: center; gap: 12px; margin-top: 18px; color: var(--muted); }
+  .busy.on { display: flex; }
+  .spinner {
+    width: 20px; height: 20px; border-radius: 50%; flex: none;
+    border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .note { margin-top: 18px; font-size: .85rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Olaf query</h1>
+  <p class="sub">Find where an audio fragment occurs in the indexed collection.</p>
+  <form id="form" method="post" action="/ui" enctype="multipart/form-data">
+    <label class="drop" id="drop" for="file">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>
+      </svg>
+      <strong>Drop an audio file here</strong>
+      <span>or</span>
+      <button type="button" id="choose">Choose a file</button>
+      <span>Any format ffmpeg reads (mp3, flac, wav, ogg, m4a, video…)</span>
+    </label>
+    <input type="file" id="file" name="audio" accept="audio/*,video/*,.flac,.opus,.wv,.ape">
+  </form>
+  <div class="busy" id="busy" role="status" aria-live="polite">
+    <div class="spinner"></div>
+    <div id="busy-text">Querying…</div>
+  </div>
+  <p class="note">The results page contains the audio of the query and of every match, so it can be large for long uploads.</p>
+</main>
+<script>
+  const form = document.getElementById('form');
+  const input = document.getElementById('file');
+  const drop = document.getElementById('drop');
+  let sent = false;
+
+  function send() {
+    if (sent || !input.files.length) return;
+    sent = true;
+    document.getElementById('busy-text').textContent =
+      'Querying ' + input.files[0].name + ': fingerprinting, matching and cutting the clips…';
+    document.getElementById('busy').classList.add('on');
+    form.submit();
+  }
+
+  document.getElementById('choose').addEventListener('click', e => { e.preventDefault(); input.click(); });
+  input.addEventListener('change', send);
+  // Drops anywhere on the page count; the browser must not open the file.
+  ['dragenter', 'dragover'].forEach(t => document.addEventListener(t, e => {
+    e.preventDefault(); drop.classList.add('over');
+  }));
+  ['dragleave', 'dragend'].forEach(t => document.addEventListener(t, e => {
+    if (e.target === document.documentElement || e.target === drop) drop.classList.remove('over');
+  }));
+  document.addEventListener('drop', e => {
+    e.preventDefault(); drop.classList.remove('over');
+    if (!e.dataTransfer.files.length) return;
+    const dt = new DataTransfer();
+    dt.items.add(e.dataTransfer.files[0]);
+    input.files = dt.files;
+    send();
+  });
+  // Back from the results page: allow a new upload.
+  window.addEventListener('pageshow', () => {
+    sent = false; input.value = '';
+    document.getElementById('busy').classList.remove('on');
+  });
+</script>
+</body>
+</html>

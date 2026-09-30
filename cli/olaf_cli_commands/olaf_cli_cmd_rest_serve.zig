@@ -3,6 +3,8 @@ const rest = @import("olaf_rest");
 const olaf_cli_session = @import("../olaf_cli_session.zig");
 const olaf_cli_rest_backend = @import("../olaf_cli_rest_backend.zig");
 const LocalBackend = olaf_cli_rest_backend.LocalBackend;
+const olaf_cli_threading = @import("../olaf_cli_threading.zig");
+const olaf_ui = @import("../ui/olaf_ui.zig");
 const Config = @import("../olaf_cli_config.zig").Config;
 const types = @import("../olaf_cli_types.zig");
 const log = std.log.scoped(.olaf_rest);
@@ -69,6 +71,10 @@ pub fn execute(allocator: std.mem.Allocator, args: *types.Args) !void {
             .max_matches = config.max_results,
             .log_label = label,
         };
+        if (config.rest_ui) o.extension = try olaf_ui.extension(arena, backend.*, o.*, .{
+            .workers = config.rest_workers,
+            .temp_dir = try olaf_cli_threading.tempAudioDir(arena),
+        });
     }
     if (n > 1) {
         var line: std.Io.Writer.Allocating = .init(arena);

@@ -139,6 +139,7 @@ pub fn build(b: *std.Build) void {
             "cli/olaf_cli_rest_client.zig",
             "cli/olaf_cli_rest_backend.zig",
             "cli/olaf_cli_has.zig",
+            "cli/ui/olaf_ui.zig",
         };
 
         // The functional tests run the browser module in node.

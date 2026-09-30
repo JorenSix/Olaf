@@ -93,6 +93,7 @@ The CLI is implemented in Zig (`cli/olaf_cli.zig`) and calls the public C core A
 - Command structure: Modular commands in `cli/olaf_cli_commands/`; each exports a `CommandInfo` struct and `execute` function
 - Configuration: JSON-based (`olaf_config.json`), checked in home dir first; loaded and printed by reflection over the `Config` struct
 - REST API: `cli/rest/` is a separate Zig module (`olaf_rest`, std only: HTTP server, parameters, response envelope, load balancer `LbBackend`) imported by the CLI; `cli/olaf_cli_rest_backend.zig` implements its `Backend` interface on the session layer, and the `olaf rest` command group (`olaf_cli_cmd_rest.zig` with the subcommands `serve`, `serve-lb`, `store`, `query` in `olaf_cli_cmd_rest_*.zig`, the clients in `cli/olaf_cli_rest_client.zig`) uses it. Keep `cli/rest/` free of CLI and core imports
+- Web UI (optional extra): `cli/ui/olaf_ui.zig` with its two self-contained pages `olaf_ui_upload.html` and `olaf_ui_results.html` (inline CSS/JS; the results page gets its data, including base64 MP3 clips cut by ffmpeg, through a placeholder). It plugs into `olaf rest serve` as a `rest.server.Extension` when `rest_ui` is true and imports only std and `olaf_rest`; keep UI code in `cli/ui/`
 
 ### Python Wrapper (CFFI)
 

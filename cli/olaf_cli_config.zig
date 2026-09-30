@@ -76,6 +76,9 @@ pub const Config = struct {
     rest_append_db_path_with_addr: bool = true,
     rest_max_body_mb: u32 = 512,
     rest_workers: u32 = 4,
+    // The web page at /ui (upload, matches, playback); it plays excerpts of
+    // the indexed audio to anyone reaching the port, so it is off by default.
+    rest_ui: bool = false,
     rest_lb_listen: []const u8 = "127.0.0.1:9920",
     rest_lb_backends: []const []const u8 = &.{ "http://127.0.0.1:8921", "http://127.0.0.1:8920" },
     rest_lb_store_strategy: []const u8 = "random",

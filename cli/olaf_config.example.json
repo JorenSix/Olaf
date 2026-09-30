@@ -17,6 +17,7 @@
   "rest_append_db_path_with_addr": true,
   "rest_max_body_mb": 512,
   "rest_workers": 4,
+  "rest_ui": false,
   "rest_lb_listen": "127.0.0.1:9920",
   "rest_lb_backends": ["http://127.0.0.1:8921", "http://127.0.0.1:8920"],
   "rest_lb_store_strategy": "random",

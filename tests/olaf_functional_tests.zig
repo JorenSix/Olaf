@@ -2345,6 +2345,49 @@ const RestServer = struct {
     }
 };
 
+/// A raw (not JSON) response, e.g. an HTML page of /ui.
+const RawResponse = struct { status: u16, body: []const u8 };
+
+/// GET `path` (no audio) or POST the file at `audio_path` to it as
+/// multipart/form-data field "audio", like the /ui upload form.
+fn restRaw(server: *RestServer, arena: std.mem.Allocator, path: []const u8, audio_path: ?[]const u8) !RawResponse {
+    const url = try std.fmt.allocPrint(arena, "http://127.0.0.1:{d}{s}", .{ server.port, path });
+    var client: std.http.Client = .{ .allocator = arena, .io = server.io };
+    defer client.deinit();
+    const boundary = "olafTestBoundary7MA4YWxk";
+    var payload: ?[]const u8 = null;
+    if (audio_path) |p| {
+        const audio = try Io.Dir.cwd().readFileAlloc(server.io, p, arena, .limited(64 << 20));
+        payload = try std.fmt.allocPrint(arena, "--{s}\r\nContent-Disposition: form-data; name=\"audio\"; filename=\"{s}\"\r\nContent-Type: audio/mpeg\r\n\r\n{s}\r\n--{s}--\r\n", .{ boundary, std.fs.path.basename(p), audio, boundary });
+    }
+    var out: Io.Writer.Allocating = .init(arena);
+    const res = try client.fetch(.{
+        .location = .{ .url = url },
+        .method = if (payload != null) .POST else .GET,
+        .payload = payload,
+        .headers = .{ .content_type = if (payload != null) .{ .override = "multipart/form-data; boundary=" ++ boundary } else .default },
+        .response_writer = &out.writer,
+        .keep_alive = false,
+    });
+    return .{ .status = @intFromEnum(res.status), .body = out.written() };
+}
+
+/// The page data of a /ui results page (the JSON in #olaf-data).
+fn uiPageData(arena: std.mem.Allocator, html: []const u8) !std.json.Value {
+    const open_tag = "<script id=\"olaf-data\" type=\"application/json\">";
+    const start = (std.mem.indexOf(u8, html, open_tag) orelse return error.NoPageData) + open_tag.len;
+    const end = std.mem.indexOfPos(u8, html, start, "</script>") orelse return error.NoPageData;
+    return std.json.parseFromSliceLeaky(std.json.Value, arena, html[start..end], .{});
+}
+
+/// True when base64 `b64` decodes to MP3 (an ID3 tag or a frame sync).
+fn isBase64Mp3(arena: std.mem.Allocator, b64: []const u8) !bool {
+    const dec = std.base64.standard.Decoder;
+    const bytes = try arena.alloc(u8, try dec.calcSizeForSlice(b64));
+    try dec.decode(bytes, b64);
+    return bytes.len > 3 and (std.mem.startsWith(u8, bytes, "ID3") or (bytes[0] == 0xFF and bytes[1] & 0xE0 == 0xE0));
+}
+
 fn jsonPath(v: std.json.Value, keys: []const []const u8) std.json.Value {
     var cur = v;
     for (keys) |k| cur = cur.object.get(k) orelse return .null;
@@ -3160,4 +3203,81 @@ test "functional: browser wasm module matches its reference in node" {
         std.debug.print("\n{s}{s}\n", .{ r.stdout, r.stderr });
         return error.WasmTestFailed;
     }
+}
+
+test "functional: rest /ui is off unless rest_ui is set" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    var env = try Fixture.init(allocator, io, "rest_ui_off");
+    defer env.deinit();
+
+    var server = try RestServer.start(&env, "serve");
+    defer server.stop();
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    const r = try restRaw(&server, arena_state.allocator(), "/ui", null);
+    try testing.expectEqual(@as(u16, 404), r.status);
+}
+
+test "functional: rest /ui queries an upload and embeds aligned clips" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    try dataset.ensureDataset(io, allocator, .ref_and_queries);
+    var env = try Fixture.init(allocator, io, "rest_ui");
+    defer env.deinit();
+    if (env.ref.len == 0) return error.SkipZigTest;
+    // Serve the database of the local commands: `olaf store` records the
+    // file path the clips are cut from (/api/store only has an identifier).
+    try env.writeConfig("{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"rest_ui\":true,\"rest_append_db_path_with_addr\":false}");
+    try env.ok(&.{ "store", env.ref });
+
+    var server = try RestServer.start(&env, "serve");
+    defer server.stop();
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+
+    const form = try restRaw(&server, arena, "/ui", null);
+    try testing.expectEqual(@as(u16, 200), form.status);
+    try testing.expect(std.mem.indexOf(u8, form.body, "enctype=\"multipart/form-data\"") != null);
+
+    const page = try restRaw(&server, arena, "/ui", "dataset/queries/11266_69s-89s.mp3");
+    try testing.expectEqual(@as(u16, 200), page.status);
+    try testing.expect(std.mem.startsWith(u8, page.body, "<!doctype html>"));
+    const data = try uiPageData(arena, page.body);
+    try testing.expect(jsonPath(data, &.{"error"}) == .null);
+    try testing.expectEqualStrings("11266_69s-89s.mp3", jsonPath(data, &.{ "query", "name" }).string);
+    try testing.expect(try isBase64Mp3(arena, jsonPath(data, &.{"query_audio"}).string));
+
+    const matches = jsonPath(data, &.{"matches"}).array.items;
+    try testing.expect(matches.len >= 1);
+    const best = matches[0];
+    try testing.expectEqualStrings(env.ref, best.object.get("path").?.string);
+    try testing.expect(best.object.get("match_count").?.integer > 0);
+    // The query is a cut from 69 s: query 0:00 is reference 69 s.
+    const offset: f64 = switch (best.object.get("offset").?) {
+        .float => |f| f,
+        .integer => |i| @floatFromInt(i),
+        else => return error.OffsetNotANumber,
+    };
+    try testing.expect(@abs(offset - 69.0) < 3.5);
+    try testing.expect(try isBase64Mp3(arena, best.object.get("audio").?.string));
+}
+
+test "functional: rest /ui is not served by serve-lb, even with rest_ui" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    var env = try Fixture.init(allocator, io, "rest_ui_lb");
+    defer env.deinit();
+    const port = try freePort(io);
+    const config = try std.fmt.allocPrint(allocator, "{{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"rest_ui\":true,\"rest_lb_backends\":[\"http://127.0.0.1:{d}\"]}}", .{port});
+    defer allocator.free(config);
+    try env.writeConfig(config);
+
+    var lb = try RestServer.start(&env, "serve-lb");
+    defer lb.stop();
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    const r = try restRaw(&lb, arena_state.allocator(), "/ui", null);
+    try testing.expectEqual(@as(u16, 404), r.status);
 }

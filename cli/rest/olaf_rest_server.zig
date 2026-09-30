@@ -26,6 +26,8 @@ pub const Options = struct {
     log_label: []const u8 = "",
     /// The log scope of every line: olaf_rest (serve) or olaf_rest_lb (serve-lb).
     scope: LogScope = .olaf_rest,
+    /// Offered every request first, e.g. the optional web page (cli/ui/).
+    extension: ?Extension = null,
 
     fn log(o: Options) Log {
         return .{ .scope = o.scope };
@@ -33,6 +35,13 @@ pub const Options = struct {
 };
 
 pub const LogScope = enum { olaf_rest, olaf_rest_lb };
+
+/// Answers the requests it recognizes: returns whether the connection can
+/// be reused, or null to leave the request to the API.
+pub const Extension = struct {
+    ctx: *anyopaque,
+    handleFn: *const fn (ctx: *anyopaque, arena: std.mem.Allocator, io: Io, request: *http.Server.Request) anyerror!?bool,
+};
 
 /// std.log scoped by a runtime `LogScope`.
 const Log = struct {
@@ -368,6 +377,7 @@ fn handle(gpa: std.mem.Allocator, io: Io, backend: api.Backend, opts: Options, r
     var arena_state = std.heap.ArenaAllocator.init(gpa);
     defer arena_state.deinit();
     const arena = arena_state.allocator();
+    if (opts.extension) |ext| if (try ext.handleFn(ext.ctx, arena, io, request)) |keep| return keep;
     const start = Io.Clock.awake.now(io);
 
     // The head's strings are invalidated once the body is read.

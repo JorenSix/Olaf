@@ -78,6 +78,11 @@
       "minimum": 1,
       "default": 4
     },
+    "rest_ui": {
+      "type": "boolean",
+      "description": "Serve the web page at /ui on `olaf rest serve`: upload audio, see the matches and play the query and each match in sync. It plays excerpts of the indexed audio to anyone who reaches the port, so it is off by default.",
+      "default": false
+    },
     "rest_lb_listen": {
       "type": "string",
       "description": "Address `olaf rest serve-lb` listens on: `host:port`, or a port alone for 127.0.0.1 (override with --listen).",
