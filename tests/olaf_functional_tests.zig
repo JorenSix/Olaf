@@ -1276,6 +1276,92 @@ test "functional: .txt lists skip bad lines instead of aborting" {
     try testing.expectEqual(@as(u32, 1), try env.songCount());
 }
 
+/// Write `content` to `<dir>/<name>`; caller owns the returned path.
+fn writeTestFile(io: Io, allocator: std.mem.Allocator, dir: []const u8, name: []const u8, content: []const u8) ![]u8 {
+    const path = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ dir, name });
+    errdefer allocator.free(path);
+    const f = try Io.Dir.cwd().createFile(io, path, .{});
+    defer f.close(io);
+    try f.writeStreamingAll(io, content);
+    return path;
+}
+
+/// The match_identifier of the top result of `olaf query <query>`.
+fn topMatchId(env: *Fixture, allocator: std.mem.Allocator, query: []const u8) ![]u8 {
+    var q_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const q_abs = q_buf[0..try Io.Dir.cwd().realPathFile(env.io, query, &q_buf)];
+    const result = try env.run(&.{ "query", q_abs }, 0);
+    defer result.deinit();
+    const top = (try firstResultLine(allocator, result.stdout)) orelse return error.OlafQueryNoResult;
+    if (top.empty_match) return error.OlafQueryNoResult;
+    return allocator.dupe(u8, top.ref_id);
+}
+
+test "functional: csv lists mix plain paths and identifier lines" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    try dataset.ensureDataset(io, allocator, .ref_only);
+
+    var env = try Fixture.init(allocator, io, "csvmixed");
+    defer env.deinit();
+
+    var abs: [3][std.fs.max_path_bytes]u8 = undefined;
+    var refs: [3][]const u8 = undefined;
+    for (REF_FILES_FOR_QUERY[0..3], 0..) |rel, k| {
+        refs[k] = abs[k][0..try Io.Dir.cwd().realPathFile(io, rel, &abs[k])];
+    }
+
+    // Lines: plain path, id<TAB>path, id<space>path, id,missing file.
+    const list = try std.fmt.allocPrint(allocator, "{s}\n7\t{s}\n8 {s}\n9,/nonexistent/x.mp3\n", .{ refs[0], refs[1], refs[2] });
+    defer allocator.free(list);
+    const list_path = try writeTestFile(io, allocator, env.home, "list.csv", list);
+    defer allocator.free(list_path);
+
+    const r = try env.run(&.{ "store", list_path }, 0);
+    defer r.deinit();
+    try testing.expect(std.mem.indexOf(u8, r.stderr, "list.csv:4: could not find") != null);
+    try testing.expectEqual(@as(u32, 3), try env.songCount());
+}
+
+test "functional: csv list identifiers round-trip through store, query and delete" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+
+    try dataset.ensureDataset(io, allocator, .ref_and_queries);
+
+    var env = try Fixture.init(allocator, io, "csvids");
+    defer env.deinit();
+
+    var ref_a_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_a = ref_a_buf[0..try Io.Dir.cwd().realPathFile(io, "dataset/ref/11266.mp3", &ref_a_buf)];
+    var ref_b_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const ref_b = ref_b_buf[0..try Io.Dir.cwd().realPathFile(io, "dataset/ref/147199.mp3", &ref_b_buf)];
+
+    // A numeric identifier is stored as is, a text one as its hash.
+    const list = try std.fmt.allocPrint(allocator, "# identifier,file\n42,{s}\n\"my-song\",\"{s}\"\n", .{ ref_a, ref_b });
+    defer allocator.free(list);
+    const list_path = try writeTestFile(io, allocator, env.home, "list.csv", list);
+    defer allocator.free(list_path);
+
+    try env.ok(&.{ "store", list_path });
+    try testing.expectEqual(@as(u32, 2), try env.songCount());
+
+    const id_a = try topMatchId(&env, allocator, "dataset/queries/11266_69s-89s.mp3");
+    defer allocator.free(id_a);
+    try testing.expectEqualStrings("42", id_a);
+
+    const id_b = try topMatchId(&env, allocator, "dataset/queries/147199_115s-135s.mp3");
+    defer allocator.free(id_b);
+    const want_b = try std.fmt.allocPrint(allocator, "{d}", .{c.olaf_db_identifier_id("my-song", "my-song".len)});
+    defer allocator.free(want_b);
+    try testing.expectEqualStrings(want_b, id_b);
+
+    // Deleting with the same list finds the files by their identifiers.
+    try env.ok(&.{ "delete", list_path });
+    try testing.expectEqual(@as(u32, 0), try env.songCount());
+}
+
 test "functional: query CSV quotes paths with commas" {
     const allocator = testing.allocator;
     const io = testing.io;

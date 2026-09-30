@@ -213,13 +213,22 @@ The `audio_item` can be:
 1. An audio file: `olaf store audio.mp3`, if the audio file contains multiple channels they are mixed to a mono.
 2. A video file. The **first audio stream** is extracted from the video container and used as input: `olaf store video.mkv`
 3. A folder name: Olaf attempts to **recursively** find all audio files within the folder. It does this with a limited allowlist of known audio file name extensions. `olaf store /home/user/Music`
-4. A text file: The text file should contain a list of file names. 
+4. A list file (`.txt`, `.csv` or `.tsv`): one audio item per line, either a file name or `identifier file_name`. The identifier comes first and is separated from the file name by a tab, a comma or spaces; lines starting with `#` are ignored and bad lines are reported and skipped.
 
 The following commands recursively finds all mp3 within the current directory and subsequently stores them in the reference database.
 
 ```bash
 find . -name "*.mp3" > list.txt
 olaf store list.txt
+```
+
+A list file can also give each file its own identifier, as with `--with-ids`. The same list works for `olaf query`, `olaf delete`, etc.
+
+```
+# identifier,file
+173050,/music/a.flac
+my-song,/music/b.flac
+/music/c.flac
 ```
 
 Internally each audio stream is given an identifier using a one time [Jenkins Hash](https://en.wikipedia.org/wiki/Jenkins_hash_function) function of its canonical absolute path (symlinks resolved), so the same file gets the same identifier however it is referenced. This identifier is returned when a match is found. A list connecting these identifiers to file names is also stored automatically.

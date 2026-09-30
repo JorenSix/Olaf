@@ -194,11 +194,22 @@ pub fn isAudioFile(path: []const u8, allowed_audio_file_extensions: []const []co
     return false;
 }
 
+/// True for the list files `audioFileList` reads line by line (.txt, .csv, .tsv).
+pub fn isListFile(path: []const u8) bool {
+    const ext = std.fs.path.extension(path);
+    for ([_][]const u8{ ".txt", ".csv", ".tsv" }) |list_ext| {
+        if (std.ascii.eqlIgnoreCase(ext, list_ext)) return true;
+    }
+    return false;
+}
+
 /// Populates `files` with audio file paths found from the argument `arg`.
 /// If `arg` is a directory, all audio files inside are added, sorted by path.
-/// If `arg` is a .txt file, each line is handled like a command-line argument
-/// (file or directory); empty lines and `#` comments are ignored, and bad
-/// lines are reported and skipped instead of aborting the run.
+/// If `arg` is a list file (.txt, .csv, .tsv), each line is either a path,
+/// handled like a command-line argument (file or directory), or
+/// `identifier<sep>audio_file` with a tab, comma or spaces as separator (see
+/// `splitListLine`); empty lines and `#` comments are ignored, and bad lines
+/// are reported and skipped instead of aborting the run.
 /// If `arg` is a file, it is added if it matches allowed extensions.
 /// When no explicit identifier is provided, the canonical path is used as the identifier.
 pub fn audioFileList(
@@ -212,7 +223,7 @@ pub fn audioFileList(
     try addPath(allocator, io, home, arg, files, allowed_audio_file_extensions, null);
 }
 
-/// Where a path came from when it was read from a `.txt` list.
+/// Where a path came from when it was read from a list file.
 const ListLine = struct { list: []const u8, line: usize };
 
 fn addPath(
@@ -241,14 +252,14 @@ fn addPath(
     switch (stat.kind) {
         .directory => try addDirectory(allocator, io, expanded, files, allowed_audio_file_extensions),
         .file => {
-            if (std.mem.endsWith(u8, expanded, ".txt")) {
+            if (isListFile(expanded)) {
                 if (from_list) |l| {
                     l_err("{s}:{d}: nested list {s} is not supported, skipping", .{ l.list, l.line, expanded });
                     return;
                 }
                 try addList(allocator, io, home, expanded, files, allowed_audio_file_extensions);
             } else if (isAudioFile(expanded, allowed_audio_file_extensions)) {
-                try appendAudioFile(allocator, files, expanded);
+                try appendAudioFile(allocator, files, expanded, null);
             } else {
                 if (from_list) |l| {
                     l_err("{s}:{d}: not an audio file {s}, skipping", .{ l.list, l.line, expanded });
@@ -262,10 +273,11 @@ fn addPath(
     }
 }
 
-fn appendAudioFile(allocator: std.mem.Allocator, files: *std.ArrayList(AudioFileWithId), path: []const u8) !void {
+/// Append `path` with `identifier`, or with the path itself as identifier.
+fn appendAudioFile(allocator: std.mem.Allocator, files: *std.ArrayList(AudioFileWithId), path: []const u8, identifier_opt: ?[]const u8) !void {
     const path_copy = try allocator.dupe(u8, path);
     errdefer allocator.free(path_copy);
-    const identifier = try allocator.dupe(u8, path);
+    const identifier = try allocator.dupe(u8, identifier_opt orelse path);
     errdefer allocator.free(identifier);
     try files.append(allocator, .{ .path = path_copy, .identifier = identifier });
 }
@@ -305,9 +317,9 @@ fn addDirectory(
             if (stat.kind != .file) continue;
             const target = try canonicalPath(allocator, io, full_path);
             defer allocator.free(target);
-            try appendAudioFile(allocator, files, target);
+            try appendAudioFile(allocator, files, target, null);
         } else {
-            try appendAudioFile(allocator, files, full_path);
+            try appendAudioFile(allocator, files, full_path, null);
         }
         debug("Found audio file: {s}", .{full_path});
     }
@@ -331,6 +343,86 @@ fn addList(
         line_no += 1;
         const trimmed = std.mem.trim(u8, line, " \t\r");
         if (trimmed.len == 0 or trimmed[0] == '#') continue;
-        try addPath(allocator, io, home, trimmed, files, allowed_audio_file_extensions, .{ .list = list_path, .line = line_no });
+        const from_list: ListLine = .{ .list = list_path, .line = line_no };
+        // A line that is an existing path is a path, even with spaces or
+        // commas; otherwise `identifier<sep>audio_file` when that file exists.
+        // Anything else is reported as a missing path (the whole line).
+        if (!try pathExists(allocator, io, home, trimmed)) {
+            if (splitListLine(trimmed)) |pair| {
+                if (try pathExists(allocator, io, home, pair.path)) {
+                    try addPathWithId(allocator, io, home, pair.path, pair.identifier, files, allowed_audio_file_extensions, from_list);
+                    continue;
+                }
+            }
+        }
+        try addPath(allocator, io, home, trimmed, files, allowed_audio_file_extensions, from_list);
     }
+}
+
+fn pathExists(allocator: std.mem.Allocator, io: Io, home: ?[]const u8, path: []const u8) !bool {
+    const home_expanded = try expandPath(allocator, home, path);
+    defer allocator.free(home_expanded);
+    Io.Dir.cwd().access(io, home_expanded, .{}) catch return false;
+    return true;
+}
+
+/// A list file line `identifier<sep>audio_file`: split at the first tab, comma
+/// or run of spaces, so the path may itself contain separators. Surrounding
+/// double quotes (as written by CSV tools) are removed from both fields.
+/// Null when there is no separator or either field is empty.
+pub fn splitListLine(line: []const u8) ?struct { identifier: []const u8, path: []const u8 } {
+    const sep = std.mem.indexOfAny(u8, line, "\t, ") orelse return null;
+    const identifier = unquote(std.mem.trim(u8, line[0..sep], " \t"));
+    const path = unquote(std.mem.trim(u8, line[sep + 1 ..], " \t"));
+    if (identifier.len == 0 or path.len == 0) return null;
+    return .{ .identifier = identifier, .path = path };
+}
+
+fn unquote(field: []const u8) []const u8 {
+    if (field.len >= 2 and field[0] == '"' and field[field.len - 1] == '"') return field[1 .. field.len - 1];
+    return field;
+}
+
+test "splitListLine splits identifier and path" {
+    const cases = [_]struct { line: []const u8, id: []const u8, path: []const u8 }{
+        .{ .line = "42,/music/a.flac", .id = "42", .path = "/music/a.flac" },
+        .{ .line = "42\t/music/a b.flac", .id = "42", .path = "/music/a b.flac" },
+        .{ .line = "my-song   /music/a, b.flac", .id = "my-song", .path = "/music/a, b.flac" },
+        .{ .line = "\"42\", \"/music/a.flac\"", .id = "42", .path = "/music/a.flac" },
+    };
+    for (cases) |case| {
+        const pair = splitListLine(case.line) orelse return error.TestUnexpectedResult;
+        try std.testing.expectEqualStrings(case.id, pair.identifier);
+        try std.testing.expectEqualStrings(case.path, pair.path);
+    }
+    try std.testing.expect(splitListLine("/music/a.flac") == null);
+    try std.testing.expect(splitListLine("42,") == null);
+}
+
+/// A list line with an identifier: the path must be an audio file; anything
+/// else is reported and skipped.
+fn addPathWithId(
+    allocator: std.mem.Allocator,
+    io: Io,
+    home: ?[]const u8,
+    path: []const u8,
+    identifier: []const u8,
+    files: *std.ArrayList(AudioFileWithId),
+    allowed_audio_file_extensions: []const []const u8,
+    l: ListLine,
+) !void {
+    const home_expanded = try expandPath(allocator, home, path);
+    defer allocator.free(home_expanded);
+    const expanded = try canonicalPath(allocator, io, home_expanded);
+    defer allocator.free(expanded);
+
+    const stat = Io.Dir.cwd().statFile(io, expanded, .{}) catch {
+        l_err("{s}:{d}: could not find {s}, skipping", .{ l.list, l.line, expanded });
+        return;
+    };
+    if (stat.kind != .file or !isAudioFile(expanded, allowed_audio_file_extensions)) {
+        l_err("{s}:{d}: not an audio file {s}, skipping", .{ l.list, l.line, expanded });
+        return;
+    }
+    try appendAudioFile(allocator, files, expanded, identifier);
 }
