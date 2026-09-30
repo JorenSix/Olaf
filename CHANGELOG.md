@@ -2,6 +2,22 @@
 
 All notable changes to Olaf. The release notes on GitHub are taken from the section of the released version.
 
+## [3.3.0] - 2026-09-30
+
+### Added
+
+- A web page at `/ui` on `olaf rest serve`, enabled with `"rest_ui": true` (off by default). Drop or pick an audio file and the results page lists every match with its match count and the verified part in green on the query timeline. It plays the query and the selected match in sync from the start of the query, with a slider from only the original to only the match. The page is self-contained: the audio of the query and of every match is in it as base64 MP3, cut with ffmpeg. It lives in `cli/ui/` and plugs into the server as an optional extension.
+- List files can be `.csv` or `.tsv` as well as `.txt`. A line is a file name, or `identifier file_name` separated by a tab, a comma or spaces, so identifiers can be given in bulk, as with `--with-ids`. This works for `store`, `query`, `delete` and the other commands that take audio files.
+
+### Changed
+
+- `olaf help` and usage errors wrap descriptions and option tables to the terminal width.
+
+### Known issues
+
+- `/ui` has no audio for items stored with an explicit identifier (`--with-ids`, an identifier in a list file, `/api/store`): the database records the identifier, not the file.
+- `/ui` is not available on `olaf rest serve-lb` and does not fragment long queries.
+
 ## [3.2.2] - 2026-09-27
 
 ### Added
