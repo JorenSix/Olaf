@@ -2,6 +2,19 @@
 
 All notable changes to Olaf. The release notes on GitHub are taken from the section of the released version.
 
+## [3.3.2] - 2026-10-01
+
+### Fixed
+
+- Live reference playback keeps the same source through repeated matches and temporary missing results, fading only after 15 seconds without recent confirmation. Clip handoffs preserve the playback timeline; different references still switch immediately.
+- Live alignment uses capture-frame timestamps and elapsed AudioContext time, with fixed latency compensation of 20 ms for input and 20 ms for output. These are device latency assumptions, not measured values.
+- Explicit gain anchors prevent premature fades during clip handoffs and reference changes.
+- Browser demos load their bundled sample audio correctly.
+
+### Added
+
+- Bundled sample audio for browser demos and regression coverage for live playback continuity, latency compensation, and clip handoffs.
+
 ## [3.3.1] - 2026-10-01
 
 ### Added
