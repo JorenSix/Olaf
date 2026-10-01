@@ -22,10 +22,16 @@
     font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     display: flex; align-items: center; justify-content: center; padding: 16px;
   }
-  main { width: 100%; max-width: 640px; }
+  main { width: 100%; max-width: 880px; }
   h1 { font-size: 1.4rem; margin: 0 0 4px; }
   p.sub { margin: 0 0 20px; color: var(--muted); }
   form { margin: 0; }
+  .targets { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .record { cursor: default; }
+  .record:hover { border-color: var(--line); background: var(--panel); }
+  button:disabled { opacity: .55; cursor: default; }
+  .error { color: var(--text); margin-top: 16px; }
+  @media (max-width: 600px) { .targets { grid-template-columns: 1fr; } }
   .drop {
     display: flex; flex-direction: column; align-items: center; gap: 14px;
     padding: 48px 24px; text-align: center; background: var(--panel);
@@ -56,7 +62,9 @@
 <main>
   <h1>Olaf query</h1>
   <p class="sub">Find where an audio fragment occurs in the indexed collection.</p>
+  <p><a href="/ui_live">Live microphone monitoring →</a></p>
   <form id="form" method="post" action="/ui" enctype="multipart/form-data">
+    <div class="targets">
     <label class="drop" id="drop" for="file">
       <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>
@@ -66,8 +74,19 @@
       <button type="button" id="choose">Choose a file</button>
       <span>Any format ffmpeg reads (mp3, flac, wav, ogg, m4a, video…)</span>
     </label>
+    <section class="drop record" aria-label="Microphone recording">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+        <rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>
+      </svg>
+      <strong>Record microphone</strong>
+      <span id="record-status" role="status">Record an audio fragment to find a match.</span>
+      <button type="button" id="record">Record</button>
+      <span id="elapsed">Audio stays in memory until you query.</span>
+    </section>
+    </div>
     <input type="file" id="file" name="audio" accept="audio/*,video/*,.flac,.opus,.wv,.ape">
   </form>
+  <p id="error" class="error" role="alert" hidden></p>
   <div class="busy" id="busy" role="status" aria-live="polite">
     <div class="spinner"></div>
     <div id="busy-text">Querying…</div>
@@ -78,39 +97,125 @@
   const form = document.getElementById('form');
   const input = document.getElementById('file');
   const drop = document.getElementById('drop');
-  let sent = false;
+  const choose = document.getElementById('choose');
+  const record = document.getElementById('record');
+  const status = document.getElementById('record-status');
+  const elapsed = document.getElementById('elapsed');
+  const error = document.getElementById('error');
+  let sent = false, phase = 'idle', recorder = null, stream = null, timer = null;
+  let generation = 0;
+  const supported = window.isSecureContext && navigator.mediaDevices?.getUserMedia && window.MediaRecorder;
 
+  function controls() {
+    input.disabled = phase !== 'idle' && phase !== 'submitting';
+    choose.disabled = phase !== 'idle';
+    record.disabled = !supported || (phase !== 'idle' && phase !== 'recording');
+    record.textContent = phase === 'recording' ? 'Stop and query' : 'Record';
+  }
+  function release() {
+    clearInterval(timer); timer = null;
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    stream = null;
+  }
+  function fail(message) {
+    generation++;
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+    recorder = null;
+    release(); phase = 'idle'; sent = false;
+    error.textContent = message; error.hidden = false;
+    status.textContent = 'Record an audio fragment to find a match.';
+    elapsed.textContent = 'Audio stays in memory until you query.';
+    controls();
+  }
   function send() {
-    if (sent || !input.files.length) return;
-    sent = true;
+    if (sent || phase !== 'idle' || !input.files.length) return;
+    sent = true; phase = 'submitting'; controls();
     document.getElementById('busy-text').textContent =
       'Querying ' + input.files[0].name + ': fingerprinting, matching and cutting the clips…';
     document.getElementById('busy').classList.add('on');
     form.submit();
   }
 
-  document.getElementById('choose').addEventListener('click', e => { e.preventDefault(); input.click(); });
+  record.addEventListener('click', async () => {
+    if (phase === 'recording') {
+      phase = 'stopping'; controls();
+      status.textContent = 'Preparing the query…';
+      recorder.stop(); release();
+      return;
+    }
+    if (phase !== 'idle' || !supported) return;
+    const token = ++generation;
+    phase = 'requesting'; controls(); error.hidden = true;
+    status.textContent = 'Waiting for microphone permission…';
+    try {
+      const acquired = await navigator.mediaDevices.getUserMedia({ audio: {
+        echoCancellation: false, noiseSuppression: false, autoGainControl: false
+      } });
+      if (token !== generation) { acquired.getTracks().forEach(t => t.stop()); return; }
+      stream = acquired;
+      const mime = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4']
+        .find(type => MediaRecorder.isTypeSupported(type));
+      const capture = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      recorder = capture;
+      const chunks = [];
+      capture.ondataavailable = e => { if (token === generation && e.data.size) chunks.push(e.data); };
+      capture.onerror = () => { if (token === generation) fail('Recording failed. Please try again.'); };
+      capture.onstop = () => {
+        if (token !== generation) return;
+        release(); recorder = null;
+        if (phase !== 'stopping') { fail('The microphone stopped unexpectedly. Please try again.'); return; }
+        const type = capture.mimeType || chunks[0]?.type || 'application/octet-stream';
+        const blob = new Blob(chunks, { type });
+        chunks.length = 0;
+        if (!blob.size) { fail('The recording is empty. Please record again.'); return; }
+        try {
+          const ext = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : type.includes('webm') ? 'webm' : 'audio';
+          const dt = new DataTransfer();
+          dt.items.add(new File([blob], 'microphone.' + ext, { type }));
+          input.files = dt.files; phase = 'idle'; send();
+        } catch (_) { fail('Could not submit the recording. Please try again.'); }
+      };
+      capture.start(); phase = 'recording'; controls();
+      status.textContent = 'Recording…';
+      const started = Date.now();
+      const tick = () => { const seconds = Math.floor((Date.now() - started) / 1000); elapsed.textContent =
+        Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0'); };
+      tick(); timer = setInterval(tick, 250);
+    } catch (err) {
+      if (token !== generation) return;
+      fail(err.name === 'NotAllowedError' ? 'Microphone permission was denied. Allow microphone access and try again.' :
+        err.name === 'NotFoundError' ? 'No microphone was found. Connect one and try again.' :
+        'Could not start the microphone. Check that it is available and try again.');
+    }
+  });
+  choose.addEventListener('click', e => { e.preventDefault(); if (phase === 'idle') input.click(); });
   input.addEventListener('change', send);
-  // Drops anywhere on the page count; the browser must not open the file.
   ['dragenter', 'dragover'].forEach(t => document.addEventListener(t, e => {
-    e.preventDefault(); drop.classList.add('over');
+    e.preventDefault(); if (phase === 'idle') drop.classList.add('over');
   }));
   ['dragleave', 'dragend'].forEach(t => document.addEventListener(t, e => {
     if (e.target === document.documentElement || e.target === drop) drop.classList.remove('over');
   }));
   document.addEventListener('drop', e => {
     e.preventDefault(); drop.classList.remove('over');
-    if (!e.dataTransfer.files.length) return;
+    if (phase !== 'idle' || !e.dataTransfer.files.length) return;
     const dt = new DataTransfer();
-    dt.items.add(e.dataTransfer.files[0]);
-    input.files = dt.files;
-    send();
+    dt.items.add(e.dataTransfer.files[0]); input.files = dt.files; send();
   });
-  // Back from the results page: allow a new upload.
+  window.addEventListener('pagehide', () => {
+    generation++;
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+    recorder = null; release();
+  });
   window.addEventListener('pageshow', () => {
-    sent = false; input.value = '';
+    sent = false; phase = 'idle'; input.value = ''; error.hidden = true;
     document.getElementById('busy').classList.remove('on');
+    status.textContent = supported ? 'Record an audio fragment to find a match.' :
+      !window.isSecureContext ? 'Microphone recording requires HTTPS or localhost.' : 'Microphone recording is unavailable in this browser.';
+    elapsed.textContent = 'Audio stays in memory until you query.';
+    controls();
   });
+  controls();
 </script>
 </body>
 </html>

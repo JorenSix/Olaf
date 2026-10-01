@@ -80,7 +80,7 @@
     },
     "rest_ui": {
       "type": "boolean",
-      "description": "Serve the web page at /ui on `olaf rest serve`: upload audio, see the matches and play the query and each match in sync. It plays excerpts of the indexed audio to anyone who reaches the port, so it is off by default.",
+      "description": "Serve the web pages at /ui and /ui_live on `olaf rest serve`: upload audio, see the matches and play the query and each match in sync. It plays excerpts of the indexed audio to anyone who reaches the port, so it is off by default.",
       "default": false
     },
     "rest_lb_listen": {

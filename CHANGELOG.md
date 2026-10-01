@@ -2,6 +2,25 @@
 
 All notable changes to Olaf. The release notes on GitHub are taken from the section of the released version.
 
+## [3.3.1] - 2026-10-01
+
+### Added
+
+- Microphone recording beside file upload at `/ui`, with in-memory capture and **Stop and query** submission to the existing endpoint.
+- Continuous microphone monitoring at `/ui_live`, enabled by `rest_ui`, with a Zig backend and a single self-contained HTML frontend. Rolling 15-second WAV queries use XMLHttpRequest and prioritize matches from the newest five seconds.
+- Automatic reference playback aligned using capture-frame timestamps and a shared AudioContext clock, including request and decoding delays. Reference clips span five seconds before through 25 seconds after the matched current position, crossfade during replacement, and fade out after ten seconds without recent confirmation.
+- Tests for live capture timing, stale responses, recent-song priority, WAV validation, and the live HTTP endpoint.
+
+### Changed
+
+- Web UI results omit matches shorter than 0.75 seconds.
+- Playback controls use **Query** terminology and a single mixing slider, without redundant preset buttons.
+
+### Known issues
+
+- Microphone access requires HTTPS or localhost. Headphones avoid recapturing reference playback.
+- Reference playback requires indexed audio files to remain accessible. Live monitoring is unavailable on `olaf rest serve-lb`.
+
 ## [3.3.0] - 2026-09-30
 
 ### Added

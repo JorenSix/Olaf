@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Olaf live</title>
+<style>
+:root { color-scheme:light dark; --bg:#f6f7f9; --panel:#fff; --text:#1d2330; --muted:#5d6677; --line:#d9dde5; --accent:#2f6fde; --green:#1f9d55; }
+@media(prefers-color-scheme:dark) { :root { --bg:#12151b; --panel:#1b2029; --text:#e6e9ef; --muted:#9aa3b2; --line:#2c3340; --accent:#6b9cff; --green:#3ecf7a; } }
+* { box-sizing:border-box; } body { margin:0; padding:28px 16px; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,sans-serif; }
+main { max-width:960px; margin:auto; } header,.controls,.details { display:flex; align-items:center; gap:16px; flex-wrap:wrap; } header { justify-content:space-between; }
+h1 { margin:0; font-size:1.5rem; } h2 { margin:0 0 12px; font-size:1.1rem; } p { margin:8px 0 18px; } a { color:var(--accent); }
+.panel,.match { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:20px; margin:16px 0; }
+button { border:0; border-radius:8px; padding:10px 18px; font:inherit; cursor:pointer; background:var(--accent); color:var(--bg); font-weight:600; } button:disabled { opacity:.5; cursor:default; }
+button:focus-visible,a:focus-visible,input:focus-visible { outline:3px solid var(--green); outline-offset:3px; }
+.secondary { background:var(--line); color:var(--text); } .muted,.details { color:var(--muted); font-size:.9rem; }
+#status { margin:16px 0 0; } #error { color:#d34b4b; } #current { overflow-wrap:anywhere; } progress { width:100%; height:14px; accent-color:var(--green); }
+.match { display:flex; gap:20px; align-items:center; } .match.selected { border-color:var(--accent); } .count { font-size:1.6rem; font-weight:700; color:var(--green); min-width:60px; }
+.match strong { overflow-wrap:anywhere; } .badge { color:var(--green); } label { display:flex; gap:8px; align-items:center; } #volume { width:130px; }
+@media(max-width:600px) { body { padding:16px 12px; } .panel,.match { padding:16px; } .controls { gap:12px; } }
+</style>
+</head>
+<body><main>
+<header><h1>Olaf live</h1><a href="/ui">Upload or record a query</a></header>
+<p class="muted">Listen continuously and play the matching reference in sync. Use headphones to keep playback out of the microphone.</p>
+<section class="panel" aria-label="Live monitoring">
+<div class="controls"><button id="start">Start monitoring</button><button id="stop" class="secondary" disabled>Stop</button><label>Volume <input id="volume" type="range" min="0" max="1" step="0.01" value="0.7"></label><label><input id="mute" type="checkbox">Mute</label></div>
+<p id="status" role="status">Ready. Microphone access requires HTTPS or localhost.</p><p id="error" role="alert" hidden></p>
+</section>
+<section class="panel" aria-label="Reference playback"><h2 id="current">Waiting for a match</h2><progress id="progress" max="30" value="0" aria-label="Position in the reference clip"></progress><div class="details"><span id="position">Reference audio plays automatically when recognized.</span><span id="capture">0.0 s captured</span></div></section>
+<section aria-label="Matches"><h2>Matches · recent audio first</h2><div id="matches"><p class="muted">Start monitoring to find a match.</p></div></section>
+</main>
+<script>
+(() => {
+'use strict';
+const WINDOW = 15, RECENT = 5, INTERVAL = 2.5, GRACE = 10, LEAD = 0.05, FADE = 0.1;
+class Ring {
+  constructor(rate) { this.rate=rate; this.samples=new Float32Array(rate*WINDOW); this.clear(); }
+  clear() { this.end=null; this.count=0; }
+  push(frame, samples) {
+    const continuous=this.end===null || frame===this.end;
+    if (!continuous) this.clear();
+    for(let i=0;i<samples.length;i++) this.samples[(frame+i)%this.samples.length]=samples[i];
+    this.count=Math.min(this.samples.length,this.count+samples.length); this.end=frame+samples.length;
+    return continuous;
+  }
+  snapshot() {
+    const start=this.end-this.count, samples=new Float32Array(this.count);
+    for(let i=0;i<this.count;i++) samples[i]=this.samples[(start+i)%this.samples.length];
+    return {samples,startFrame:start,endFrame:this.end,sampleRate:this.rate};
+  }
+}
+function wav(samples, rate) {
+  const bytes=new ArrayBuffer(44+samples.length*2), v=new DataView(bytes);
+  const text=(at,s)=>{for(let i=0;i<s.length;i++)v.setUint8(at+i,s.charCodeAt(i));};
+  text(0,'RIFF');v.setUint32(4,bytes.byteLength-8,true);text(8,'WAVEfmt ');v.setUint32(16,16,true);
+  v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,rate,true);v.setUint32(28,rate*2,true);
+  v.setUint16(32,2,true);v.setUint16(34,16,true);text(36,'data');v.setUint32(40,samples.length*2,true);
+  samples.forEach((s,i)=>v.setInt16(44+i*2,Math.round(Math.max(-1,Math.min(1,s))*(s<0?32768:32767)),true));
+  return bytes;
+}
+function alignment(now, snapshot, match) {
+  const at=now+LEAD, reference=match.reference_at_end+at-snapshot.endFrame/snapshot.sampleRate;
+  return {at,reference,offset:reference-match.clip_start};
+}
+function expired(now, evidence) { return now-evidence>=GRACE; }
+function eligible(match, established) { return !!match && (match.recent || !established); }
+const workletSource=`class Capture extends AudioWorkletProcessor {
+  constructor(){super();this.buffer=new Float32Array(2048);this.used=0;this.start=0;this.next=null;this.port.onmessage=()=>{this.used=0;this.next=null;};}
+  process(inputs){const channels=inputs[0];if(!channels?.length)return true;
+    if(this.next!==null&&this.next!==currentFrame)this.used=0;
+    const n=channels[0].length;this.next=currentFrame+n;
+    for(let i=0;i<n;i++){if(!this.used)this.start=currentFrame+i;
+      let sample=0;for(const c of channels)sample+=c[i];this.buffer[this.used++]=sample/channels.length;
+      if(this.used===this.buffer.length){this.port.postMessage({frame:this.start,samples:this.buffer},[this.buffer.buffer]);this.buffer=new Float32Array(2048);this.used=0;}}
+    return true;
+  }
+}registerProcessor('olaf-live-capture',Capture);`;
+class Monitor {
+  constructor(ui) {
+    this.ui=ui;this.session=0;this.sequence=0;this.active=false;this.sources=new Set();this.trace=[];
+    this.current=null;this.xhr=null;this.busy=false;this.established=false;this.evidence=-Infinity;
+    ui.start.onclick=()=>this.start();ui.stop.onclick=()=>this.stop();
+    ui.volume.oninput=ui.mute.onchange=()=>this.volume();
+    window.addEventListener('pagehide',()=>this.stop());
+  }
+  status(s){this.ui.status.textContent=s;}
+  error(s){this.ui.error.hidden=!s;this.ui.error.textContent=s||'';}
+  volume(){if(this.master)this.master.gain.setTargetAtTime(this.ui.mute.checked?0:Number(this.ui.volume.value),this.ctx.currentTime,0.02);}
+  invalidate(){this.session++;if(this.xhr)this.xhr.abort();this.xhr=null;this.busy=false;this.nextFrame=0;this.ring?.clear();this.fade();this.established=false;this.evidence=-Infinity;}
+  async start(){
+    if(this.active)return;this.active=true;const token=++this.session;
+    this.ui.start.disabled=true;this.ui.stop.disabled=false;this.error('');this.status('Waiting for microphone permission…');
+    try {
+      if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia||!window.AudioWorkletNode)throw Error('Live capture requires a supported browser on HTTPS or localhost.');
+      this.ctx=new AudioContext();await this.ctx.resume();
+      const ctx=this.ctx;
+      const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+      if(!this.active||token!==this.session){stream.getTracks().forEach(t=>t.stop());return;}
+      this.stream=stream;this.master=ctx.createGain();this.master.connect(ctx.destination);this.volume();
+      this.ring=new Ring(ctx.sampleRate);this.nextFrame=0;this.minFrame=0;this.established=false;this.evidence=-Infinity;
+      const url=URL.createObjectURL(new Blob([workletSource],{type:'text/javascript'}));
+      try {await ctx.audioWorklet.addModule(url);} finally {URL.revokeObjectURL(url);}
+      if(!this.active||token!==this.session)return;
+      this.node=new AudioWorkletNode(ctx,'olaf-live-capture');this.input=ctx.createMediaStreamSource(stream);
+      this.input.connect(this.node);this.node.connect(ctx.destination); // Worklet output is silence.
+      this.node.port.onmessage=e=>this.captured(e.data);
+      stream.getTracks().forEach(t=>t.onended=()=>{if(this.active){this.stop();this.error('Microphone disconnected. Start again when it is available.');}});
+      ctx.onstatechange=()=>{if(!this.active||ctx!==this.ctx)return;if(ctx.state!=='running'){this.node.port.postMessage('reset');this.invalidate();this.status('Audio interrupted. Resume monitoring to collect a fresh window.');this.ui.start.disabled=false;this.ui.start.textContent='Resume monitoring';this.ui.start.onclick=async()=>{await ctx.resume();};}else{this.minFrame=Math.ceil(ctx.currentTime*ctx.sampleRate);this.ui.start.disabled=true;this.status('Listening · collecting five seconds…');}};
+      this.status('Listening · collecting five seconds…');this.tick();
+    }catch(e){if(token===this.session){this.stop();this.error(e.name==='NotAllowedError'?'Microphone permission denied. Allow access and try again.':e.message);}}
+  }
+  captured({frame,samples}){
+    if(!this.active||this.ctx.state!=='running'||frame<(this.minFrame||0))return;
+    if(this.ring.end!==null&&frame!==this.ring.end)this.invalidate();
+    this.ring.push(frame,samples);this.ui.capture.textContent=(this.ring.count/this.ring.rate).toFixed(1)+' s captured';
+    if(this.ring.count>=RECENT*this.ring.rate && this.ring.end>=this.nextFrame && !this.busy)this.query();
+  }
+  query(){
+    const snapshot=this.ring.snapshot(), session=this.session, id=++this.sequence;
+    snapshot.sessionId=session;snapshot.requestId=id;
+    this.nextFrame=snapshot.endFrame+INTERVAL*snapshot.sampleRate;this.busy=true;
+    const xhr=new XMLHttpRequest();this.xhr=xhr;
+    xhr.open('POST','/ui_live');xhr.timeout=10000;xhr.responseType='json';
+    xhr.setRequestHeader('Content-Type','audio/wav');xhr.setRequestHeader('X-Olaf-Session',String(session));xhr.setRequestHeader('X-Olaf-Request',String(id));
+    this.status('Listening · querying latest '+(snapshot.samples.length/snapshot.sampleRate).toFixed(1)+' seconds…');
+    const valid=()=>this.active&&session===this.session&&this.xhr===xhr;
+    const finish=()=>{if(valid()){this.busy=false;this.xhr=null;}};
+    xhr.onload=async()=>{
+      if(!valid())return;
+      try {
+        const r=xhr.response;
+        if(xhr.status!==200||!r||r.error)throw Error(r?.error||'Live query failed ('+xhr.status+').');
+        if(r.session_id!==String(session)||r.request_id!==String(id))throw Error('Discarded a mismatched query response.');
+        this.error('');this.renderMatches(r.data.matches);
+        const m=r.data.matches[r.data.selected_index];
+        if(!eligible(m,this.established)){this.status('Listening · no recent confirmation');return;}
+        // Evidence belongs to capture time, never response-arrival time.
+        const evidence=snapshot.endFrame/snapshot.sampleRate;
+        if(expired(this.ctx.currentTime,evidence)){this.status('Listening · discarded a stale match');return;}
+        if(!m.audio){this.error(m.audio_error||'Reference audio is unavailable.');return;}
+        const bytes=Uint8Array.from(atob(m.audio),c=>c.charCodeAt(0));
+        const buffer=await this.ctx.decodeAudioData(bytes.buffer);
+        if(!valid())return;
+        const timing=alignment(this.ctx.currentTime,snapshot,m);
+        if(expired(timing.at+FADE,evidence)||timing.offset<0||timing.offset>=buffer.duration){this.status('Listening · waiting for a current clip');return;}
+        this.play(buffer,m,timing,snapshot);
+        this.evidence=evidence;this.established=true;
+        this.status('Listening · '+(m.recent?'recent match confirmed':'initial match found'));
+      }catch(e){if(valid())this.error(e.message);}finally{finish();}
+    };
+    xhr.onerror=xhr.ontimeout=()=>{if(valid())this.error('Query unavailable. Monitoring continues and will retry.');finish();};
+    xhr.onabort=finish;
+    xhr.send(wav(snapshot.samples,snapshot.sampleRate));
+  }
+  play(buffer,match,timing,snapshot){
+    const ctx=this.ctx, source=ctx.createBufferSource(),gain=ctx.createGain();source.buffer=buffer;source.connect(gain);gain.connect(this.master);
+    gain.gain.setValueAtTime(0,timing.at);gain.gain.linearRampToValueAtTime(1,timing.at+FADE);
+    if(this.current)this.fade(timing.at);
+    const playing={source,gain,at:timing.at,reference:timing.reference,clipStart:match.clip_start,duration:buffer.duration,offset:timing.offset,match};
+    this.current=playing;this.sources.add(playing);
+    source.onended=()=>{source.disconnect();gain.disconnect();this.sources.delete(playing);if(this.current===playing){this.current=null;this.highlight();this.ui.current.textContent='Waiting for a current match';}};
+    source.start(timing.at,timing.offset);
+    // Enforce the grace deadline on the audio clock even in a background tab.
+    const deadline=snapshot.endFrame/snapshot.sampleRate+GRACE;
+    gain.gain.setValueAtTime(1,deadline);gain.gain.linearRampToValueAtTime(0,deadline+FADE);
+    source.stop(deadline+FADE);
+    this.trace.push({requestId:snapshot.requestId,snapshotEnd:snapshot.endFrame/snapshot.sampleRate,referenceAtEnd:match.reference_at_end,clipStart:match.clip_start,...timing});if(this.trace.length>32)this.trace.shift();
+    this.highlight();
+    this.ui.current.textContent=baseName(match.path)+' · '+match.match_count+' matching fingerprints';
+  }
+  fade(at=this.ctx?.currentTime){
+    const old=this.current;if(!old)return;this.current=null;this.highlight();
+    old.gain.gain.cancelAndHoldAtTime(at);old.gain.gain.linearRampToValueAtTime(0,at+FADE);
+    try{old.source.stop(at+FADE);}catch(_){}
+  }
+  tick(){
+    if(!this.active)return;
+    if(this.current){const now=this.ctx.currentTime;
+      if(expired(now,this.evidence)){this.fade();this.ui.current.textContent='Waiting for a recent match';}
+      else{const p=this.current,position=p.reference+Math.max(0,now-p.at);this.ui.position.textContent='Reference '+format(position);this.ui.progress.max=p.duration;this.ui.progress.value=Math.max(0,position-p.clipStart);}}
+    this.raf=requestAnimationFrame(()=>this.tick());
+  }
+  highlight(){
+    if(!this.ui.matches?.querySelectorAll)return;
+    this.ui.matches.querySelectorAll('.match').forEach(card=>card.classList.toggle('selected',!!this.current&&card.dataset.identifier===String(this.current.match.match_identifier)));
+  }
+  renderMatches(matches){
+    this.ui.matches.replaceChildren();
+    if(!matches.length){this.ui.matches.textContent='No match in the latest window. Monitoring continues.';return;}
+    matches.forEach(m=>{const card=document.createElement('article');card.className='match';card.dataset.identifier=String(m.match_identifier);
+      const count=document.createElement('div');count.className='count';count.textContent=m.match_count;
+      const body=document.createElement('div'),name=document.createElement('strong'),detail=document.createElement('div'),badge=document.createElement('div');
+      name.textContent=baseName(m.path);detail.className='muted';detail.textContent='Query '+format(m.query_start)+'–'+format(m.query_stop)+' · Reference '+format(m.reference_start)+'–'+format(m.reference_stop);
+      badge.className=m.recent?'badge':'muted';badge.textContent=m.recent?'Confirmed in the newest five seconds':'Earlier window evidence';
+      body.append(name,detail,badge);card.append(count,body);this.ui.matches.append(card);});
+    this.highlight();
+  }
+  stop(){
+    this.active=false;this.invalidate();cancelAnimationFrame(this.raf);
+    if(this.node){this.node.port.onmessage=null;this.node.disconnect();this.node=null;}this.input?.disconnect();this.input=null;
+    this.stream?.getTracks().forEach(t=>{t.onended=null;t.stop();});this.stream=null;
+    const ctx=this.ctx, sources=[...this.sources];if(ctx){ctx.onstatechange=null;setTimeout(()=>{for(const p of sources){p.source.disconnect();p.gain.disconnect();this.sources.delete(p);}ctx.close().catch(()=>{});},150);}this.ctx=null;this.master=null;this.ring=null;
+    this.ui.start.disabled=false;this.ui.start.textContent='Start monitoring';this.ui.start.onclick=()=>this.start();this.ui.stop.disabled=true;
+    this.ui.position.textContent='Reference audio plays automatically when recognized.';
+    this.status('Stopped');this.ui.current.textContent='Waiting for a match';this.ui.capture.textContent='0.0 s captured';this.ui.progress.value=0;
+  }
+}
+function baseName(path){return String(path||'Unknown reference').split(/[\\/]/).pop();}
+function format(t){t=Math.max(0,Number(t)||0);return Math.floor(t/60)+':'+(t%60).toFixed(1).padStart(4,'0');}
+globalThis.OlafLive={Ring,wav,alignment,expired,eligible,Monitor,workletSource};
+if(typeof document!=='undefined'){
+  const ui=Object.fromEntries(['start','stop','volume','mute','status','error','current','progress','position','capture','matches'].map(id=>[id,document.getElementById(id)]));
+  globalThis.olafLive=new Monitor(ui);
+}
+})();
+</script>
+</body></html>
