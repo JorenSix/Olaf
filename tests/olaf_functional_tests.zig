@@ -3217,6 +3217,8 @@ test "functional: rest /ui is off unless rest_ui is set" {
     defer arena_state.deinit();
     const r = try restRaw(&server, arena_state.allocator(), "/ui", null);
     try testing.expectEqual(@as(u16, 404), r.status);
+    const live = try restRaw(&server, arena_state.allocator(), "/ui_live", null);
+    try testing.expectEqual(@as(u16, 404), live.status);
 }
 
 test "functional: rest /ui queries an upload and embeds aligned clips" {
@@ -3287,4 +3289,34 @@ test "functional: rest /ui is not served by serve-lb, even with rest_ui" {
     defer arena_state.deinit();
     const r = try restRaw(&lb, arena_state.allocator(), "/ui", null);
     try testing.expectEqual(@as(u16, 404), r.status);
+    const live = try restRaw(&lb, arena_state.allocator(), "/ui_live", null);
+    try testing.expectEqual(@as(u16, 404), live.status);
+}
+
+test "functional: live UI recent-first matching and AudioContext timing" {
+    const allocator = testing.allocator;
+    const io = testing.io;
+    const probe = std.process.run(allocator, io, .{ .argv = &.{ "node", "--version" } }) catch return error.SkipZigTest;
+    allocator.free(probe.stdout);
+    allocator.free(probe.stderr);
+    try dataset.ensureDataset(io, allocator, .ref_and_queries);
+    var env = try Fixture.init(allocator, io, "rest_ui_live");
+    defer env.deinit();
+    try env.writeConfig("{\"db_folder\":\"~/.olaf/db/\",\"cache_folder\":\"~/.olaf/cache/\",\"rest_ui\":true,\"rest_append_db_path_with_addr\":false}");
+    try env.ok(&.{ "store", "dataset/ref/11266.mp3", "dataset/ref/1051039.mp3" });
+    var server = try RestServer.start(&env, "serve");
+    defer server.stop();
+    var arena_state = std.heap.ArenaAllocator.init(allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const page = try restRaw(&server, arena, "/ui_live/", null);
+    try testing.expectEqual(@as(u16, 200), page.status);
+    const url = try std.fmt.allocPrint(arena, "http://127.0.0.1:{d}", .{server.port});
+    const r = try std.process.run(allocator, io, .{ .argv = &.{ "node", "tests/olaf_ui_live_test.mjs", url } });
+    defer allocator.free(r.stdout);
+    defer allocator.free(r.stderr);
+    if (r.term != .exited or r.term.exited != 0) {
+        std.debug.print("\n{s}{s}\n", .{ r.stdout, r.stderr });
+        return error.LiveUiTestFailed;
+    }
 }
