@@ -186,8 +186,8 @@
 	}));
 
 	$("query").addEventListener("click", guard(async () => {
-		const response = await fetch("/dataset/queries/1051039_34s-54s.mp3");
-		if (!response.ok) throw new Error("fetching the test query failed: " + response.status + " (serve the repository root, run `zig build test` to download the dataset)");
+		const response = await fetch("./1051039_34s-54s.mp3");
+		if (!response.ok) throw new Error("fetching the bundled test query failed: " + response.status);
 		await playBuffer("playing test query…", await response.arrayBuffer());
 	}));
 

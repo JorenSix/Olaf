@@ -123,7 +123,7 @@
 	document.getElementById("start_match").addEventListener("click", async () => {
 		try {
 			setStatus("fetching audio…", "listening");
-			const resp = await fetch("/dataset/queries/1051039_34s-54s.mp3");
+			const resp = await fetch("./1051039_34s-54s.mp3");
 			if (!resp.ok) throw new Error("fetch failed: " + resp.status);
 			const encoded = await resp.arrayBuffer();
 			const ctx = new AudioContext();
