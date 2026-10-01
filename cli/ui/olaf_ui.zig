@@ -10,6 +10,9 @@
 //!              to the query start, so the page plays both in sync without
 //!              fetching anything else.
 //!
+//!   GET  /ui_live   self-contained live microphone monitor
+//!   POST /ui_live   PCM16 WAV window -> recent-first JSON matches and aligned WAV clip
+//!
 //! Clips are cut with ffmpeg from the uploaded file and from the reference
 //! paths the query reports (the database metadata, never the client).
 const std = @import("std");
@@ -18,6 +21,7 @@ const http = std.http;
 const json = std.json;
 const Value = json.Value;
 const rest = @import("olaf_rest");
+const live = @import("olaf_ui_live.zig");
 const envelope = rest.envelope;
 
 const log = std.log.scoped(.olaf_rest);
@@ -80,6 +84,7 @@ fn handle(ctx: *anyopaque, arena: std.mem.Allocator, io: Io, request: *http.Serv
     const target = request.head.target;
     const path = target[0 .. std.mem.indexOfScalar(u8, target, '?') orelse target.len];
     const self: *Ui = @ptrCast(@alignCast(ctx));
+    if (live.isPath(path)) return try live.handle(request, arena, io, self.backend, &self.workers, self.max_body_bytes);
     if (!isUiPath(path)) return null;
     const start = Io.Clock.awake.now(io);
 
@@ -428,3 +433,6 @@ test "UI matches keep only valid spans at least 0.75 seconds in order" {
     try testing.expectEqual(@as(usize, 0), (try visibleMatches(arena, rejected)).array.items.len);
 }
 
+test {
+    std.testing.refAllDecls(live);
+}
