@@ -65,9 +65,6 @@ serve: web
 _serve page: web
     #!/usr/bin/env bash
     set -euo pipefail
-    if [ "{{page}}" = "test.html" ] && [ ! -d dataset/queries ]; then
-        echo "The test dataset is missing: run 'just test' first to download it." >&2
-    fi
     python3 -m http.server {{port}} --bind 127.0.0.1 &
     server=$!
     trap 'kill $server 2>/dev/null' EXIT INT TERM
