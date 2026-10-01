@@ -33,7 +33,9 @@ button:focus-visible,a:focus-visible,input:focus-visible { outline:3px solid var
 <script>
 (() => {
 'use strict';
-const WINDOW = 15, RECENT = 5, INTERVAL = 2.5, GRACE = 10, LEAD = 0.05, FADE = 0.1;
+const WINDOW = 15, RECENT = 5, INTERVAL = 2.5, GRACE = 15, LEAD = 0.05, FADE = 0.1;
+// Fixed device latency assumptions, in seconds; separate from scheduling lead.
+const INPUT_LATENCY = 0.02, OUTPUT_LATENCY = 0.02;
 class Ring {
   constructor(rate) { this.rate=rate; this.samples=new Float32Array(rate*WINDOW); this.clear(); }
   clear() { this.end=null; this.count=0; }
@@ -60,7 +62,10 @@ function wav(samples, rate) {
   return bytes;
 }
 function alignment(now, snapshot, match) {
-  const at=now+LEAD, reference=match.reference_at_end+at-snapshot.endFrame/snapshot.sampleRate;
+  // Query times are relative to the captured window, not request/response time.
+  const at=now+LEAD;
+  // Advance for sound captured before processing and heard after output buffering.
+  const reference=match.reference_start-match.query_start+at-snapshot.startFrame/snapshot.sampleRate+INPUT_LATENCY+OUTPUT_LATENCY;
   return {at,reference,offset:reference-match.clip_start};
 }
 function expired(now, evidence) { return now-evidence>=GRACE; }
@@ -153,31 +158,73 @@ class Monitor {
     xhr.onabort=finish;
     xhr.send(wav(snapshot.samples,snapshot.sampleRate));
   }
-  play(buffer,match,timing,snapshot){
-    const ctx=this.ctx, source=ctx.createBufferSource(),gain=ctx.createGain();source.buffer=buffer;source.connect(gain);gain.connect(this.master);
+  promote(){
+    if(this.queued && this.ctx.currentTime>=this.queued.at){this.current=this.queued;this.queued=null;}
+  }
+  cancelQueued(){
+    if(!this.queued)return;
+    const p=this.queued;this.queued=null;p.source.stop();
+  }
+  deadline(p,deadline){
+    const now=this.ctx.currentTime;
+    p.gain.gain.cancelAndHoldAtTime(now);
+    p.gain.gain.linearRampToValueAtTime(1,Math.max(now,p.at)+FADE);
+    p.gain.gain.setValueAtTime(1,deadline);
+    p.gain.gain.linearRampToValueAtTime(0,deadline+FADE);
+    // A later stop replaces the previous scheduled stop while the source is alive.
+    p.source.stop(deadline+FADE);
+  }
+  createPlayback(buffer,match,timing,deadline){
+    const ctx=this.ctx,source=ctx.createBufferSource(),gain=ctx.createGain();
+    source.buffer=buffer;source.connect(gain);gain.connect(this.master);
     gain.gain.setValueAtTime(0,timing.at);gain.gain.linearRampToValueAtTime(1,timing.at+FADE);
-    if(this.current)this.fade(timing.at);
-    const playing={source,gain,at:timing.at,reference:timing.reference,clipStart:match.clip_start,duration:buffer.duration,offset:timing.offset,match};
-    this.current=playing;this.sources.add(playing);
-    source.onended=()=>{source.disconnect();gain.disconnect();this.sources.delete(playing);if(this.current===playing){this.current=null;this.highlight();this.ui.current.textContent='Waiting for a current match';}};
+    const p={source,gain,at:timing.at,reference:timing.reference,clipStart:match.clip_start,duration:buffer.duration,offset:timing.offset,match};
+    this.sources.add(p);
+    source.onended=()=>{
+      source.disconnect();gain.disconnect();this.sources.delete(p);
+      this.promote();
+      if(this.current===p){this.current=null;this.highlight();this.ui.current.textContent='Waiting for a current match';}
+    };
     source.start(timing.at,timing.offset);
-    // Enforce the grace deadline on the audio clock even in a background tab.
-    const deadline=snapshot.endFrame/snapshot.sampleRate+GRACE;
-    gain.gain.setValueAtTime(1,deadline);gain.gain.linearRampToValueAtTime(0,deadline+FADE);
-    source.stop(deadline+FADE);
-    this.trace.push({requestId:snapshot.requestId,snapshotEnd:snapshot.endFrame/snapshot.sampleRate,referenceAtEnd:match.reference_at_end,clipStart:match.clip_start,...timing});if(this.trace.length>32)this.trace.shift();
-    this.highlight();
-    this.ui.current.textContent=baseName(match.path)+' · '+match.match_count+' matching fingerprints';
+    gain.gain.setValueAtTime(1,deadline);gain.gain.linearRampToValueAtTime(0,deadline+FADE);source.stop(deadline+FADE);
+    return p;
+  }
+  play(buffer,match,timing,snapshot){
+    this.promote();
+    const deadline=snapshot.endFrame/snapshot.sampleRate+GRACE,p=this.current;
+    const predicted=p && p.reference+timing.at-p.at;
+    const same=p && p.match.match_identifier===match.match_identifier && Math.abs(predicted-timing.reference)<=0.25;
+    this.cancelQueued();
+    if(same){
+      p.match=match;this.deadline(p,deadline);
+      const end=p.at+p.duration-p.offset;
+      if(end<deadline+FADE){
+        // Hand off only when the current clip is running out, on its existing timeline.
+        const at=Math.max(timing.at,end-FADE),reference=p.reference+at-p.at,offset=reference-match.clip_start;
+        if(offset>=0 && offset<buffer.duration){
+          this.queued=this.createPlayback(buffer,match,{at,reference,offset},deadline);
+          p.gain.gain.cancelAndHoldAtTime(at);p.gain.gain.setValueAtTime(1,at);p.gain.gain.linearRampToValueAtTime(0,at+FADE);p.source.stop(at+FADE);
+        }
+      }
+    }else{
+      this.fade(timing.at);
+      this.current=this.createPlayback(buffer,match,timing,deadline);
+    }
+    this.trace.push({requestId:snapshot.requestId,snapshotStart:snapshot.startFrame/snapshot.sampleRate,snapshotEnd:snapshot.endFrame/snapshot.sampleRate,...timing});if(this.trace.length>32)this.trace.shift();
+    this.highlight();this.ui.current.textContent=baseName(match.path)+' · '+match.match_count+' matching fingerprints';
   }
   fade(at=this.ctx?.currentTime){
+    this.promote();this.cancelQueued();
     const old=this.current;if(!old)return;this.current=null;this.highlight();
-    old.gain.gain.cancelAndHoldAtTime(at);old.gain.gain.linearRampToValueAtTime(0,at+FADE);
+    const level=old.gain.gain.value;
+    old.gain.gain.cancelAndHoldAtTime(at);old.gain.gain.setValueAtTime(level,at);old.gain.gain.linearRampToValueAtTime(0,at+FADE);
     try{old.source.stop(at+FADE);}catch(_){}
   }
   tick(){
     if(!this.active)return;
+    this.promote();
     if(this.current){const now=this.ctx.currentTime;
-      if(expired(now,this.evidence)){this.fade();this.ui.current.textContent='Waiting for a recent match';}
+      if(expired(now,this.evidence)){this.ui.current.textContent='Waiting for a recent match';}
       else{const p=this.current,position=p.reference+Math.max(0,now-p.at);this.ui.position.textContent='Reference '+format(position);this.ui.progress.max=p.duration;this.ui.progress.value=Math.max(0,position-p.clipStart);}}
     this.raf=requestAnimationFrame(()=>this.tick());
   }
