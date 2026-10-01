@@ -3251,6 +3251,13 @@ test "functional: rest /ui queries an upload and embeds aligned clips" {
 
     const matches = jsonPath(data, &.{"matches"}).array.items;
     try testing.expect(matches.len >= 1);
+    for (matches) |match| {
+        const start = match.object.get("query_start").?;
+        const stop = match.object.get("query_stop").?;
+        const from: f64 = if (start == .float) start.float else @floatFromInt(start.integer);
+        const to: f64 = if (stop == .float) stop.float else @floatFromInt(stop.integer);
+        try testing.expect(to - from >= 0.75);
+    }
     const best = matches[0];
     try testing.expectEqualStrings(env.ref, best.object.get("path").?.string);
     try testing.expect(best.object.get("match_count").?.integer > 0);

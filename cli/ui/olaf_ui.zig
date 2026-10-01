@@ -79,8 +79,8 @@ pub fn isUiPath(path: []const u8) bool {
 fn handle(ctx: *anyopaque, arena: std.mem.Allocator, io: Io, request: *http.Server.Request) anyerror!?bool {
     const target = request.head.target;
     const path = target[0 .. std.mem.indexOfScalar(u8, target, '?') orelse target.len];
-    if (!isUiPath(path)) return null;
     const self: *Ui = @ptrCast(@alignCast(ctx));
+    if (!isUiPath(path)) return null;
     const start = Io.Clock.awake.now(io);
 
     const method = request.head.method;
@@ -151,7 +151,7 @@ fn answer(self: *Ui, arena: std.mem.Allocator, io: Io, content_type: ?[]const u8
     const duration = envelope.number(q.object.get("query_duration_seconds_exact")) orelse
         envelope.number(q.object.get("query_duration_seconds")) orelse 0;
     // The matches go in the page once, next to the query (the clips are large).
-    const matches_value = q.object.get("matches").?;
+    const matches_value = try visibleMatches(arena, q.object.get("matches").?);
     _ = q.object.orderedRemove("matches");
     const matches = matches_value.array.items;
     try q.object.put(arena, "name", .{ .string = name });
@@ -169,6 +169,19 @@ fn answer(self: *Ui, arena: std.mem.Allocator, io: Io, content_type: ?[]const u8
 
     const summary = try std.fmt.allocPrint(arena, "{d} match{s}", .{ matches.len, if (matches.len == 1) "" else "es" });
     return .{ .status = .ok, .html = try render(arena, .{ .object = data }), .summary = summary };
+}
+
+/// Presentation-only threshold: exclude short or malformed spans before cutting clips.
+fn visibleMatches(arena: std.mem.Allocator, value: Value) !Value {
+    var kept: std.array_list.Managed(Value) = .init(arena);
+    for (value.array.items) |m| {
+        if (m != .object) continue;
+        const start = envelope.number(m.object.get("query_start")) orelse continue;
+        const stop = envelope.number(m.object.get("query_stop")) orelse continue;
+        if (std.math.isFinite(start) and std.math.isFinite(stop) and stop - start >= 0.75)
+            try kept.append(m);
+    }
+    return .{ .array = kept };
 }
 
 /// The whole upload as a clip (base64), or null when ffmpeg fails.
@@ -220,8 +233,8 @@ fn clip(arena: std.mem.Allocator, io: Io, input: []const u8, start: f64, duratio
     const ss = try std.fmt.allocPrint(arena, "{d:.3}", .{start});
     const t = try std.fmt.allocPrint(arena, "{d:.3}", .{duration});
     const r = try std.process.run(arena, io, .{ .argv = &.{
-        "ffmpeg", "-hide_banner", "-nostdin",  "-loglevel", "error", "-ss", ss,  "-i", input, "-t", t,
-        "-vn",    "-ac",          "2",         "-ar",       "44100", "-c:a", "libmp3lame", "-b:a", "192k", "-f", "mp3",
+        "ffmpeg", "-hide_banner", "-nostdin", "-loglevel", "error", "-ss",  ss,           "-i",   input,  "-t", t,
+        "-vn",    "-ac",          "2",        "-ar",       "44100", "-c:a", "libmp3lame", "-b:a", "192k", "-f", "mp3",
         "pipe:1",
     } });
     const ok = r.term == .exited and r.term.exited == 0 and r.stdout.len > 0;
@@ -394,3 +407,24 @@ test "isUiPath" {
     try testing.expect(!isUiPath("/uix"));
     try testing.expect(!isUiPath("/api/ui"));
 }
+
+test "UI matches keep only valid spans at least 0.75 seconds in order" {
+    var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    const parsed = try json.parseFromSlice(Value, arena,
+        \\[ {"query_start":0,"query_stop":0.749}, {"query_start":1,"query_stop":1.75},
+        \\  {"query_start":0,"query_stop":2}, {"query_start":2,"query_stop":1},
+        \\  {}, {"query_start":"bad","query_stop":4} ]
+    , .{});
+    const kept = try visibleMatches(arena, parsed.value);
+    try testing.expectEqual(@as(usize, 2), kept.array.items.len);
+    try testing.expectEqual(@as(f64, 1.75), envelope.number(kept.array.items[0].object.get("query_stop")).?);
+    try testing.expectEqual(@as(f64, 2), envelope.number(kept.array.items[1].object.get("query_stop")).?);
+    var rejected = parsed.value;
+    rejected.array.items = parsed.value.array.items[3..];
+    try testing.expectEqual(@as(usize, 0), (try visibleMatches(arena, rejected)).array.items.len);
+    rejected.array.items = &.{};
+    try testing.expectEqual(@as(usize, 0), (try visibleMatches(arena, rejected)).array.items.len);
+}
+

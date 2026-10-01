@@ -58,8 +58,6 @@
   .fader { display: flex; align-items: center; gap: 8px; flex: 1 1 320px; }
   .fader input { flex: 1; accent-color: var(--accent); }
   .fader span { font-size: .85rem; color: var(--muted); white-space: nowrap; }
-  .presets { display: flex; gap: 6px; }
-  .presets button { padding: 4px 10px; font-size: .8rem; font-weight: 500; }
   .legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: .8rem; color: var(--muted); margin-top: 10px; }
   .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
 
@@ -180,15 +178,9 @@
   const fader = $('label', 'fader');
   const slider = $('input');
   Object.assign(slider, { type: 'range', min: -100, max: 100, value: 0, step: 1 });
-  slider.setAttribute('aria-label', 'Crossfade between the original query and the match');
-  fader.append($('span', '', 'Original'), slider, $('span', '', 'Match'));
-  const presets = $('div', 'presets');
-  [['Original only', -100], ['Both', 0], ['Match only', 100]].forEach(([label, v]) => {
-    const b = $('button', '', label);
-    b.addEventListener('click', () => { slider.value = v; applyGains(); });
-    presets.append(b);
-  });
-  controls.append(play, time, fader, presets);
+  slider.setAttribute('aria-label', 'Crossfade between the query and the match');
+  fader.append($('span', '', 'Query'), slider, $('span', '', 'Match'));
+  controls.append(play, time, fader);
   player.append(controls);
   const legend = $('div', 'legend');
   legend.innerHTML = '<span><i style="background:var(--green)"></i>verified matching part</span>' +
