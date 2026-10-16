@@ -47,7 +47,7 @@ Olaf, being written in portable C, also targets **traditional computers**. There
 
 Olaf works in **the browser**. Via Zig Olaf can be compiled to [WASM](https://en.wikipedia.org/wiki/WebAssembly). This makes it relatively straightforward to combine the capabilities of the [Web Audio API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API) and Olaf to create browser based audio fingerprinting applications.
 
-![Olaf in the browser](./docs/olaf_in_browser.png)
+![Olaf in the browser](./docs/olaf_in_browser.svg)
 *Olaf running in a browser*
 
 ![Olaf components](./docs/olaf-architecture.svg)
