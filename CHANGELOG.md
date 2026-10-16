@@ -2,6 +2,24 @@
 
 All notable changes to Olaf. The release notes on GitHub are taken from the section of the released version.
 
+## [3.3.3] - 2026-10-16
+
+### Added
+
+- Versioned container images at `ghcr.io/jorensix/olaf` for Linux ARM64 and x86-64, published alongside Olaf release tags with OCI metadata, provenance, and an SBOM.
+- Native container smoke tests for audio decoding, matching, persistent database volumes, and MP3 clip encoding.
+
+### Changed
+
+- Docker uses a non-root distroless runtime containing Olaf and prebuilt FFmpeg/ffprobe 8.1.2, without a shell or package manager.
+- Persistent database/cache storage lives under `/data`, with music collections mounted at `/music`. Compose uses a named data volume and a read-only music mount.
+- The container entrypoint is now `olaf`; pass commands directly, for example `docker run ... ghcr.io/jorensix/olaf:3.3.3 store /music/sample.mp3`.
+
+### Migration
+
+- To reuse the previous container database, mount the old host data directory's `docker` subdirectory at `/data`. Preserve indexed music paths or re-index using `/music`.
+- No fingerprinting algorithm or database format changes.
+
 ## [3.3.2] - 2026-10-01
 
 ### Fixed
