@@ -109,25 +109,46 @@ Olaf has been designed with a UNIX like environment in mind but also works on Wi
 
 ### Olaf on Docker
 
-Olaf can be containerized with [Docker](https://www.docker.com/). The provided Dockerfile is based on [Alpine linux](https://www.alpinelinux.org/) and installs only the needed requirements. A way to build the container and run Olaf:
+Release images are published to `ghcr.io/jorensix/olaf` for **linux/amd64** and **linux/arm64**, using the same version as Olaf (`vX.Y.Z` and `X.Y.Z` tags). `latest` tracks stable releases. The distroless `scratch` runtime contains static Olaf, FFmpeg 8.1.2, and ffprobe, with no shell or package manager. FFmpeg and ffprobe are prebuilt [Alpine 3.24 packages](https://pkgs.alpinelinux.org/package/v3.24/community/x86_64/ffmpeg), pinned to `8.1.2-r0`; they are not compiled during the Olaf build. Only the binaries, their shared-library dependencies, and CA certificates enter the runtime.
 
 ```bash
-mkdir -p $HOME/.olaf/docker_dbs
-docker build -t olaf:1.0 .
-wget "https://filesamples.com/samples/audio/mp3/sample3.mp3"
-docker run -v $HOME/.olaf/docker_dbs:/root/.olaf -v $PWD:/root/audio olaf:1.0 olaf store sample3.mp3
-docker run -v $HOME/.olaf/docker_dbs:/root/.olaf -v $PWD:/root/audio olaf:1.0 olaf stats
+# Replace latest with a published version to pin your deployment.
+IMAGE=ghcr.io/jorensix/olaf:latest
+docker volume create olaf-data
+docker run --rm -v olaf-data:/data -v "$PWD:/music:ro" "$IMAGE" store /music/sample3.mp3
+docker run --rm -v olaf-data:/data -v "$PWD:/music:ro" "$IMAGE" query /music/sample3.mp3
+docker run --rm -v olaf-data:/data "$IMAGE" stats
 ```
 
-In this case the `$HOME/.olaf/docker_dbs` is mapped to `/root/.olaf` in the container to store the database. The audio enters the system via a mapping of `$PWD` to `/root/audio` in the container, which is also the work directory in the container. So relative paths with respect to `$PWD` of the host can be resolved in the container, absolute paths can not.
+`/data/db` holds the database and `/data/cache` holds the cache. Mount your music collection at `/music` (the working directory), keeping the same container paths for indexing, querying, and UI playback. Music can be mounted read-only; conversion commands that write beside the input require a writable music mount. The image runs as UID/GID `65532:65532`. Named volumes work immediately; for a bind mount, create a host directory writable by that UID, or use `--user "$(id -u):$(id -g)"` with a directory writable by your user. Mount a custom configuration at `/data/.olaf/olaf_config.json`, keeping its database and cache paths under `/data`.
 
-If you prefer docker compose the following should get you started:
+The entrypoint is now `olaf`: pass `store`, `query`, or other arguments directly, without repeating `olaf`. Older images used `/root/.olaf/docker/{db,cache}`; to reuse that data, mount the old host directory's `docker` subdirectory at `/data`. Keep existing music paths available if reusing an index, or re-index using `/music`.
+
+For Compose, set `OLAF_MUSIC_DIR` to your collection's absolute host path and optionally `OLAF_IMAGE` to a versioned image:
 
 ```bash
-wget "https://filesamples.com/samples/audio/mp3/sample3.mp3"
-docker compose run --rm olaf olaf store sample3.mp3
-docker compose run --rm olaf olaf query sample3.mp3
-docker compose run --rm olaf olaf stats
+export OLAF_MUSIC_DIR=/absolute/path/to/music
+docker compose run --rm olaf store /music/sample3.mp3
+docker compose run --rm olaf query /music/sample3.mp3
+docker compose run --rm olaf stats
+# Build locally instead:
+docker compose build
+```
+
+For REST service access, publish the port and listen on all container interfaces:
+
+```bash
+docker run --rm -p 8920:8920 -v olaf-data:/data -v "$PWD:/music:ro" "$IMAGE" rest serve --listen 0.0.0.0:8920
+```
+
+The [container workflow](.github/workflows/docker.yml) builds and smoke-tests both architectures on native runners before publishing on `v*` tags. It checks that the tag matches `build.zig.zon`, adds OCI source/version/revision/date labels, and publishes provenance and an SBOM. Publishing uses the GitHub environment **`docker`**, with `DOCKER_TOKEN` as an optional environment secret (a GitHub token with `write:packages`, not a Docker Hub token), and optional `DOCKER_USERNAME` environment variable for its owner. Without that secret, it uses the workflow's automatic `GITHUB_TOKEN` with `packages: write`, as described in [GitHub's GHCR authentication documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry). Set the package visibility to public after its first publication if anonymous pulls are desired.
+
+Build and check locally (requires the reference fixture from `zig build test`):
+
+```bash
+docker build -t olaf:local .
+bash docker/smoke-test.sh olaf:local linux/arm64 "$PWD/dataset/ref" # or linux/amd64
+docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/jorensix/olaf:VERSION --push .
 ```
 
 ## Olaf in the browser

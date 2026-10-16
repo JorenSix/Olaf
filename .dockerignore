@@ -1,0 +1,11 @@
+*
+!Dockerfile
+!build.zig
+!build.zig.zon
+!src/
+!src/**
+!cli/
+!cli/**
+!docker/
+!docker/olaf_config.json
+!LICENSE

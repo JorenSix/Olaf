@@ -1,0 +1,92 @@
+name: Olaf container
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v4
+      - name: Build native image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          tags: olaf:test
+          cache-from: type=gha,scope=olaf-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=olaf-${{ matrix.arch }}
+      - name: Test decoding, matching, and persistent mounts
+        run: |
+          mkdir -p "$RUNNER_TEMP/music"
+          curl --fail --location --retry 3 https://0110.be/releases/Panako/Panako-test-dataset/reference/11266.mp3 -o "$RUNNER_TEMP/music/11266.mp3"
+          bash docker/smoke-test.sh olaf:test "linux/${{ matrix.arch }}" "$RUNNER_TEMP/music"
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    environment: docker
+    permissions:
+      contents: read
+      packages: write
+    env:
+      # Optional environment secret; never passed into the image build.
+      DOCKER_TOKEN: ${{ secrets.DOCKER_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check release version matches Olaf
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version=$(sed -n 's/.*\.version = "\([^"]*\)".*/\1/p' build.zig.zon)
+          test "$RELEASE_TAG" = "v$version"
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ vars.DOCKER_USERNAME || github.actor }}
+          password: ${{ env.DOCKER_TOKEN }}
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: latest=false
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+      - name: Publish both architectures
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.meta.outputs.version }}
+            REVISION=${{ github.sha }}
+            CREATED=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+          cache-from: |
+            type=gha,scope=olaf-amd64
+            type=gha,scope=olaf-arm64
+          sbom: true
+          provenance: mode=max

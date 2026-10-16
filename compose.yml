@@ -1,8 +1,10 @@
 services:
   olaf:
-    image: olaf:1.0
+    image: ${OLAF_IMAGE:-ghcr.io/jorensix/olaf:latest}
     build: .
     volumes:
-      - ${HOME}/.olaf/docker_dbs:/root/.olaf
-      - .:/root/audio
-    working_dir: /root/audio
+      - olaf-data:/data
+      - ${OLAF_MUSIC_DIR:-.}:/music:ro
+    working_dir: /music
+volumes:
+  olaf-data:
